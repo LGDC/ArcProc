@@ -1,0 +1,10 @@
+# Python-specific compile/execution files.
+*.egg-info
+*.egg
+*.EGG
+*.EGG-INFO
+*.pyc
+*.pyo
+
+# OS-files.
+Thumbs.db
