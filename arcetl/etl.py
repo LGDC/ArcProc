@@ -501,10 +501,14 @@ class ArcWorkspace(object):
 
     def identity_features(self, dataset_path, field_name, identity_dataset_path,
                           identity_field_name, replacement_value=None, dataset_where_sql=None,
-                          info_log=True):
+                          chunk_size=4096, info_log=True):
         """Assign unique identity value to each feature, splitting where necessary.
 
         replacement_value is a value that will substitute as the identity value.
+        This method has a 'chunking' routine in order to avoid an unhelpful output error that
+        occurs when the inputs are rather large. For some reason, the identity will 'succeed' with
+        and empty output warning, but not create an output dataset. Running the identity against
+        smaller sets of data generally avoids this conundrum.
         """
         logger.debug("Called {}".format(debug_call()))
         if info_log:
@@ -527,38 +531,48 @@ class ArcWorkspace(object):
         self.update_field_by_expression(temp_identity_path, temp_field_metadata['name'],
                                         expression = '!{}!'.format(identity_field_name),
                                         info_log = False)
-        # Create the temp output of the identity.
-        try:
+        # Get an iterable of all object IDs in the dataset.
+        with arcpy.da.SearchCursor(dataset_path, ['oid@'], dataset_where_sql) as cursor:
+            # Sorting is important, allows us to create view with ID range instead of list.
+            objectids = sorted((row[0] for row in cursor))
+        while objectids:
+            chunk_objectids = objectids[:chunk_size]
+            objectids = objectids[chunk_size:]
+            from_objectid, to_objectid = chunk_objectids[0], chunk_objectids[-1]
+            logger.debug("Chunk: Feature object IDs {} to {}".format(from_objectid, to_objectid))
+            # Create the temp output of the identity.
             view_name = random_string()
-            arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql,
-                                              self.path)
+            arcpy.management.MakeFeatureLayer(
+                in_features = dataset_path, out_layer = view_name,
+                # ArcPy where clauses cannot use 'between'.
+                where_clause = "{0} > {1} and {0} < {2}".format(
+                    self.dataset_metadata(dataset_path)['oid_field_name'],
+                    from_objectid, to_objectid
+                    ),
+                workspace = self.path
+                )
+            # Create temporary dataset with the identity values.
             temp_output_path = memory_path()
-            arcpy.analysis.Identity(in_features = view_name,
-                                    identity_features = temp_identity_path,
-                                    out_feature_class = temp_output_path,
-                                    join_attributes = 'all', relationship = False)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+            arcpy.analysis.Identity(
+                in_features = view_name, identity_features = temp_identity_path,
+                out_feature_class = temp_output_path, join_attributes = 'all', relationship = False
+                )
+            # Push the identity (or replacement) value from the temp field to the update field.
+            if replacement_value:
+                expression = '{} if !{}! else None'.format(repr(replacement_value),
+                                                           temp_field_metadata['name'])
+            else:
+                # Identity puts empty string identity feature not present. Fix to null.
+                expression = "!{0}! if !{0}! else None".format(temp_field_metadata['name'])
+            self.update_field_by_expression(
+                temp_output_path, field_name, expression, info_log = False
+                )
+            # Replace original chunk features with identity features.
+            self.delete_features(view_name, info_log = False)
+            self.delete_dataset(view_name, info_log = False)
+            self.insert_features_from_path(dataset_path, temp_output_path, info_log = False)
+            self.delete_dataset(temp_output_path, info_log = False)
         self.delete_dataset(temp_identity_path, info_log = False)
-        # Identity puts empty string instead of null where identity feature not present; fix.
-        self.update_field_by_expression(
-            temp_output_path, temp_field_metadata['name'],
-            expression = "!{0}! if !{0}! else None".format(temp_field_metadata['name']),
-            info_log = False
-            )
-        # Push the identity (or replacement) value from the temp field to the update field.
-        if replacement_value:
-            expression = '{} if !{}! else None'.format(repr(replacement_value),
-                                                       temp_field_metadata['name'])
-        else:
-            expression = '!{}!'.format(temp_field_metadata['name'])
-        self.update_field_by_expression(temp_output_path, field_name, expression, info_log = False)
-        # Replace original features with identity features.
-        self.delete_features(view_name, info_log = False)
-        self.delete_dataset(view_name, info_log = False)
-        self.insert_features_from_path(dataset_path, temp_output_path, info_log = False)
-        self.delete_dataset(temp_output_path, info_log = False)
         if info_log:
             logger.info("Final feature count: {}.".format(self.feature_count(dataset_path)))
             logger.info("End: Identity.")
