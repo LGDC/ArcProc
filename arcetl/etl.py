@@ -195,14 +195,10 @@ class ArcWorkspace(object):
             raise ValueError("{} unsupported dataset type.".format(dataset_path))
         if overwrite and self.is_valid_dataset(copypath):
             self.delete_dataset(output_path, info_log = False)
-        try:
-            view_name = random_string()
-            create_view(dataset_path, view_name,
-                        dataset_where_sql if not schema_only else "0 = 1", self.path)
-            copy_rows(view_name, output_path)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        view_name = random_string()
+        create_view(dataset_path, view_name,
+                    dataset_where_sql if not schema_only else "0 = 1", self.path)
+        copy_rows(view_name, output_path)
         self.delete_dataset(view_name, info_log = False)
         if info_log:
             logger.info("End: Copy.")
@@ -214,22 +210,18 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Create dataset {}.".format(dataset_path))
-        try:
-            if geometry_type:
-                if spatial_reference_id:
-                    spatial_reference = arcpy.SpatialReference(spatial_reference_id)
-                else:
-                    spatial_reference = arcpy.SpatialReference(4326)
-                arcpy.management.CreateFeatureclass(out_path = os.path.dirname(dataset_path),
-                                                    out_name = os.path.basename(dataset_path),
-                                                    geometry_type = geometry_type,
-                                                    spatial_reference = spatial_reference)
+        if geometry_type:
+            if spatial_reference_id:
+                spatial_reference = arcpy.SpatialReference(spatial_reference_id)
             else:
-                arcpy.management.CreateTable(out_path = os.path.dirname(dataset_path),
-                                             out_name = os.path.basename(dataset_path))
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+                spatial_reference = arcpy.SpatialReference(4326)
+            arcpy.management.CreateFeatureclass(out_path = os.path.dirname(dataset_path),
+                                                out_name = os.path.basename(dataset_path),
+                                                geometry_type = geometry_type,
+                                                spatial_reference = spatial_reference)
+        else:
+            arcpy.management.CreateTable(out_path = os.path.dirname(dataset_path),
+                                         out_name = os.path.basename(dataset_path))
         if field_metadata:
             if isinstance(field_metadata, dict):
                 field_metadata = [field_metadata]
@@ -243,11 +235,7 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Delete {}.".format(dataset_path))
-        try:
-            arcpy.management.Delete(dataset_path)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        arcpy.management.Delete(dataset_path)
         if info_log:
             logger.info("End: Delete.")
         return dataset_path
@@ -267,15 +255,12 @@ class ArcWorkspace(object):
             field_type = 'long'
         if field_type.lower() == 'text' and field_length is None:
             field_length = 64
-        try:
-            arcpy.management.AddField(in_table = dataset_path, field_name = field_name,
-                                      field_type = field_type, field_length = field_length,
-                                      field_precision = field_precision, field_scale = field_scale,
-                                      field_is_nullable = field_is_nullable,
-                                      field_is_required = field_is_required)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        arcpy.management.AddField(
+            dataset_path, field_name, field_type = field_type,
+            field_length = field_length, field_precision = field_precision,
+            field_scale = field_scale, field_is_nullable = field_is_nullable,
+            field_is_required = field_is_required
+            )
         if info_log:
             logger.info("End: Add.")
         return field_name
@@ -302,11 +287,7 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Delete field {}.".format(field_name))
-        try:
-            arcpy.management.DeleteField(in_table = dataset_path, drop_field = field_name)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        arcpy.management.DeleteField(in_table = dataset_path, drop_field = field_name)
         if info_log:
             logger.info("End: Delete.")
         return field_name
@@ -317,15 +298,9 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Join field {} from {}.".format(join_field_name, join_dataset_path))
-        try:
-            arcpy.management.JoinField(in_data = dataset_path,
-                                       in_field = on_field_name,
-                                       join_table = join_dataset_path,
-                                       join_field = on_join_field_name,
-                                       fields = join_field_name)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        arcpy.management.JoinField(dataset_path, in_field = on_field_name,
+                                   join_table = join_dataset_path, join_field = on_join_field_name,
+                                   fields = join_field_name)
         if info_log:
             logger.info("End: Join.")
         return join_field_name
@@ -348,13 +323,8 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Convert polygon features in {} to lines.".format(dataset_path))
-        try:
-            arcpy.management.PolygonToLine(in_features = dataset_path,
-                                           out_feature_class = output_path,
-                                           neighbor_option = topological)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        arcpy.management.PolygonToLine(in_features = dataset_path, out_feature_class = output_path,
+                                       neighbor_option = topological)
         if topological:
             if id_field_name:
                 id_field_info = self.field_metadata(dataset_path, id_field_name)
@@ -391,14 +361,10 @@ class ArcWorkspace(object):
             logger.info("Start: Delete features from {}.".format(dataset_path))
         dataset_metadata = self.dataset_metadata(dataset_path)
         # Database-type (also not in-memory) & no sub-selection: use truncate.
-        if (dataset_metadata['data_type'] in ('FeatureClass', 'Table')
+        if (dataset_metadata['data_type'] in ['FeatureClass', 'Table']
             and dataset_metadata['workspace_path'] != 'in_memory'
             and dataset_where_sql is None):
-            try:
-                arcpy.management.TruncateTable(dataset_path)
-            except arcpy.ExecuteError:
-                logger.exception(arcpy.GetMessages())
-                raise
+            arcpy.management.TruncateTable(dataset_path)
         # Non-database or with sub-selection options.
         else:
             if dataset_metadata['is_spatial']:
@@ -409,13 +375,9 @@ class ArcWorkspace(object):
                 delete_rows = arcpy.management.DeleteRows
             else:
                 raise ValueError("{} unsupported dataset type.".format(dataset_path))
-            try:
-                view_name = random_string()
-                create_view(dataset_path, view_name, dataset_where_sql, self.path)
-                delete_rows(view_name)
-            except arcpy.ExecuteError:
-                logger.exception(arcpy.GetMessages())
-                raise
+            view_name = random_string()
+            create_view(dataset_path, view_name, dataset_where_sql, self.path)
+            delete_rows(view_name)
             self.delete_dataset(view_name, info_log = False)
         if info_log:
             logger.info("End: Delete.")
@@ -433,19 +395,12 @@ class ArcWorkspace(object):
         # Set the environment tolerance, so we can be sure the in_memory datasets respect it.
         # 0.003280839895013 is the default for all datasets in our geodatabases.
         arcpy.env.XYTolerance = 0.003280839895013
-        try:
-            view_name = random_string()
-            arcpy.management.MakeFeatureLayer(dataset_path, view_name,
-                                              dataset_where_sql, self.path)
-            temp_dissolved_path = memory_path()
-            arcpy.management.Dissolve(in_features = view_name,
-                                      out_feature_class = temp_dissolved_path,
-                                      dissolve_field = dissolve_field_names,
-                                      multi_part = multipart,
-                                      unsplit_lines = unsplit_lines)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
+        temp_dissolved_path = memory_path()
+        arcpy.management.Dissolve(in_features = view_name, out_feature_class = temp_dissolved_path,
+                                  dissolve_field = dissolve_field_names, multi_part = multipart,
+                                  unsplit_lines = unsplit_lines)
         # Delete undissolved features that are now dissolved (in the temp).
         self.delete_features(view_name, info_log = False)
         self.delete_dataset(view_name, info_log = False)
@@ -468,24 +423,16 @@ class ArcWorkspace(object):
             logger.info("Initial feature count: {}.".format(self.feature_count(dataset_path)))
         else:
             logger.debug("Initial feature count: {}.".format(self.feature_count(dataset_path)))
-        try:
-            # Pass only features that meet the dataset_where_sql.
-            view_name = random_string()
-            arcpy.management.MakeFeatureLayer(in_features = dataset_path, out_layer = view_name,
-                                              where_clause = dataset_where_sql,
-                                              workspace = self.path)
-            # Pass only erase features that meet the erase_where_sql.
-            erase_view_name = random_string()
-            arcpy.management.MakeFeatureLayer(in_features = erase_dataset_path,
-                                              out_layer = erase_view_name,
-                                              where_clause = erase_where_sql,
-                                              workspace = self.path)
-            temp_output_path = memory_path()
-            arcpy.analysis.Erase(in_features = view_name, erase_features = erase_view_name,
-                                 out_feature_class = temp_output_path)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        # Pass only features that meet the dataset_where_sql.
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
+        # Pass only erase features that meet the erase_where_sql.
+        erase_view_name = random_string()
+        arcpy.management.MakeFeatureLayer(erase_dataset_path, erase_view_name, erase_where_sql,
+                                          self.path)
+        temp_output_path = memory_path()
+        arcpy.analysis.Erase(in_features = view_name, erase_features = erase_view_name,
+                             out_feature_class = temp_output_path)
         self.delete_dataset(erase_view_name, info_log = False)
         # Load back into the dataset.
         self.delete_features(view_name, info_log = False)
@@ -614,14 +561,10 @@ class ArcWorkspace(object):
             create_view = arcpy.management.MakeTableView
         else:
             raise ValueError("{} unsupported dataset type.".format(dataset_path))
-        try:
-            insert_view_name = random_string()
-            create_view(insert_dataset_path, insert_view_name, insert_where_sql, self.path)
-            arcpy.management.Append(inputs = insert_view_name, target = dataset_path,
-                                    schema_type = 'no_test', field_mapping = field_maps)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        insert_view_name = random_string()
+        create_view(insert_dataset_path, insert_view_name, insert_where_sql, self.path)
+        arcpy.management.Append(inputs = insert_view_name, target = dataset_path,
+                                schema_type = 'no_test', field_mapping = field_maps)
         self.delete_dataset(insert_view_name, info_log = False)
         if info_log:
             logger.info("End: Insert.")
@@ -668,16 +611,13 @@ class ArcWorkspace(object):
                                         expression = '!{}!'.format(union_field_name),
                                         info_log = False)
         # Create the temp output of the union.
-        try:
-            view_name = random_string()
-            arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
-            temp_output_path = memory_path()
-            arcpy.analysis.Union(in_features = [view_name, temp_union_path],
-                                 out_feature_class = temp_output_path,
-                                 join_attributes = 'all', gaps = False)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
+        temp_output_path = memory_path()
+        arcpy.analysis.Union(
+            in_features = [view_name, temp_union_path], out_feature_class = temp_output_path,
+            join_attributes = 'all', gaps = False
+            )
         self.delete_dataset(temp_union_path, info_log = False)
         # Union puts empty string instead of null where identity feature not present; fix.
         self.update_field_by_expression(
@@ -719,7 +659,7 @@ class ArcWorkspace(object):
         cursor_field_names = (field_name, code_field_name)
         with arcpy.da.UpdateCursor(dataset_path, cursor_field_names, dataset_where_sql) as cursor:
             for old_description, code in cursor:
-                new_description = code_description[code] if code else None
+                new_description = code_description.get(code) if code else None
                 if new_description != old_description:
                     cursor.updateRow((new_description, code))
         if info_log:
@@ -740,14 +680,10 @@ class ArcWorkspace(object):
             create_view = arcpy.management.MakeTableView
         else:
             raise ValueError("{} unsupported dataset type.".format(dataset_path))
-        try:
-            view_name = random_string()
-            create_view(dataset_path, view_name, dataset_where_sql, self.path)
-            arcpy.management.CalculateField(in_table = view_name, field = field_name,
-                                            expression = expression, expression_type = 'python_9.3')
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        view_name = random_string()
+        create_view(dataset_path, view_name, dataset_where_sql, self.path)
+        arcpy.management.CalculateField(in_table = view_name, field = field_name,
+                                        expression = expression, expression_type = 'python_9.3')
         self.delete_dataset(view_name, info_log = False)
         if info_log:
             logger.info("End: Update.")
@@ -911,19 +847,14 @@ class ArcWorkspace(object):
         else:
             join_operation = 'join_one_to_one'
             match_option = 'intersect'
-        try:
-            view_name = random_string()
-            arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
-            temp_output_path = memory_path()
-            arcpy.analysis.SpatialJoin(target_features = view_name,
-                                       join_features = temp_overlay_path,
-                                       out_feature_class = temp_output_path,
-                                       join_operation = join_operation,
-                                       join_type = 'keep_common',
-                                       match_option = match_option)
-        except arcpy.ExecuteError:
-            logger.exception(arcpy.GetMessages())
-            raise
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
+        temp_output_path = memory_path()
+        arcpy.analysis.SpatialJoin(
+            target_features = view_name, join_features = temp_overlay_path,
+            out_feature_class = temp_output_path, join_operation = join_operation,
+            join_type = 'keep_common', match_option = match_option
+            )
         self.delete_dataset(view_name, info_log = False)
         self.delete_dataset(temp_overlay_path, info_log = False)
         # Push the overlay (or replacement) value from the temp field to the update field.
