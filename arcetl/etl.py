@@ -52,8 +52,10 @@ class ArcETL(object):
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
                 self.workspace.delete_features(load_path, info_log = False)
-            self.workspace.insert_features_from_path(load_path, self.transform_path,
-                                                     load_where_sql, info_log = False)
+            self.workspace.insert_features_from_path(
+                load_path, self.transform_path, load_where_sql,
+                info_log = False
+                )
         else:
             # Load to a new dataset.
             self.workspace.copy_dataset(self.transform_path, load_path,
@@ -354,7 +356,8 @@ class ArcWorkspace(object):
             logger.info("End: Convert.")
         return output_path
 
-    def delete_features(self, dataset_path, dataset_where_sql=None, info_log=True):
+    def delete_features(self, dataset_path, dataset_where_sql=None,
+                        info_log=True):
         """Delete select features."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
@@ -527,27 +530,36 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
-    def insert_features_from_path(self, dataset_path, insert_dataset_path, insert_where_sql=None,
-                                  info_log=True):
+    def insert_features_from_path(self, dataset_path, insert_dataset_path,
+                                  insert_where_sql=None, info_log=True):
         """Insert features from a dataset referred to by a system path."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Insert features to {} from {}.".format(dataset_path,
-                                                                       insert_dataset_path))
+            logger.info(
+                "Start: Insert features to {} from {}.".format(
+                    dataset_path, insert_dataset_path
+                    )
+                )
         # Create field maps.
-        # Added because ArcGIS Pro's no-test append is case-sensitive (verified 1.0-1.1.1).
-        # BUG-000090970 - ArcGIS Pro 'No test' field mapping in Append tool does not auto-map to
-        # the same field name if naming convention differs.
+        # Added because ArcGIS Pro's no-test append is case-sensitive (verified
+        # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
+        # Append tool does not auto-map to the same field name if naming
+        # convention differs.
         dataset_metadata = self.dataset_metadata(dataset_path)
-        dataset_field_names = [field['name'].lower() for field in dataset_metadata['fields']]
+        dataset_field_names = [field['name'].lower()
+                               for field in dataset_metadata['fields']]
         insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
         insert_dataset_field_names = [field['name'].lower() for field
                                       in insert_dataset_metadata['fields']]
         # Append takes care of geometry & OIDs independent of the field maps.
         for field_name_type in ('geometry_field_name', 'oid_field_name'):
             if dataset_metadata.get(field_name_type):
-                dataset_field_names.remove(dataset_metadata[field_name_type].lower())
-                insert_dataset_field_names.remove(insert_dataset_metadata[field_name_type].lower())
+                dataset_field_names.remove(
+                    dataset_metadata[field_name_type].lower()
+                    )
+                insert_dataset_field_names.remove(
+                    insert_dataset_metadata[field_name_type].lower()
+                    )
         field_maps = arcpy.FieldMappings()
         for field_name in dataset_field_names:
             if field_name in insert_dataset_field_names:
@@ -560,11 +572,15 @@ class ArcWorkspace(object):
         elif dataset_metadata['is_table']:
             create_view = arcpy.management.MakeTableView
         else:
-            raise ValueError("{} unsupported dataset type.".format(dataset_path))
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path)
+                )
         insert_view_name = random_string()
-        create_view(insert_dataset_path, insert_view_name, insert_where_sql, self.path)
-        arcpy.management.Append(inputs = insert_view_name, target = dataset_path,
-                                schema_type = 'no_test', field_mapping = field_maps)
+        create_view(insert_dataset_path, insert_view_name,
+                    insert_where_sql, self.path)
+        arcpy.management.Append(inputs = insert_view_name,
+                                target = dataset_path, schema_type = 'no_test',
+                                field_mapping = field_maps)
         self.delete_dataset(insert_view_name, info_log = False)
         if info_log:
             logger.info("End: Insert.")
