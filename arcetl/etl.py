@@ -555,9 +555,9 @@ class ArcWorkspace(object):
                 field_map.addInputField(insert_dataset_path, field_name)
                 field_maps.addFieldMap(field_map)
         insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
-        if insert_dataset_metadata['is_spatial']:
+        if dataset_metadata['is_spatial']:
             create_view = arcpy.management.MakeFeatureLayer
-        elif insert_dataset_metadata['is_table']:
+        elif dataset_metadata['is_table']:
             create_view = arcpy.management.MakeTableView
         else:
             raise ValueError("{} unsupported dataset type.".format(dataset_path))
