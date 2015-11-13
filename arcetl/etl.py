@@ -450,14 +450,16 @@ class ArcWorkspace(object):
         return dataset_path
 
     def identity_features(self, dataset_path, field_name, identity_dataset_path,
-                          identity_field_name, replacement_value=None, dataset_where_sql=None,
-                          chunk_size=4096, info_log=True):
-        """Assign unique identity value to each feature, splitting where necessary.
+                          identity_field_name, replacement_value=None,
+                          dataset_where_sql=None, chunk_size=4096,
+                          info_log=True):
+        """Assign unique identity value to features, splitting where necessary.
 
-        replacement_value is a value that will substitute as the identity value.
-        This method has a 'chunking' routine in order to avoid an unhelpful output error that
-        occurs when the inputs are rather large. For some reason, the identity will 'succeed' with
-        and empty output warning, but not create an output dataset. Running the identity against
+        replacement_value is a value that will substitute as the identity
+        value. This method has a 'chunking' routine in order to avoid an
+        unhelpful output error that occurs when the inputs are rather large.
+        For some reason, the identity will 'succeed' with and empty output
+        warning, but not create an output dataset. Running the identity against
         smaller sets of data generally avoids this conundrum.
         """
         logger.debug("Called {}".format(debug_call()))
@@ -495,7 +497,7 @@ class ArcWorkspace(object):
             arcpy.management.MakeFeatureLayer(
                 in_features = dataset_path, out_layer = view_name,
                 # ArcPy where clauses cannot use 'between'.
-                where_clause = "{0} > {1} and {0} < {2}".format(
+                where_clause = "{0} >= {1} and {0} <= {2}".format(
                     self.dataset_metadata(dataset_path)['oid_field_name'],
                     from_objectid, to_objectid
                     ),
