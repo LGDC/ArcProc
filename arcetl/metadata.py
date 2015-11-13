@@ -58,19 +58,6 @@ class OperationMetadata(object):
 
 # Helper functions.
 
-def create_dataset_from_metadata(dataset_metadata, path_tag, field_tag=None):
-    """Build a dataset from the information in a given schema metadata."""
-    if not field_tag:
-        field_tag = path_tag
-    dataset_path = ArcWorkspace().create_dataset(
-        dataset_path = dataset_metadata['paths'][path_tag],
-        field_metadata=[field for field in dataset_metadata['fields']
-                        if field_tag in field.get('tags')],
-        geometry_type = dataset_metadata.get('geometry_type'),
-        spatial_reference_id = dataset_metadata.get('spatial_reference_id'))
-    return dataset_path
-
-
 def run_job(job_metadata):
     """Perform all actions related to running a processing job."""
     for etl_metadata in job_metadata.etls:
