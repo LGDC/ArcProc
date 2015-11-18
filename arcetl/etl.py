@@ -456,7 +456,8 @@ class ArcWorkspace(object):
         """Assign unique identity value to features, splitting where necessary.
 
         replacement_value is a value that will substitute as the identity
-        value. This method has a 'chunking' routine in order to avoid an
+        value.
+        This method has a 'chunking' routine in order to avoid an
         unhelpful output error that occurs when the inputs are rather large.
         For some reason, the identity will 'succeed' with and empty output
         warning, but not create an output dataset. Running the identity against
@@ -494,14 +495,17 @@ class ArcWorkspace(object):
             logger.debug("Chunk: Feature object IDs {} to {}".format(from_objectid, to_objectid))
             # Create the temp output of the identity.
             view_name = random_string()
+            view_where_clause = "{0} >= {1} and {0} <= {2}".format(
+                    self.dataset_metadata(dataset_path)['oid_field_name'],
+                    from_objectid, to_objectid
+                    )
+            if dataset_where_sql:
+                view_where_clause += " and ({})".dataset_where_sql
+            view_where_clause
             arcpy.management.MakeFeatureLayer(
                 in_features = dataset_path, out_layer = view_name,
                 # ArcPy where clauses cannot use 'between'.
-                where_clause = "{0} >= {1} and {0} <= {2}".format(
-                    self.dataset_metadata(dataset_path)['oid_field_name'],
-                    from_objectid, to_objectid
-                    ),
-                workspace = self.path
+                where_clause = view_where_clause, workspace = self.path
                 )
             # Create temporary dataset with the identity values.
             temp_output_path = memory_path()
