@@ -834,7 +834,7 @@ class ArcWorkspace(object):
         defer to the 'first' feature's value.
 
         Please note that only one overlay flag at a time can be used. If mutliple are set to True,
-        the first one referenced in the code below will be used. If no overlay flags are set, the
+        the first one referenced in the code will be used. If no overlay flags are set, the
         operation will perform a basic intersection check, and the result will be at the whim of
         the geoprocessing environment's merge rule for the update field.
         """
@@ -843,9 +843,20 @@ class ArcWorkspace(object):
             logger.info("Start: Update field {} with overlay value {}.{}.".format(
                 field_name, overlay_dataset_path,  overlay_field_name
                 ))
+        # Check flags & set details for spatial join call.
+        if overlay_most_coincident:
+            raise NotImplementedError(
+                "overlay_most_coincident is not yet implemented."
+                )
+        elif overlay_central_coincident:
+            join_operation = 'join_one_to_one'
+            match_option = 'have_their_center_in'
+        else:
+            join_operation = 'join_one_to_one'
+            match_option = 'intersect'
         # Create a temporary copy of the overlay dataset.
         temp_overlay_path = self.copy_dataset(overlay_dataset_path, memory_path(), info_log = False)
-        # Create neutral/unique field for holding union value (avoids collisions).
+        # Create neutral field for holding overlay value (avoids collisions).
         temp_field_metadata = self.field_metadata(temp_overlay_path, overlay_field_name)
         temp_field_metadata['name'] = random_string()
         # Cannot add OID-type field, so push to a long-type.
@@ -857,14 +868,6 @@ class ArcWorkspace(object):
                                         expression = '!{}!'.format(overlay_field_name),
                                         info_log = False)
         # Create the temp output of the overlay.
-        if overlay_most_coincident:
-            raise NotImplementedError("overlay_most_coincident is not yet implemented.")
-        elif overlay_central_coincident:
-            join_operation = 'join_one_to_one'
-            match_option = 'have_their_center_in'
-        else:
-            join_operation = 'join_one_to_one'
-            match_option = 'intersect'
         view_name = random_string()
         arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
         temp_output_path = memory_path()
