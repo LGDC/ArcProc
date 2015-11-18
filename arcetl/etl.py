@@ -536,6 +536,134 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
+    def overlay_features(self, dataset_path, field_name, overlay_dataset_path,
+                          overlay_field_name, replacement_value=None,
+                          overlay_most_coincident=False,
+                          overlay_central_coincident=False,
+                          dataset_where_sql=None, chunk_size=4096,
+                          info_log=True):
+        """Assign overlay value to features, splitting where necessary.
+
+        Please note that only one overlay flag at a time can be used. If
+        mutliple are set to True, the first one referenced in the code
+        will be used. If no overlay flags are set, the operation will perform a
+        basic intersection check, and the result will be at the whim of the
+        geoprocessing environment's merge rule for the update field.
+        replacement_value is a value that will substitute as the identity
+        value.
+        This method has a 'chunking' routine in order to avoid an
+        unhelpful output error that occurs when the inputs are rather large.
+        For some reason, the identity will 'succeed' with and empty output
+        warning, but not create an output dataset. Running the identity against
+        smaller sets of data generally avoids this conundrum.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Overlay features with {}.{}.".format(
+                overlay_dataset_path, overlay_field_name
+                ))
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        # Check flags & set details for spatial join call.
+        if overlay_most_coincident:
+            raise NotImplementedError(
+                "overlay_most_coincident is not yet implemented."
+                )
+        elif overlay_central_coincident:
+            join_operation = 'join_one_to_many'
+            match_option = 'have_their_center_in'
+        else:
+            join_operation = 'join_one_to_many'
+            match_option = 'intersect'
+        # Create a temporary copy of the overlay dataset.
+        temp_overlay_path = self.copy_dataset(
+            overlay_dataset_path, memory_path(), info_log = False
+            )
+        # Create neutral field for holding overlay value (avoids collisions).
+        temp_field_metadata = self.field_metadata(
+            temp_overlay_path, overlay_field_name
+            )
+        temp_field_metadata['name'] = random_string()
+        # Cannot add OID-type field, so push to a long-type.
+        if temp_field_metadata['type'].lower() == 'oid':
+            temp_field_metadata['type'] = 'long'
+        self.add_fields_from_metadata_list(
+            temp_overlay_path, [temp_field_metadata], info_log = False
+            )
+        self.update_field_by_expression(
+            temp_overlay_path, temp_field_metadata['name'],
+            expression = '!{}!'.format(overlay_field_name), info_log = False
+            )
+        # Get an iterable of all object IDs in the dataset.
+        with arcpy.da.SearchCursor(
+            dataset_path, ['oid@'], dataset_where_sql
+            ) as cursor:
+            # Sorting is important, allows us to create view with ID range
+            # instead of list.
+            objectids = sorted((row[0] for row in cursor))
+        while objectids:
+            chunk_objectids = objectids[:chunk_size]
+            objectids = objectids[chunk_size:]
+            from_objectid, to_objectid = (chunk_objectids[0],
+                                          chunk_objectids[-1])
+            logger.debug("Chunk: Feature object IDs {} to {}".format(
+                from_objectid, to_objectid
+                ))
+            # Create the temp output of the overlay.
+            view_name = random_string()
+            view_where_clause = "{0} >= {1} and {0} <= {2}".format(
+                    self.dataset_metadata(dataset_path)['oid_field_name'],
+                    from_objectid, to_objectid
+                    )
+            if dataset_where_sql:
+                view_where_clause += " and ({})".dataset_where_sql
+            arcpy.management.MakeFeatureLayer(
+                in_features = dataset_path, out_layer = view_name,
+                # ArcPy where clauses cannot use 'between'.
+                where_clause = view_where_clause, workspace = self.path
+                )
+            temp_output_path = memory_path()
+            arcpy.analysis.SpatialJoin(
+                target_features = view_name, join_features = temp_overlay_path,
+                out_feature_class = temp_output_path,
+                join_operation = join_operation, join_type = 'keep_all',
+                match_option = match_option
+                )
+            # Push the overlay (or replacement) value from the temp field to
+            # the update field.
+            if replacement_value:
+                expression = '{} if !{}! else None'.format(
+                    repr(replacement_value), temp_field_metadata['name']
+                    )
+            else:
+                expression = "!{0}!".format(temp_field_metadata['name'])
+            self.update_field_by_expression(
+                temp_output_path, field_name, expression, info_log = False
+                )
+            # Replace original chunk features with overlay features.
+            self.delete_features(view_name, info_log = False)
+            self.delete_dataset(view_name, info_log = False)
+            self.insert_features_from_path(
+                dataset_path, temp_output_path, info_log = False
+                )
+            self.delete_dataset(temp_output_path, info_log = False)
+        self.delete_dataset(temp_overlay_path, info_log = False)
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Overlay.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        return dataset_path
+
     def insert_features_from_path(self, dataset_path, insert_dataset_path,
                                   insert_where_sql=None, info_log=True):
         """Insert features from a dataset referred to by a system path."""
