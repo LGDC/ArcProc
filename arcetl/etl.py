@@ -846,31 +846,41 @@ class ArcWorkspace(object):
         valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
         raise NotImplementedError
 
-    def update_field_by_function(self, dataset_path, field_name, function, field_as_first_arg=True,
-                                 arg_field_names=[], kwarg_field_names=[], dataset_where_sql=None,
+    def update_field_by_function(self, dataset_path, field_name, function,
+                                 field_as_first_arg=True, arg_field_names=[],
+                                 kwarg_field_names=[], dataset_where_sql=None,
                                  info_log=True):
         """Update field values by passing them to a function.
 
-        arg_field_names indicate fields that will be positional arguments passed to the function.
-        kwarg_field_names indicate fields that will be passed as keyword args (field name as key).
-        Helper fields will be passed to the function as keyword arguments {name: value,}.
-        field_as_first_arg flag indicates that the function will consume the field as the first
-        argument.
+        field_as_first_arg flag indicates that the function will consume the
+        field's value as the first argument.
+        arg_field_names indicate fields whose values will be positional
+        arguments passed to the function.
+        kwarg_field_names indicate fields who values will be passed as keyword
+        arguments (field name as key).
         """
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} values using function {}.".format(
-                field_name, function.__name__
-                ))
-        cursor_field_names = [field_name] + list(arg_field_names) + list(kwarg_field_names)
-        with arcpy.da.UpdateCursor(dataset_path, cursor_field_names, dataset_where_sql) as cursor:
+            logger.info(
+                "Start: Update field {} values using function {}.".format(
+                    field_name, function.__name__
+                    )
+                )
+        cursor_field_names = (
+            [field_name] + list(arg_field_names) + list(kwarg_field_names)
+            )
+        with arcpy.da.UpdateCursor(
+            dataset_path, cursor_field_names, dataset_where_sql
+            ) as cursor:
             for row in cursor:
-                args = row[1:1 + len(arg_field_names)]
+                args = row[1:len(arg_field_names) + 1]
                 if field_as_first_arg:
                     args.insert(0, row[0])
-                kwargs = dict(zip(kwarg_field_names, row[1 + len(arg_field_names):]))
+                kwargs = dict(zip(
+                    kwarg_field_names, row[len(arg_field_names) + 1:]
+                    ))
                 new_value = function(*args, **kwargs)
-                if new_value != row[0]:
+                if row[0] != new_value:
                     cursor.updateRow([new_value] + list(row[1:]))
         if info_log:
             logger.info("End: Update.")
