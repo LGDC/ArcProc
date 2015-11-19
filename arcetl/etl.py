@@ -816,6 +816,34 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    def update_field_by_constructor_method(
+        self, dataset_path, field_name, constructor, method_name,
+        field_as_first_arg=True, arg_field_names=[], kwarg_field_names=[],
+        dataset_where_sql=None, info_log=True
+        ):
+        """Update field values by passing them to a constructed object method.
+
+        wraps ArcWorkspace.update_field_by_function.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(" ".join([
+                "Start: Update {} field values".format(field_name),
+                "using the method {}".format(method_name),
+                "from the object constructed by {}.".format(
+                    constructor.__name__
+                    )
+                ]))
+        function = getattr(constructor(), method_name)
+        self.update_field_by_function(
+            dataset_path, field_name, function, field_as_first_arg,
+            arg_field_names, kwarg_field_names, dataset_where_sql,
+            info_log = False
+            )
+        if info_log:
+            logger.info("End: Update.")
+        return field_name
+
     def update_field_by_expression(self, dataset_path, field_name, expression,
                                    dataset_where_sql=None, info_log=True):
         """Update field values using a (single) code-expression."""
