@@ -552,12 +552,88 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
+    def insert_features_from_iterables(self, dataset_path,
+                                       insert_dataset_iterables, field_names,
+                                       info_log=True):
+        """Insert features from a collection of iterables."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(" ".join([
+                "Start: Insert features into {}".format(dataset_path),
+                "from a collection of iterables."
+                ]))
+        # Create generator if insert_dataset_iterables is a generator function.
+        if inspect.isgeneratorfunction(insert_dataset_iterables):
+            insert_dataset_iterables = insert_dataset_iterables()
+        with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+            for row in insert_dataset_iterables:
+                cursor.insertRow(row)
+        if info_log:
+            logger.info("End: Insert.")
+        return dataset_path
+
+    def insert_features_from_path(self, dataset_path, insert_dataset_path,
+                                  insert_where_sql=None, info_log=True):
+        """Insert features from a dataset referred to by a system path."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Insert features to {} from {}.".format(
+                    dataset_path, insert_dataset_path
+                    )
+                )
+        # Create field maps.
+        # Added because ArcGIS Pro's no-test append is case-sensitive (verified
+        # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
+        # Append tool does not auto-map to the same field name if naming
+        # convention differs.
+        dataset_metadata = self.dataset_metadata(dataset_path)
+        dataset_field_names = [field['name'].lower()
+                               for field in dataset_metadata['fields']]
+        insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
+        insert_dataset_field_names = [field['name'].lower() for field
+                                      in insert_dataset_metadata['fields']]
+        # Append takes care of geometry & OIDs independent of the field maps.
+        for field_name_type in ('geometry_field_name', 'oid_field_name'):
+            if dataset_metadata.get(field_name_type):
+                dataset_field_names.remove(
+                    dataset_metadata[field_name_type].lower()
+                    )
+                insert_dataset_field_names.remove(
+                    insert_dataset_metadata[field_name_type].lower()
+                    )
+        field_maps = arcpy.FieldMappings()
+        for field_name in dataset_field_names:
+            if field_name in insert_dataset_field_names:
+                field_map = arcpy.FieldMap()
+                field_map.addInputField(insert_dataset_path, field_name)
+                field_maps.addFieldMap(field_map)
+        insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
+        if dataset_metadata['is_spatial']:
+            create_view = arcpy.management.MakeFeatureLayer
+        elif dataset_metadata['is_table']:
+            create_view = arcpy.management.MakeTableView
+        else:
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path)
+                )
+        insert_view_name = random_string()
+        create_view(insert_dataset_path, insert_view_name,
+                    insert_where_sql, self.path)
+        arcpy.management.Append(inputs = insert_view_name,
+                                target = dataset_path, schema_type = 'no_test',
+                                field_mapping = field_maps)
+        self.delete_dataset(insert_view_name, info_log = False)
+        if info_log:
+            logger.info("End: Insert.")
+        return dataset_path
+
     def overlay_features(self, dataset_path, field_name, overlay_dataset_path,
-                          overlay_field_name, replacement_value=None,
-                          overlay_most_coincident=False,
-                          overlay_central_coincident=False,
-                          dataset_where_sql=None, chunk_size=4096,
-                          info_log=True):
+                         overlay_field_name, replacement_value=None,
+                         overlay_most_coincident=False,
+                         overlay_central_coincident=False,
+                         dataset_where_sql=None, chunk_size=4096,
+                         info_log=True):
         """Assign overlay value to features, splitting where necessary.
 
         Please note that only one overlay flag at a time can be used. If
@@ -680,83 +756,6 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    def insert_features_from_path(self, dataset_path, insert_dataset_path,
-                                  insert_where_sql=None, info_log=True):
-        """Insert features from a dataset referred to by a system path."""
-        logger.debug("Called {}".format(debug_call()))
-        if info_log:
-            logger.info(
-                "Start: Insert features to {} from {}.".format(
-                    dataset_path, insert_dataset_path
-                    )
-                )
-        # Create field maps.
-        # Added because ArcGIS Pro's no-test append is case-sensitive (verified
-        # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
-        # Append tool does not auto-map to the same field name if naming
-        # convention differs.
-        dataset_metadata = self.dataset_metadata(dataset_path)
-        dataset_field_names = [field['name'].lower()
-                               for field in dataset_metadata['fields']]
-        insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
-        insert_dataset_field_names = [field['name'].lower() for field
-                                      in insert_dataset_metadata['fields']]
-        # Append takes care of geometry & OIDs independent of the field maps.
-        for field_name_type in ('geometry_field_name', 'oid_field_name'):
-            if dataset_metadata.get(field_name_type):
-                dataset_field_names.remove(
-                    dataset_metadata[field_name_type].lower()
-                    )
-                insert_dataset_field_names.remove(
-                    insert_dataset_metadata[field_name_type].lower()
-                    )
-        field_maps = arcpy.FieldMappings()
-        for field_name in dataset_field_names:
-            if field_name in insert_dataset_field_names:
-                field_map = arcpy.FieldMap()
-                field_map.addInputField(insert_dataset_path, field_name)
-                field_maps.addFieldMap(field_map)
-        insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
-        if dataset_metadata['is_spatial']:
-            create_view = arcpy.management.MakeFeatureLayer
-        elif dataset_metadata['is_table']:
-            create_view = arcpy.management.MakeTableView
-        else:
-            raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path)
-                )
-        insert_view_name = random_string()
-        create_view(insert_dataset_path, insert_view_name,
-                    insert_where_sql, self.path)
-        arcpy.management.Append(inputs = insert_view_name,
-                                target = dataset_path, schema_type = 'no_test',
-                                field_mapping = field_maps)
-        self.delete_dataset(insert_view_name, info_log = False)
-        if info_log:
-            logger.info("End: Insert.")
-        return dataset_path
-
-    def insert_features_from_iterables(
-        self, dataset_path, insert_dataset_iterables, field_names,
-        info_log=True
-        ):
-        """Insert features from a collection of iterables."""
-        logger.debug("Called {}".format(debug_call()))
-        if info_log:
-            logger.info(" ".join([
-                "Start: Insert features into {}".format(dataset_path),
-                "from a collection of iterables."
-                ]))
-        # Create generator if insert_dataset_iterables is a generator function.
-        if inspect.isgeneratorfunction(insert_dataset_iterables):
-            insert_dataset_iterables = insert_dataset_iterables()
-        with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-            for row in insert_dataset_iterables:
-                cursor.insertRow(row)
-        if info_log:
-            logger.info("End: Insert.")
-        return dataset_path
-
     def union_features(self, dataset_path, field_name, union_dataset_path, union_field_name,
                        replacement_value=None, dataset_where_sql=None, info_log=True):
         """Assign unique union value to each feature, splitting where necessary.
@@ -838,11 +837,13 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    def update_field_by_constructor_method(
-        self, dataset_path, field_name, constructor, method_name,
-        field_as_first_arg=True, arg_field_names=[], kwarg_field_names=[],
-        dataset_where_sql=None, info_log=True
-        ):
+    def update_field_by_constructor_method(self, dataset_path, field_name,
+                                           constructor, method_name,
+                                           field_as_first_arg=True,
+                                           arg_field_names=[],
+                                           kwarg_field_names=[],
+                                           dataset_where_sql=None,
+                                           info_log=True):
         """Update field values by passing them to a constructed object method.
 
         wraps ArcWorkspace.update_field_by_function.
