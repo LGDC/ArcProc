@@ -309,47 +309,63 @@ class ArcWorkspace(object):
 
     # Feature alteration methods.
 
-    def convert_polygons_to_lines(self, dataset_path, output_path, topological=False,
-                                  id_field_name=None, info_log=True):
+    def convert_polygons_to_lines(self, dataset_path, output_path,
+                                  topological=False, id_field_name=None,
+                                  info_log=True):
         """Convert geometry from polygons to lines.
 
-        If topological is set to True, shared outlines will be a single, separate feature. Note
-        that one cannot pass attributes to a topological transformation (as the values would not
-        apply to all adjacent features).
+        If topological is set to True, shared outlines will be a single,
+        separate feature. Note that one cannot pass attributes to a topological
+        transformation (as the values would not apply to all adjacent
+        features).
 
-        If an id field name is specified, the output dataset will identify the input features that
-        defined the line feature with the name & values from the provided field. This option will
-        be ignored if the output is non-topological lines, as the field will pass over with the
-        rest of the attributes.
+        If an id field name is specified, the output dataset will identify the
+        input features that defined the line feature with the name & values
+        from the provided field. This option will be ignored if the output is
+        non-topological lines, as the field will pass over with the rest of the
+        attributes.
         """
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Convert polygon features in {} to lines.".format(dataset_path))
-        arcpy.management.PolygonToLine(in_features = dataset_path, out_feature_class = output_path,
-                                       neighbor_option = topological)
+            logger.info(
+                "Start: Convert polygon features in {} to lines.".format(
+                    dataset_path)
+                )
+        arcpy.management.PolygonToLine(
+            in_features = dataset_path, out_feature_class = output_path,
+            neighbor_option = topological
+            )
         if topological:
             if id_field_name:
-                id_field_info = self.field_metadata(dataset_path, id_field_name)
-                oid_field_name = self.dataset_metadata(dataset_path)['oid_field_name']
+                id_field_info = self.field_metadata(dataset_path,
+                                                    id_field_name)
+                oid_field_name = (
+                    self.dataset_metadata(dataset_path)['oid_field_name']
+                    )
             sides = ('left', 'right')
             for side in sides:
                 side_oid_field_name = '{}_FID'.format(side.upper())
                 if id_field_name:
                     side_id_field_info = id_field_info.copy()
-                    side_id_field_info['name'] = '{}_{}'.format(side, id_field_name)
+                    side_id_field_info['name'] = '{}_{}'.format(
+                        side, id_field_name
+                        )
                     # Cannot create an OID-type field, so force to long.
                     if side_id_field_info['type'].lower() == 'oid':
                         side_id_field_info['type'] = 'long'
-                    self.add_fields_from_metadata_list(output_path, [side_id_field_info],
-                                                       info_log = False)
-                    self.update_field_by_join_value(
-                        dataset_path = output_path, field_name = side_id_field_info['name'],
-                        join_dataset_path = dataset_path, join_field_name = id_field_name,
-                        on_field_name = side_oid_field_name,
-                        on_join_field_name = oid_field_name,
-                        info_log = False
+                    self.add_fields_from_metadata_list(
+                        output_path, [side_id_field_info], info_log = False
                         )
-                self.delete_field(output_path, side_oid_field_name, info_log = False)
+                    self.update_field_by_join_value(
+                        dataset_path = output_path,
+                        field_name = side_id_field_info['name'],
+                        join_dataset_path = dataset_path,
+                        join_field_name = id_field_name,
+                        on_field_name = side_oid_field_name,
+                        on_join_field_name = oid_field_name, info_log = False
+                        )
+                self.delete_field(output_path, side_oid_field_name,
+                                  info_log = False)
         else:
             self.delete_field(output_path, 'ORIG_FID', info_log = False)
         if info_log:
@@ -720,14 +736,20 @@ class ArcWorkspace(object):
             logger.info("End: Insert.")
         return dataset_path
 
-    def insert_features_from_iterables(self, dataset_path, insert_dataset_iterables, field_names,
-                                       info_log=True):
+    def insert_features_from_iterables(
+        self, dataset_path, insert_dataset_iterables, field_names,
+        info_log=True
+        ):
         """Insert features from a collection of iterables."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Insert features into {} from a collection of iterables.".format(
-                dataset_path
-                ))
+            logger.info(" ".join([
+                "Start: Insert features into {}".format(dataset_path),
+                "from a collection of iterables."
+                ]))
+        # Create generator if insert_dataset_iterables is a generator function.
+        if inspect.isgeneratorfunction(insert_dataset_iterables):
+            insert_dataset_iterables = insert_dataset_iterables()
         with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
             for row in insert_dataset_iterables:
                 cursor.insertRow(row)
@@ -890,7 +912,7 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
-                "Start: Update field {} values using function {}.".format(
+                "Start: Update {} field values using function {}.".format(
                     field_name, function.__name__
                     )
                 )
@@ -1070,13 +1092,19 @@ class ArcWorkspace(object):
 
     # Analysis/extraction methods.
 
-    def select_features_to_lists(self, dataset_path, field_names, dataset_where_sql=None,
-                                 info_log=True):
+    def select_features_to_lists(self, dataset_path, field_names,
+                                 dataset_where_sql=None, info_log=True):
         """Return features as list of lists."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Select {} feature into a list of lists.".format(dataset_path))
-        with arcpy.da.SearchCursor(dataset_path, field_names, dataset_where_sql) as cursor:
+            logger.info(
+                "Start: Select {} feature into a list of lists.".format(
+                    dataset_path
+                    )
+                )
+        with arcpy.da.SearchCursor(
+            dataset_path, field_names, dataset_where_sql
+            ) as cursor:
             features = [list(feature) for feature in cursor]
         if info_log:
             logger.info("End: Select.")

@@ -16,7 +16,9 @@ class ETLMetadata(object):
         self.operations = list(operations)
     def add_assertion(self, operation_name, **kwargs):
         """Add assertion check to the operations list."""
-        elf.operations.append(OperationMetadata(operation_name, 'assert', kwargs))
+        elf.operations.append(
+            OperationMetadata(operation_name, 'assert', kwargs)
+            )
     def add_execution(self, function, **kwargs):
         """Add execution of the function provided."""
         self.operations.append(OperationMetadata(function, 'execute', kwargs))
@@ -28,13 +30,17 @@ class ETLMetadata(object):
         self.operations.append(OperationMetadata('load', 'load', kwargs))
     def add_operation(self, operation_name, **kwargs):
         """Add generic operation to the operations list."""
-        self.operations.append(OperationMetadata(operation_name, 'operate', kwargs))
+        self.operations.append(
+            OperationMetadata(operation_name, 'operate', kwargs)
+            )
     def add_operation_from_metadata(self, *operation_metadata):
-        """Add operations to the operations list."""
+        """Add operation metadata to the operations list."""
         self.operations.extend(list(operation_metadata))
     def add_transformation(self, operation_name, **kwargs):
-        """Add load to the the operations list."""
-        self.operations.append(OperationMetadata(operation_name, 'transform', kwargs))
+        """Add transformation to the the operations list."""
+        self.operations.append(
+            OperationMetadata(operation_name, 'transform', kwargs)
+            )
 
 
 class JobMetadata(object):
@@ -79,6 +85,8 @@ def run_etl(etl_metadata, workspace_path=None):
             elif operation.type == 'operate':
                 getattr(etl.workspace, operation.name)(**operation.kwargs)
             elif operation.type == 'transform':
-               etl.transform(operation.name, **operation.kwargs)
+                etl.transform(operation.name, **operation.kwargs)
             else:
-                raise ValueError("Invalid operation type: {}.".format(operation.type))
+                raise ValueError(
+                    "Invalid operation type: {}.".format(operation.type)
+                    )
