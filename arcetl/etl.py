@@ -1090,6 +1090,120 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    def update_fields_by_geometry_node_ids(self, dataset_path,
+                                           from_id_field_name,
+                                           to_id_field_name, info_log=True):
+        """Update fields with node IDs based on feature geometry.
+
+        Method assumes the IDs are numeric.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(" ".join([
+                "Start: Update node ID fields {} & {}",
+                "based on feature geometry."
+                ]).format(from_node_field_name, to_node_field_name))
+        # Get next available node ID.
+        node_ids = set()
+        with arcpy.da.SearchCursor(
+            dataset_path, [from_id_field_name, to_id_field_name]
+            ) as cursor:
+            for row in cursor:
+                node_ids.update(row)
+        # Remove missing node ID instance.
+        node_ids.discard(None)
+        next_open_node_id = max(node_ids) + 1 if node_ids else 1
+        # Build node XY mapping.
+        with arcpy.da.SearchCursor(
+            dataset_path,
+            ['oid@', from_node_field_name, to_node_field_name, 'shape@']
+            ) as cursor:
+            node_xy_map= {}
+            # {node_xy: {'node_id': int(), 'f_oids': set(), 't_oids': set()},}
+            for oid, fnode_id, tnode_id, geometry in cursor:
+                fnode_xy = geometry.firstPoint.X, geometry.firstPoint.Y
+                tnode_xy = geometry.lastPoint.X, geometry.lastPoint.Y
+                # Add the XY if not yet present.
+                for node_id, xy, oid_set_key in [
+                    (fnode_id, fnode_xy, 'f_oids'),
+                    (tnode_id, tnode_xy, 't_oids')
+                    ]:
+                    if xy not in node_xy_map:
+                        # Add XY with the node ID.
+                        node_xy_map[xy] = {
+                            'node_id': None, 'f_oids': set(), 't_oids': set(),
+                            }
+                    # Choose lowest non-missing ID to perpetuate at the XY.
+                    try:
+                        node_xy_map[xy]['node_id'] = min(
+                            x for x in [node_xy_map[xy]['node_id'], node_id]
+                            if x is not None
+                            )
+                    # ValueError means there's no ID already on there.
+                    except ValueError:
+                        node_xy_map[xy]['node_id'] = next_open_node_id
+                        next_open_node_id += 1
+                    # Add the link ID to the corresponding link set.
+                    node_xy_map[xy][oid_set_key].add(oid)
+        # Pivot node_xy_map into a node ID map.
+        node_id_map = {}
+        # {node_id: {'node_xy': tuple(), 'feature_count': int()},}
+        for new_xy in node_xy_map.keys():
+            new_node_id = node_xy_map[new_xy]['node_id']
+            new_feature_count = len(
+                node_xy_map[new_xy]['f_oids'].union(
+                    node_xy_map[new_xy]['t_oids']
+                    )
+                )
+            # If ID already present in node_id_map, re-ID one of the nodes.
+            if new_node_id in node_id_map:
+                old_node_id = new_node_id
+                old_xy = node_id_map[old_node_id]['node_xy']
+                old_feature_count = node_id_map[old_node_id]['feature_count']
+                # If new node has more links, re-ID old node.
+                if new_feature_count > old_feature_count:
+                    node_xy_map[old_xy]['node_id'] = next_open_node_id
+                    node_id_map[next_open_node_id] = (
+                        node_id_map.pop(old_node_id)
+                        )
+                    next_open_node_id += 1
+                # Re-ID new node if old node has more links (or tequal counts).
+                else:
+                    node_xy_map[new_xy]['node_id'] = next_open_node_id
+                    new_node_id = next_open_node_id
+                    next_open_node_id += 1
+            # Now add the new node.
+            node_id_map[new_node_id] = {'node_xy': new_xy,
+                                        'feature_count': new_feature_count,}
+        # Build a feature-node mapping from node_xy_map.
+        feature_nodes = {}
+        # {feature_oid: {'fnode': int(), 'tnode': int()},}
+        for xy in node_xy_map:
+            node_id = node_xy_map[xy]['node_id']
+            # If feature object ID is missing in feature_nodes: add.
+            for feature_oid in node_xy_map[xy]['f_oids'].union(
+                node_xy_map[xy]['t_oids']
+                ):
+                if feature_oid not in feature_nodes:
+                    feature_nodes[feature_oid] = {}
+            for feature_oid in node_xy_map[xy]['f_oids']:
+                feature_nodes[feature_oid]['fnode'] = node_id
+            for feature_oid in node_xy_map[xy]['t_oids']:
+                feature_nodes[feature_oid]['tnode'] = node_id
+        # Push changes to features.
+        with arcpy.da.UpdateCursor(
+            dataset_path, ['oid@', from_node_field_name, to_node_field_name]
+            ) as cursor:
+            for oid, old_fnode_id, old_tnode_id in cursor:
+                new_fnode_id = feature_nodes[oid]['fnode']
+                new_tnode_id = feature_nodes[oid]['tnode']
+                if any(old_fnode_id != new_fnode_id,
+                       old_tnode_id != new_tnode_id):
+                    cursor.updateRow([oid, new_fnode_id, new_tnode_id])
+        if info_log:
+            logger.info("End: Update.")
+        return from_id_field_name, to_id_field_name
+
     # Analysis/extraction methods.
 
     def select_features_to_lists(self, dataset_path, field_names,
