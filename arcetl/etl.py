@@ -1141,7 +1141,7 @@ class ArcWorkspace(object):
             logger.info(" ".join([
                 "Start: Update node ID fields {} & {}",
                 "based on feature geometry."
-                ]).format(from_node_field_name, to_node_field_name))
+                ]).format(from_id_field_name, to_id_field_name))
         # Get next available node ID.
         node_ids = set()
         with arcpy.da.SearchCursor(
@@ -1155,7 +1155,7 @@ class ArcWorkspace(object):
         # Build node XY mapping.
         with arcpy.da.SearchCursor(
             dataset_path,
-            ['oid@', from_node_field_name, to_node_field_name, 'shape@']
+            ['oid@', from_id_field_name, to_id_field_name, 'shape@']
             ) as cursor:
             node_xy_map= {}
             # {node_xy: {'node_id': int(), 'f_oids': set(), 't_oids': set()},}
@@ -1231,7 +1231,7 @@ class ArcWorkspace(object):
                 feature_nodes[feature_oid]['tnode'] = node_id
         # Push changes to features.
         with arcpy.da.UpdateCursor(
-            dataset_path, ['oid@', from_node_field_name, to_node_field_name]
+            dataset_path, ['oid@', from_id_field_name, to_id_field_name]
             ) as cursor:
             for oid, old_fnode_id, old_tnode_id in cursor:
                 new_fnode_id = feature_nodes[oid]['fnode']
