@@ -756,6 +756,44 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
+    def planarize_features(self, dataset_path, output_path, info_log=True):
+        """Convert feature geometry to lines - planarizing them.
+
+        This method does not make topological linework. However it does carry
+        all attributes with it, rather than just an ID attribute.
+
+        Since this method breaks the new line geometry at intersections, it
+        can be useful to break line geometry features at them.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Planarize features in {}.".format(
+                    dataset_path)
+                )
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        arcpy.management.FeatureToLine(
+            in_features = dataset_path, out_feature_class = output_path,
+            ##cluster_tolerance,
+            attributes = True
+            )
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Planarize.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        return output_path
+
     def union_features(self, dataset_path, field_name, union_dataset_path, union_field_name,
                        replacement_value=None, dataset_where_sql=None, info_log=True):
         """Assign unique union value to each feature, splitting where necessary.
