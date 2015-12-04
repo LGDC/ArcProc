@@ -1239,14 +1239,16 @@ class ArcWorkspace(object):
             )
         self.delete_dataset(view_name, info_log = False)
         self.delete_dataset(temp_overlay_path, info_log = False)
-        # Push the overlay (or replacement) value from the temp field to the update field.
+        # Apply replacement value, if set.
         if replacement_value:
-            expression = '{} if !{}! else None'.format(repr(replacement_value),
-                                                       temp_field_metadata['name'])
-        else:
-            expression = '!{}!'.format(temp_field_metadata['name'])
-        self.update_field_by_expression(temp_output_path, field_name, expression, info_log = False)
-        # Replace values in original dataset.
+            expression = '{} if !{}! else None'.format(
+                repr(replacement_value), temp_field_metadata['name']
+                )
+            self.update_field_by_expression(
+                temp_output_path, temp_field_metadata['name'], expression,
+                info_log = False
+                )
+        # Update values in original dataset.
         self.update_field_by_joined_value(
             dataset_path, field_name,
             join_dataset_path = temp_output_path, join_field_name = temp_field_metadata['name'],
