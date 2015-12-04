@@ -1368,8 +1368,9 @@ class ArcWorkspace(object):
             for oid, old_fnode_id, old_tnode_id in cursor:
                 new_fnode_id = feature_nodes[oid]['fnode']
                 new_tnode_id = feature_nodes[oid]['tnode']
-                if any(old_fnode_id != new_fnode_id,
-                       old_tnode_id != new_tnode_id):
+                if any([
+                    old_fnode_id != new_fnode_id, old_tnode_id != new_tnode_id
+                    ]):
                     cursor.updateRow([oid, new_fnode_id, new_tnode_id])
         if info_log:
             logger.info("End: Update.")
