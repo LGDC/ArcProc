@@ -343,6 +343,13 @@ class ArcWorkspace(object):
                 "Start: Convert polygon features in {} to lines.".format(
                     dataset_path)
                 )
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         arcpy.management.PolygonToLine(
             in_features = dataset_path, out_feature_class = output_path,
             neighbor_option = topological
