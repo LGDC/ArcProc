@@ -72,7 +72,7 @@ def run_job(job_metadata):
 
 def run_etl(etl_metadata, workspace_path=None):
     """Perform all actions related to running an ETL."""
-    logger.info("Starting ETL for : {}.".format(etl_metadata.name))
+    logger.info("Starting ETL for: {}.".format(etl_metadata.name))
     with ArcETL(ArcWorkspace(workspace_path)) as etl:
         # Perform listed ETL operations.
         for operation in etl_metadata.operations:

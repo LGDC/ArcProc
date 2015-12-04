@@ -30,17 +30,21 @@ class ArcETL(object):
     def close(self):
         """Clean up instance."""
         # Clear the transform dataset.
-        if self.transform_path and self.workspace.is_valid_dataset(self.transform_path):
-            self.workspace.delete_dataset(self.transform_path, info_log = False)
+        if (self.transform_path
+            and self.workspace.is_valid_dataset(self.transform_path)):
+            self.workspace.delete_dataset(
+                self.transform_path, info_log = False
+                )
             self.transform_path = None
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
         logger.info("Start: Extract {}.".format(extract_path))
         # Extract to a new dataset.
-        self.transform_path = self.workspace.copy_dataset(extract_path, memory_path(),
-                                                          extract_where_sql, schema_only,
-                                                          info_log = False)
+        self.transform_path = self.workspace.copy_dataset(
+            extract_path, memory_path(), extract_where_sql, schema_only,
+            info_log = False
+            )
         logger.info("End: Extract.")
         return self.transform_path
 
@@ -70,15 +74,17 @@ class ArcETL(object):
     def transform(self, transform_name, **kwargs):
         """Run transform operation as defined in the workspace."""
         transform = getattr(self.workspace, transform_name)
-        # Unless otherwise stated, the dataset path to be the instance's transform path.
+        # Unless otherwise stated, dataset path is self.transform path.
         if 'dataset_path' not in kwargs:
             kwargs['dataset_path'] = self.transform_path
-        # If the function arguments include an output path, supersede the old transform path.
+        # If arguments include output_path, supersede old transform path.
         if 'output_path' in inspect.getargspec(transform).args:
             kwargs['output_path'] = memory_path()
         result = transform(**kwargs)
         if 'output_path' in kwargs:
-            self.workspace.delete_dataset(self.transform_path, info_log = False)
+            self.workspace.delete_dataset(
+                self.transform_path, info_log = False
+                )
             self.transform_path = result
         return result
 
@@ -299,10 +305,16 @@ class ArcWorkspace(object):
         """Add field and its values from join-dataset."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Join field {} from {}.".format(join_field_name, join_dataset_path))
-        arcpy.management.JoinField(dataset_path, in_field = on_field_name,
-                                   join_table = join_dataset_path, join_field = on_join_field_name,
-                                   fields = join_field_name)
+            logger.info(
+                "Start: Join field {} from {}.".format(
+                    join_field_name, join_dataset_path
+                    )
+                )
+        arcpy.management.JoinField(
+            dataset_path, in_field = on_field_name,
+            join_table = join_dataset_path, join_field = on_join_field_name,
+            fields = join_field_name
+            )
         if info_log:
             logger.info("End: Join.")
         return join_field_name
@@ -377,7 +389,11 @@ class ArcWorkspace(object):
         """Delete select features."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Delete features from {}.".format(dataset_path))
+            logger.info(
+                "Start: Delete features from {} where {}.".format(
+                    dataset_path, dataset_where_sql
+                    )
+                )
         dataset_metadata = self.dataset_metadata(dataset_path)
         # Database-type (also not in-memory) & no sub-selection: use truncate.
         if (dataset_metadata['data_type'] in ['FeatureClass', 'Table']
