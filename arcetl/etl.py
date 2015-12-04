@@ -1054,6 +1054,136 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    def update_field_by_near_feature(self, dataset_path, field_name,
+                                     near_dataset_path, near_field_name,
+                                     replacement_value=None,
+                                     distance_field_name=None,
+                                     angle_field_name=None,
+                                     x_coordinate_field_name=None,
+                                     y_coordinate_field_name=None,
+                                     max_search_distance=None, near_rank=1,
+                                     dataset_where_sql=None, info_log=True):
+        """Update field by finding near-feature value.
+
+        One can optionally update ancillary fields with analysis properties by
+        indicating the following fields: distance_field_name, angle_field_name,
+        x_coordinate_field_name, y_coordinate_field_name.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Update field {} with near-value {}.{}.".format(
+                field_name, near_dataset_path,  near_field_name
+                ))
+        # Create a temporary copy of the near dataset.
+        temp_near_path = self.copy_dataset(
+            near_dataset_path, memory_path(), info_log = False
+            )
+        dataset_oid_field_name = (
+            self.dataset_metadata(dataset_path)['oid_field_name']
+            )
+        temp_near_oid_field_name = (
+            self.dataset_metadata(temp_near_path)['oid_field_name']
+            )
+        # Create neutral field for holding near value (avoids collisions).
+        temp_field_metadata = self.field_metadata(
+            temp_near_path, near_field_name
+            )
+        temp_field_metadata['name'] = random_string()
+        # Cannot add OID-type field, so push to a long-type.
+        if temp_field_metadata['type'].lower() == 'oid':
+            temp_field_metadata['type'] = 'long'
+        self.add_fields_from_metadata_list(
+            temp_near_path, [temp_field_metadata], info_log = False
+            )
+        self.update_field_by_expression(
+            temp_near_path, temp_field_metadata['name'],
+            expression = '!{}!'.format(near_field_name), info_log = False
+            )
+        # Create the temp output of the near features.
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(
+            dataset_path, view_name, dataset_where_sql, self.path
+            )
+        temp_output_path = memory_path()
+        arcpy.analysis.GenerateNearTable(
+            in_features = dataset_path, near_features = temp_near_path,
+            out_table = temp_output_path, search_radius = max_search_distance,
+            location = any([x_coordinate_field_name, y_coordinate_field_name]),
+            angle = any([angle_field_name]),
+            closest = 'all', closest_count = near_rank,
+            # Would prefer geodesic, but that forces XY values to lon-lat.
+            method ='planar'
+            )
+        self.delete_dataset(view_name, info_log = False)
+        # Remove near rows not matching chosen rank.
+        self.delete_features(
+            temp_output_path,
+            dataset_where_sql = "near_rank <> {}".format(near_rank),
+            info_log = False
+            )
+        # Join near values to the near output.
+        self.join_field(
+            temp_output_path, temp_near_path,
+            join_field_name = temp_field_metadata['name'],
+            on_field_name = 'near_fid',
+            on_join_field_name = temp_near_oid_field_name, info_log = False
+            )
+        self.delete_dataset(temp_near_path, info_log = False)
+        # Apply replacement value, if set.
+        if replacement_value:
+            expression = '{} if !{}! else None'.format(
+                repr(replacement_value), temp_field_metadata['name']
+                )
+            self.update_field_by_expression(
+                temp_output_path, temp_field_metadata['name'], expression,
+                info_log = False
+                )
+        # Update values in original dataset.
+        self.update_field_by_joined_value(
+            dataset_path, field_name,
+            join_dataset_path = temp_output_path,
+            join_field_name = temp_field_metadata['name'],
+            on_field_pairs = [(dataset_oid_field_name, 'in_fid')],
+            dataset_where_sql = dataset_where_sql, info_log = False
+            )
+        # Update ancillary near property fields.
+        if distance_field_name:
+            self.update_field_by_joined_value(
+                dataset_path, distance_field_name,
+                join_dataset_path = temp_output_path,
+                join_field_name = 'near_dist',
+                on_field_pairs = [(dataset_oid_field_name, 'in_fid')],
+                dataset_where_sql = dataset_where_sql, info_log = False
+                )
+        if angle_field_name:
+            self.update_field_by_joined_value(
+                dataset_path, angle_field_name,
+                join_dataset_path = temp_output_path,
+                join_field_name = 'near_angle',
+                on_field_pairs = [(dataset_oid_field_name, 'in_fid')],
+                dataset_where_sql = dataset_where_sql, info_log = False
+                )
+        if x_coordinate_field_name:
+            self.update_field_by_joined_value(
+                dataset_path, x_coordinate_field_name,
+                join_dataset_path = temp_output_path,
+                join_field_name = 'near_x',
+                on_field_pairs = [(dataset_oid_field_name, 'in_fid')],
+                dataset_where_sql = dataset_where_sql, info_log = False
+                )
+        if y_coordinate_field_name:
+            self.update_field_by_joined_value(
+                dataset_path, y_coordinate_field_name,
+                join_dataset_path = temp_output_path,
+                join_field_name = 'near_y',
+                on_field_pairs = [(dataset_oid_field_name, 'in_fid')],
+                dataset_where_sql = dataset_where_sql, info_log = False
+                )
+        self.delete_dataset(temp_output_path, info_log = False)
+        if info_log:
+            logger.info("End: Update.")
+        return field_name
+
     def update_field_by_overlay(self, dataset_path, field_name, overlay_dataset_path,
                                 overlay_field_name, replacement_value=None,
                                 overlay_most_coincident=False, overlay_central_coincident=False,
