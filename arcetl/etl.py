@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+import datetime
 import inspect
 import logging
 import os
@@ -319,6 +320,58 @@ class ArcWorkspace(object):
         return join_field_name
 
     # Feature alteration methods.
+
+    def adjust_features_for_shapefile(self, dataset_path,
+                                      datetime_null_replacement=datetime.date.min,
+                                      integer_null_replacement=0,
+                                      numeric_null_replacement=0.0,
+                                      string_null_replacement='',
+                                      info_log=True):
+        """Adjust features to meet shapefile requirements.
+
+        Adjustments currently made:
+        * Convert datetime values to date or time based on
+        preserve_time_not_date flag.
+        * Convert nulls to replacement value.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                ("Start: Adjust features in {}"
+                 " to meet shapefile requirements.").format(dataset_path)
+                )
+        dataset = self.dataset_metadata(dataset_path)
+        ##type_null_expression = {
+        ##    'integer': "0",
+        ##    'smallinteger': "0",
+        ##    'string': "''",
+        ##    }
+        type_function_map = {
+            # Blob omitted: Not a valid shapefile type.
+            'date': (lambda x: datetime.date(datetime_null_replacement)
+                     if x is None
+                     # Shapefiles can only store dates, not times.
+                     else x.date()),
+            'double': lambda x: 0.0 if x is None else x,
+            # Geometry passed-through: Shapefile loader handles this.
+            #'guid': Not valid shapefile type.
+            'integer': lambda x: 0 if x is None else x,
+            # OID passed-through: Shapefile loader handles this.
+            # Raster omitted: Not a valid shapefile type.
+            'single': lambda x: 0.0 if x is None else x,
+            'smallinteger': lambda x: 0 if x is None else x,
+            'string': lambda x: '' if x is None else x,
+            }
+        for field in dataset['fields']:
+            if field['type'].lower() in type_function_map:
+                self.update_field_by_function(
+                    dataset_path, field['name'],
+                    function = type_function_map[field['type']],
+                    info_log = False
+                    )
+        if info_log:
+            logger.info("End: Adjust.")
+        return dataset_path
 
     def convert_polygons_to_lines(self, dataset_path, output_path,
                                   topological=False, id_field_name=None,
