@@ -10,7 +10,6 @@ arcpy = None  # Lazy import.
 
 logger = logging.getLogger(__name__)
 
-
 # ETL classes.
 
 class ArcETL(object):
@@ -133,7 +132,7 @@ class ArcWorkspace(object):
         metadata['path'] = arc_description.catalogPath
         metadata['data_type'] = arc_description.dataType
         metadata['workspace_path'] = arc_description.path
-        metadata['is_table'] = True if hasattr(arc_description, 'hasOID') else False
+        metadata['is_table'] = hasattr(arc_description, 'hasOID')
         if metadata['is_table']:
             if hasattr(arc_description, 'OIDFieldName'):
                 metadata['oid_field_name'] = arc_description.OIDFieldName
@@ -150,7 +149,7 @@ class ArcWorkspace(object):
                     #'is_editable': field.editable, 'is_nullable': field.isNullable,
                     }
                 metadata['fields'].append(field_metadata)
-        metadata['is_spatial'] = True if hasattr(arc_description, 'shapeType') else False
+        metadata['is_spatial'] = hasattr(arc_description, 'shapeType')
         if metadata['is_spatial']:
             metadata['geometry_type'] = arc_description.shapeType.lower()
             metadata['spatial_reference_id'] = arc_description.spatialReference.factoryCode
@@ -179,7 +178,7 @@ class ArcWorkspace(object):
     def is_valid_dataset(self, dataset_path):
         """Check whether a dataset exists/is valid."""
         logger.debug("Called {}".format(debug_call()))
-        if arcpy.Exists(dataset_path):
+        if dataset_path and arcpy.Exists(dataset_path):
             return self.dataset_metadata(dataset_path)['is_table']
         else:
             return False
@@ -192,16 +191,16 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Copy {} to {}.".format(dataset_path, output_path))
-        dataset_metadata = self.dataset_metadata(dataset_path)
-        if dataset_metadata['is_spatial']:
+        metadata = self.dataset_metadata(dataset_path)
+        if metadata['is_spatial']:
             create_view = arcpy.management.MakeFeatureLayer
             copy_rows = arcpy.management.CopyFeatures
-        elif  dataset_metadata['is_table']:
+        elif  metadata['is_table']:
             create_view = arcpy.management.MakeTableView
             copy_rows = arcpy.management.CopyRows
         else:
             raise ValueError("{} unsupported dataset type.".format(dataset_path))
-        if overwrite and self.is_valid_dataset(copypath):
+        if overwrite and self.is_valid_dataset(output_path):
             self.delete_dataset(output_path, info_log = False)
         view_name = random_string()
         create_view(dataset_path, view_name,
@@ -388,7 +387,14 @@ class ArcWorkspace(object):
         else:
             self.delete_field(output_path, 'ORIG_FID', info_log = False)
         if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
             logger.info("End: Convert.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         return output_path
 
     def delete_features(self, dataset_path, dataset_where_sql=None,
@@ -401,18 +407,18 @@ class ArcWorkspace(object):
                     dataset_path, dataset_where_sql
                     )
                 )
-        dataset_metadata = self.dataset_metadata(dataset_path)
+        metadata = self.dataset_metadata(dataset_path)
         # Database-type (also not in-memory) & no sub-selection: use truncate.
-        if (dataset_metadata['data_type'] in ['FeatureClass', 'Table']
-            and dataset_metadata['workspace_path'] != 'in_memory'
+        if (metadata['data_type'] in ['FeatureClass', 'Table']
+            and metadata['workspace_path'] != 'in_memory'
             and dataset_where_sql is None):
             arcpy.management.TruncateTable(dataset_path)
         # Non-database or with sub-selection options.
         else:
-            if dataset_metadata['is_spatial']:
+            if metadata['is_spatial']:
                 create_view = arcpy.management.MakeFeatureLayer
                 delete_rows = arcpy.management.DeleteFeatures
-            elif dataset_metadata['is_table']:
+            elif metadata['is_table']:
                 create_view = arcpy.management.MakeTableView
                 delete_rows = arcpy.management.DeleteRows
             else:
