@@ -186,8 +186,8 @@ class ArcWorkspace(object):
 
     # Workspace management methods.
 
-    def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None, schema_only=False,
-                     overwrite=False, info_log=True):
+    def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None,
+                     schema_only=False, overwrite=False, info_log=True):
         """Copy dataset."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
@@ -515,36 +515,52 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
-    def erase_features(self, dataset_path, erase_dataset_path, dataset_where_sql=None,
-                       erase_where_sql=None, info_log=True):
+    def erase_features(self, dataset_path, erase_dataset_path,
+                       dataset_where_sql=None, erase_where_sql=None,
+                       info_log=True):
         """Erase feature geometry where overlaps erase dataset geometry."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Erase where geometry overlaps {}.".format(erase_dataset_path))
-            logger.info("Initial feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.info("Start: Erase {} where geometry overlaps {}.".format(
+                    dataset_path, erase_dataset_path
+                    ))
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         else:
-            logger.debug("Initial feature count: {}.".format(self.feature_count(dataset_path)))
-        # Pass only features that meet the dataset_where_sql.
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         view_name = random_string()
-        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
-        # Pass only erase features that meet the erase_where_sql.
+        arcpy.management.MakeFeatureLayer(
+            dataset_path, view_name, dataset_where_sql, self.path
+            )
         erase_view_name = random_string()
-        arcpy.management.MakeFeatureLayer(erase_dataset_path, erase_view_name, erase_where_sql,
-                                          self.path)
+        arcpy.management.MakeFeatureLayer(
+            erase_dataset_path, erase_view_name, erase_where_sql, self.path
+            )
         temp_output_path = memory_path()
-        arcpy.analysis.Erase(in_features = view_name, erase_features = erase_view_name,
-                             out_feature_class = temp_output_path)
+        arcpy.analysis.Erase(
+            in_features = view_name, erase_features = erase_view_name,
+            out_feature_class = temp_output_path
+            )
         self.delete_dataset(erase_view_name, info_log = False)
         # Load back into the dataset.
         self.delete_features(view_name, info_log = False)
         self.delete_dataset(view_name, info_log = False)
-        self.insert_features_from_path(dataset_path, temp_output_path, info_log = False)
+        self.insert_features_from_path(
+            dataset_path, temp_output_path, info_log = False
+            )
         self.delete_dataset(temp_output_path, info_log = False)
         if info_log:
-            logger.info("Final feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
             logger.info("End: Erase.")
         else:
-            logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         return dataset_path
 
     def identity_features(self, dataset_path, field_name, identity_dataset_path,

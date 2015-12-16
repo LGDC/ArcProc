@@ -57,7 +57,7 @@ class ETLMetadata(object):
             # Perform listed ETL operations.
             for operation in self.operations:
                 if operation.type == 'assert':
-                    etl.assert_true(operation_name, **operation.kwargs)
+                    etl.assert_true(operation.name, **operation.kwargs)
                 elif operation.type == 'execute':
                     operation.name(**operation.kwargs)
                 elif operation.type in ('extract', 'load'):
