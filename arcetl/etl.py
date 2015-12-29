@@ -29,6 +29,7 @@ class ArcETL(object):
 
     def close(self):
         """Clean up instance."""
+        logger.debug("Called {}".format(debug_call()))
         # Clear the transform dataset.
         if (self.transform_path
             and self.workspace.is_valid_dataset(self.transform_path)):
@@ -39,6 +40,7 @@ class ArcETL(object):
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
+        logger.debug("Called {}".format(debug_call()))
         logger.info("Start: Extract {}.".format(extract_path))
         # Extract to a new dataset.
         self.transform_path = self.workspace.copy_dataset(
@@ -50,6 +52,7 @@ class ArcETL(object):
 
     def load(self, load_path, load_where_sql=None, preserve_features=False):
         """Load features from transform workspace to the load-dataset."""
+        logger.debug("Called {}".format(debug_call()))
         logger.info("Start: Load {}.".format(load_path))
         if self.workspace.is_valid_dataset(load_path):
             # Load to an existing dataset.
@@ -69,10 +72,12 @@ class ArcETL(object):
 
     def make_asssertion(self, assertion_name, **kwargs):
         """Check whether an assertion is valid or not."""
+        logger.debug("Called {}".format(debug_call()))
         raise NotImplementedError
 
     def transform(self, transform_name, **kwargs):
         """Run transform operation as defined in the workspace."""
+        logger.debug("Called {}".format(debug_call()))
         transform = getattr(self.workspace, transform_name)
         # Unless otherwise stated, dataset path is self.transform path.
         if 'dataset_path' not in kwargs:
