@@ -290,6 +290,32 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return [field_info['name'] for field_info in metadata_list]
 
+    def add_index(self, dataset_path, field_names, index_name=None,
+                  is_unique=False, is_ascending=False, info_log=True):
+        """Add index to dataset fields."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Add index to {} for {}.".format(
+                dataset_path, field_names
+                ))
+        field_types = {
+            field['type'].lower() for field
+            in self.dataset_metadata(dataset_path)['fields']
+            if field['name'].lower() in [name.lower() for name in field_names]
+            }
+        if 'geometry' in field_types:
+            if len(field_names) != 1:
+                raise RuntimeError("Cannot create a composite spatial index.")
+                arcpy.management.AddSpatialIndex(dataset_path)
+        else:
+            index_name = '_'.join(['ndx'] + field_names)
+            arcpy.management.AddIndex(
+                dataset_path, field_names, index_name, is_unique, is_ascending
+                )
+        if info_log:
+            logger.info("End: Add.")
+        return dataset_path
+
     def delete_field(self, dataset_path, field_name, info_log=True):
         """Delete field from dataset."""
         logger.debug("Called {}".format(debug_call()))
