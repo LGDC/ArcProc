@@ -316,6 +316,19 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return dataset_path
 
+    def rename_field(self, dataset_path, field_name, new_field_name,
+                     info_log=True):
+        """Rename field."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Rename field {}.{} to {}.".format(
+                dataset_path, field_name, new_field_name
+                ))
+        arcpy.management.AlterField(dataset_path, field_name, new_field_name)
+        if info_log:
+            logger.info("End: Rename.")
+        return new_field_name
+
     def delete_field(self, dataset_path, field_name, info_log=True):
         """Delete field from dataset."""
         logger.debug("Called {}".format(debug_call()))
