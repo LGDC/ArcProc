@@ -380,15 +380,9 @@ class ArcWorkspace(object):
                  " to meet shapefile requirements.").format(dataset_path)
                 )
         dataset = self.dataset_metadata(dataset_path)
-        ##type_null_expression = {
-        ##    'integer': "0",
-        ##    'smallinteger': "0",
-        ##    'string': "''",
-        ##    }
         type_function_map = {
             # Blob omitted: Not a valid shapefile type.
-            'date': (lambda x: datetime.date(datetime_null_replacement)
-                     if x is None
+            'date': (lambda x: datetime_null_replacement if x is None
                      # Shapefiles can only store dates, not times.
                      else x.date()),
             'double': lambda x: 0.0 if x is None else x,
