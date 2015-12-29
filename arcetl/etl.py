@@ -173,8 +173,11 @@ class ArcWorkspace(object):
         """Return dictionary of field's info."""
         logger.debug("Called {}".format(debug_call()))
         try:
-            metadata = [field for field in self.dataset_metadata(dataset_path)['fields']
-                         if field['name'].lower() == field_name.lower()][0]
+            metadata = [
+                field for field
+                in self.dataset_metadata(dataset_path)['fields']
+                if field['name'].lower() == field_name.lower()
+                ][0]
         except IndexError:
             raise AttributeError("{} not present on {}".format(field_name, dataset_path))
         return metadata
@@ -1139,19 +1142,26 @@ class ArcWorkspace(object):
         """Update field values using a (single) code-expression."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} values using expression <{}>.".format(field_name,
-                                                                                      expression))
+            logger.info(
+                "Start: Update field {} using expression <{}>.".format(
+                    field_name, expression
+                    )
+                )
         dataset_metadata = self.dataset_metadata(dataset_path)
         if dataset_metadata['is_spatial']:
             create_view = arcpy.management.MakeFeatureLayer
         elif dataset_metadata['is_table']:
             create_view = arcpy.management.MakeTableView
         else:
-            raise ValueError("{} unsupported dataset type.".format(dataset_path))
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path)
+                )
         view_name = random_string()
         create_view(dataset_path, view_name, dataset_where_sql, self.path)
-        arcpy.management.CalculateField(in_table = view_name, field = field_name,
-                                        expression = expression, expression_type = 'python_9.3')
+        arcpy.management.CalculateField(
+            in_table = view_name, field = field_name, expression = expression,
+            expression_type = 'python_9.3'
+            )
         self.delete_dataset(view_name, info_log = False)
         if info_log:
             logger.info("End: Update.")
