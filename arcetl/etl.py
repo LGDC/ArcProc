@@ -650,6 +650,53 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
+    def keep_features_by_location(self, dataset_path, location_path,
+                                  dataset_where_sql=None,
+                                  location_where_sql=None, info_log=True):
+        """Keep features where geometry overlaps location feature geometry."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Keep {} where geometry overlaps {}.".format(
+                    dataset_path, location_path
+                    ))
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(
+            dataset_path, view_name, dataset_where_sql, self.path
+            )
+        location_view_name = random_string()
+        arcpy.management.MakeFeatureLayer(
+            location_path, location_view_name, location_where_sql, self.path
+            )
+        arcpy.management.SelectLayerByLocation(
+            in_layer = view_name, overlap_type = 'intersect',
+            select_features = location_view_name,
+            selection_type = 'new_selection'
+            )
+        self.delete_dataset(location_view_name, info_log = False)
+        # Switch selection & delete features not overlapping location.
+        arcpy.management.SelectLayerByLocation(
+            in_layer = view_name, selection_type = 'switch_selection'
+            )
+        self.delete_features(view_name, info_log = False)
+        self.delete_dataset(view_name, info_log = False)
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Keep.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        return dataset_path
+
     def identity_features(self, dataset_path, field_name, identity_dataset_path,
                           identity_field_name, replacement_value=None,
                           dataset_where_sql=None, chunk_size=4096,
