@@ -82,9 +82,12 @@ class ArcETL(object):
             kwargs['output_path'] = memory_path()
         result = transform(**kwargs)
         if 'output_path' in kwargs:
-            self.workspace.delete_dataset(
-                self.transform_path, info_log = False
-                )
+            # Remove old transform_path (if extant).
+            if self.workspace.is_valid_dataset(self.transform_path):
+                self.workspace.delete_dataset(
+                    self.transform_path, info_log = False
+                    )
+            # Replace with output_path.
             self.transform_path = result
         return result
 
