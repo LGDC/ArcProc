@@ -1620,6 +1620,103 @@ class ArcWorkspace(object):
 
     # Analysis/extraction methods.
 
+    def generate_facility_service_rings(self, dataset_path, output_path,
+                                        network_path, cost_attribute,
+                                        ring_width, max_distance,
+                                        restriction_attributes=[],
+                                        travel_from_facility=False,
+                                        detailed_rings=False,
+                                        overlap_facilities=True,
+                                        id_field_name=None,
+                                        dataset_where_sql=None, info_log=True):
+        """Create facility service ring features using a network dataset."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Generate service rings for facilities in {}".format(
+                    dataset_path
+                    )
+                )
+        # Get Network Analyst license.
+        if arcpy.CheckOutExtension('Network') != 'CheckedOut':
+            raise RuntimeError("Unable to check out Network Analyst license.")
+        # Create break value range.
+        break_values = range(ring_width, max_distance + 1, ring_width)
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(
+            in_features = dataset_path, out_layer = view_name,
+            where_clause = dataset_where_sql
+            )
+        arcpy.na.MakeServiceAreaLayer(
+            in_network_dataset = network_path,
+            out_network_analysis_layer = 'service_area',
+            impedance_attribute = cost_attribute,
+            travel_from_to = (
+                'travel_from' if travel_from_facility else 'travel_to'
+                ),
+            default_break_values = ' '.join(
+                str(x) for x in range(ring_width, max_distance + 1, ring_width)
+                ),
+            polygon_type = (
+                'detailed_polys' if detailed_rings else 'simple_polys'
+                ),
+            merge = 'no_merge' if overlap_facilities else 'no_overlap',
+            nesting_type = 'rings',
+            UTurn_policy = 'allow_dead_ends_and_intersections_only',
+            restriction_attribute_name = restriction_attributes,
+            # The trim seems to override the non-overlapping part in larger
+            # analyses.
+            ##polygon_trim = True, poly_trim_value = ring_width,
+            hierarchy = 'no_hierarchy'
+            )
+        arcpy.na.AddLocations(
+            in_network_analysis_layer = "service_area",
+            sub_layer = "Facilities",
+            in_table = view_name,
+            field_mappings = 'Name {} #'.format(id_field_name),
+            search_tolerance = max_distance, match_type = 'match_to_closest',
+            append = 'clear', snap_to_position_along_network = 'no_snap',
+            exclude_restricted_elements = True,
+            )
+        arcpy.na.Solve(
+            in_network_analysis_layer="service_area",
+            ignore_invalids = True, terminate_on_solve_error = True
+            )
+        # Copy output to temp feature class.
+        output_path = self.copy_dataset(
+            'service_area/Polygons', output_path = memory_path(),
+            info_log = False
+            )
+        id_field_metadata = self.field_metadata(dataset_path, id_field_name)
+        self.add_fields_from_metadata_list(
+            output_path, [id_field_metadata], info_log = False
+            )
+        type_extract_function_map = {
+            'short': (lambda x: int(x.split(' : ')[0]) if x else None),
+            'long': (lambda x: int(x.split(' : ')[0]) if x else None),
+            'double': (lambda x: float(x.split(' : ')[0]) if x else None),
+            'single': (lambda x: float(x.split(' : ')[0]) if x else None),
+            'string': (lambda x: x.split(' : ')[0] if x else None),
+            }
+        self.delete_dataset('service_area')
+        self.update_field_by_function(
+            output_path, id_field_name,
+            function = type_extract_function_map[id_field_metadata['type']],
+            field_as_first_arg = False, arg_field_names = ['Name'],
+            info_log = False
+            )
+        self.delete_dataset(view_name, info_log = False)
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Generate.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        return output_path
+
     def select_features_to_lists(self, dataset_path, field_names,
                                  dataset_where_sql=None, info_log=True):
         """Return features as list of lists."""
