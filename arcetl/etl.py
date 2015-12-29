@@ -412,6 +412,54 @@ class ArcWorkspace(object):
             logger.info("End: Adjust.")
         return dataset_path
 
+    def clip_features(self, dataset_path, clip_dataset_path,
+                      dataset_where_sql=None, clip_where_sql=None,
+                      info_log=True):
+        """Clip feature geometry where overlaps clip dataset geometry."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Clip {} where geometry overlaps {}.".format(
+                    dataset_path, clip_dataset_path
+                    ))
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        view_name = random_string()
+        arcpy.management.MakeFeatureLayer(
+            dataset_path, view_name, dataset_where_sql, self.path
+            )
+        clip_view_name = random_string()
+        arcpy.management.MakeFeatureLayer(
+            clip_dataset_path, clip_view_name, clip_where_sql, self.path
+            )
+        temp_output_path = memory_path()
+        arcpy.analysis.Clip(
+            in_features = view_name, clip_features = clip_view_name,
+            out_feature_class = temp_output_path
+            )
+        self.delete_dataset(clip_view_name, info_log = False)
+        # Load back into the dataset.
+        self.delete_features(view_name, info_log = False)
+        self.delete_dataset(view_name, info_log = False)
+        self.insert_features_from_path(
+            dataset_path, temp_output_path, info_log = False
+            )
+        self.delete_dataset(temp_output_path, info_log = False)
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Clip.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        return dataset_path
+
     def convert_polygons_to_lines(self, dataset_path, output_path,
                                   topological=False, id_field_name=None,
                                   info_log=True):
