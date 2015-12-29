@@ -1207,18 +1207,24 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    def update_field_by_geometry(self, dataset_path, field_name, geometry_property_cascade,
-                                 update_units=None, spatial_reference_id=None,
+    def update_field_by_geometry(self, dataset_path, field_name,
+                                 geometry_property_cascade, update_units=None,
+                                 spatial_reference_id=None,
                                  dataset_where_sql=None, info_log=True):
         """Update field values by cascading through a geometry's attributes.
 
-        If the spatial reference ID is not specified, the spatial reference of the dataset is used.
+        If the spatial reference ID is not specified, the spatial reference of
+        the dataset is used.
         """
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} values using {} property of the geometry.".format(
-                field_name, geometry_property_cascade
-                ))
+            logger.info(
+                "Start: Update field {} values using {} geometry properties.".format(
+                    field_name, geometry_property_cascade
+                    )
+                )
+        if update_units:
+            raise NotImplementedError("update_units not yet implemented.")
         with arcpy.da.UpdateCursor(
             in_table = dataset_path,
             field_names = (field_name, 'shape@'),
@@ -1231,31 +1237,35 @@ class ArcWorkspace(object):
                     new_value = None
                 else:
                     new_value = geometry
-                    # Cascade down the geometry properties until new_value is the final one.
+                    # Cascade down the geometry properties.
                     for geometry_property in geometry_property_cascade:
-                        if geometry_property.lower() in ('area',):
-                            new_value = new_value.getArea(units = update_units)
-                        elif geometry_property.lower() in ('centroid',):
+                        geometry_property = geometry_property.lower()
+                        if geometry_property in ['area']:
+                            try:
+                                new_value = new_value.area
+                            except TypeError:
+                                raise
+                        elif geometry_property in ['centroid']:
                             new_value = new_value.centroid
-                        elif geometry_property.lower() in ('length',):
-                            new_value = new_value.getLength (units = update_units)
-                        elif geometry_property.lower() in ('x', 'x-coordinate',):
+                        elif geometry_property in ['length']:
+                            new_value = new_value.length
+                        elif geometry_property in ['x', 'x-coordinate']:
                             new_value = new_value.X
-                        elif geometry_property.lower() in ('y', 'y-coordinate',):
+                        elif geometry_property in ['y', 'y-coordinate']:
                             new_value = new_value.Y
-                        elif geometry_property.lower() in ('z', 'z-coordinate',):
+                        elif geometry_property in ['z', 'z-coordinate']:
                             new_value = new_value.Z
-                        elif geometry_property.lower() in ('x-minimum', 'xmin',):
+                        elif geometry_property in ['x-minimum', 'xmin']:
                             new_value = new_value.extent.XMin
-                        elif geometry_property.lower() in ('y-minimum', 'ymin',):
+                        elif geometry_property in ['y-minimum', 'ymin']:
                             new_value = new_value.extent.YMin
-                        elif geometry_property.lower() in ('z-minimum', 'zmin',):
+                        elif geometry_property in ['z-minimum', 'zmin']:
                             new_value = new_value.extent.ZMin
-                        elif geometry_property.lower() in ('x-maximum', 'xmax',):
+                        elif geometry_property in ['x-maximum', 'xmax']:
                             new_value = new_value.extent.XMax
-                        elif geometry_property.lower() in ('y-maximum', 'ymax',):
+                        elif geometry_property in ['y-maximum', 'ymax']:
                             new_value = new_value.extent.YMax
-                        elif geometry_property.lower() in ('z-maximum', 'zmax',):
+                        elif geometry_property in ['z-maximum', 'zmax']:
                             new_value = new_value.extent.ZMax
                 if new_value != field_value:
                     cursor.updateRow((new_value, geometry))
