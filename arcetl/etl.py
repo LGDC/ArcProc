@@ -308,6 +308,26 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return geodatabase_path
 
+    def create_geodatabase_xml_backup(self,geodatabase_path, output_path,
+                                      include_data=False,
+                                      include_metadata=True, info_log=True):
+        """Create backup of geodatabase as XML workspace document."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Create backup for {} in {}.".format(
+                    geodatabase_path, output_path
+                    )
+                )
+        arcpy.management.ExportXMLWorkspaceDocument(
+            in_data = geodatabase_path, out_file = output_path,
+            export_type = 'data' if include_data else 'schema_only',
+            storage_type = 'binary', export_metadata = include_metadata
+            )
+        if info_log:
+            logger.info("End: Create.")
+        return output_path
+
     def delete_dataset(self, dataset_path, info_log=True):
         """Delete dataset."""
         logger.debug("Called {}".format(debug_call()))
