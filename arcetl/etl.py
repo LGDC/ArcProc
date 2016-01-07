@@ -289,6 +289,25 @@ class ArcWorkspace(object):
                                field.get('precision'), field.get('scale'), info_log = False)
         return dataset_path
 
+    def create_file_geodatabase(self, geodatabase_path, info_log=True):
+        """Create new file geodatabase."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Create file geodatabase at {}.".format(
+                geodatabase_path
+                ))
+        if os.path.exists(geodatabase_path):
+            logger.warning("Geodatabase already exists.")
+        else:
+            arcpy.management.CreateFileGDB(
+                out_folder_path = os.path.dirname(geodatabase_path),
+                out_name = os.path.basename(geodatabase_path),
+                out_version = 'current'
+                )
+        if info_log:
+            logger.info("End: Create.")
+        return geodatabase_path
+
     def delete_dataset(self, dataset_path, info_log=True):
         """Delete dataset."""
         logger.debug("Called {}".format(debug_call()))
