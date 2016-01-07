@@ -133,7 +133,7 @@ class ArcWorkspace(object):
     # Metadata/property methods.
 
     def dataset_metadata(self, dataset_path):
-        """Return dictionary of the dataset's metadata."""
+        """Return dictionary of dataset's metadata."""
         logger.debug("Called {}".format(debug_call()))
         metadata = {}
         arc_description = arcpy.Describe(dataset_path)
@@ -263,30 +263,40 @@ class ArcWorkspace(object):
             logger.info("End: Copy.")
         return output_path
 
-    def create_dataset(self, dataset_path, field_metadata=[], geometry_type=None,
-                       spatial_reference_id=None, info_log=True):
+    def create_dataset(self, dataset_path, field_metadata=[],
+                       geometry_type=None, spatial_reference_id=None,
+                       info_log=True):
         """Create new dataset."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Create dataset {}.".format(dataset_path))
         if geometry_type:
             if spatial_reference_id:
-                spatial_reference = arcpy.SpatialReference(spatial_reference_id)
+                spatial_reference = arcpy.SpatialReference(
+                    spatial_reference_id
+                    )
             else:
                 spatial_reference = arcpy.SpatialReference(4326)
-            arcpy.management.CreateFeatureclass(out_path = os.path.dirname(dataset_path),
-                                                out_name = os.path.basename(dataset_path),
-                                                geometry_type = geometry_type,
-                                                spatial_reference = spatial_reference)
+            arcpy.management.CreateFeatureclass(
+                out_path = os.path.dirname(dataset_path),
+                out_name = os.path.basename(dataset_path),
+                geometry_type = geometry_type,
+                spatial_reference = spatial_reference
+                )
         else:
-            arcpy.management.CreateTable(out_path = os.path.dirname(dataset_path),
-                                         out_name = os.path.basename(dataset_path))
+            arcpy.management.CreateTable(
+                out_path = os.path.dirname(dataset_path),
+                out_name = os.path.basename(dataset_path)
+                )
         if field_metadata:
             if isinstance(field_metadata, dict):
                 field_metadata = [field_metadata]
             for field in field_metadata:
-                self.add_field(dataset_path, field['name'], field['type'], field.get('length'),
-                               field.get('precision'), field.get('scale'), info_log = False)
+                self.add_field(
+                    dataset_path, field['name'], field['type'],
+                    field.get('length'), field.get('precision'),
+                    field.get('scale'), info_log = False
+                    )
         return dataset_path
 
     def create_file_geodatabase(self, geodatabase_path, info_log=True):
@@ -655,35 +665,61 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return dataset_path
 
-    def dissolve_features(self, dataset_path, dissolve_field_names, multipart=True,
-                          unsplit_lines=False, dataset_where_sql=None, info_log=True):
+    def dissolve_features(self, dataset_path, dissolve_field_names,
+                          multipart=True, unsplit_lines=False,
+                          dataset_where_sql=None, info_log=True):
         """Merge features that share values in given fields."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Dissolve features on {}.".format(dissolve_field_names))
-            logger.info("Initial feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.info(
+                "Start: Dissolve features on {}.".format(dissolve_field_names)
+                )
+            logger.info(
+                "Initial feature count: {}.".format(
+                    self.feature_count(dataset_path)
+                    )
+                )
         else:
-            logger.debug("Initial feature count: {}.".format(self.feature_count(dataset_path)))
-        # Set the environment tolerance, so we can be sure the in_memory datasets respect it.
-        # 0.003280839895013 is the default for all datasets in our geodatabases.
+            logger.debug(
+                "Initial feature count: {}.".format(
+                    self.feature_count(dataset_path)
+                    )
+                )
+        # Set the environment tolerance, so we can be sure the in_memory
+        # datasets respect it. 0.003280839895013 is the default for all
+        # datasets in our geodatabases.
         arcpy.env.XYTolerance = 0.003280839895013
         view_name = random_string()
-        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
+        arcpy.management.MakeFeatureLayer(
+            dataset_path, view_name, dataset_where_sql, self.path
+            )
         temp_dissolved_path = memory_path()
-        arcpy.management.Dissolve(in_features = view_name, out_feature_class = temp_dissolved_path,
-                                  dissolve_field = dissolve_field_names, multi_part = multipart,
-                                  unsplit_lines = unsplit_lines)
+        arcpy.management.Dissolve(
+            in_features = view_name, out_feature_class = temp_dissolved_path,
+            dissolve_field = dissolve_field_names, multi_part = multipart,
+            unsplit_lines = unsplit_lines
+            )
         # Delete undissolved features that are now dissolved (in the temp).
         self.delete_features(view_name, info_log = False)
         self.delete_dataset(view_name, info_log = False)
         # Copy the dissolved features (in the temp) to the dataset.
-        self.insert_features_from_path(dataset_path, temp_dissolved_path, info_log = False)
+        self.insert_features_from_path(
+            dataset_path, temp_dissolved_path, info_log = False
+            )
         self.delete_dataset(temp_dissolved_path, info_log = False)
         if info_log:
-            logger.info("Final feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.info(
+                "Final feature count: {}.".format(
+                    self.feature_count(dataset_path)
+                    )
+                )
             logger.info("End: Dissolve.")
         else:
-            logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.debug(
+                "Final feature count: {}.".format(
+                    self.feature_count(dataset_path)
+                    )
+                )
         return dataset_path
 
     def erase_features(self, dataset_path, erase_dataset_path,
