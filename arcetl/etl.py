@@ -197,6 +197,46 @@ class ArcWorkspace(object):
 
     # Workspace management methods.
 
+    def compress_geodatabase(self, geodatabase_path=None, disconnect_users=False,
+                             info_log=True):
+        """Compress geodatabase."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Compress {}.".format(geodatabase_path))
+        if not geodatabase_path:
+            geodatabase_path = self.path
+        arc_description = arcpy.Describe(geodatabase_path)
+        if hasattr(arc_description, 'workspaceType'):
+            workspace_type = arc_description.workspaceType
+        else:
+            workspace_type = None
+        if workspace_type == 'LocalDatabase':
+            # Local databases cannot disconnect users (connections managed by
+            # file access).
+            disconnect_users = False
+            compress = arcpy.management.CompressFileGeodatabaseData
+        elif workspace_type == 'RemoteDatabase':
+            compress = arcpy.management.Compress
+        else:
+            raise ValueError(
+                "{} not a valid geodatabase.".format(geodatabase_path)
+                )
+        if disconnect_users:
+            arcpy.AcceptConnections(
+                sde_workspace = geodatabase_path, accept_connections = False
+                )
+            arcpy.DisconnectUser(
+                sde_workspace = geodatabase_path, users = 'all'
+                )
+        compress(geodatabase_path)
+        if disconnect_users:
+            arcpy.AcceptConnections(
+                sde_workspace = geodatabase_path, accept_connections = True
+                )
+        if info_log:
+            logger.info("End: Compress.")
+        return geodatabase_path
+
     def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None,
                      schema_only=False, overwrite=False, info_log=True):
         """Copy dataset."""
