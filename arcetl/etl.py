@@ -195,6 +195,35 @@ class ArcWorkspace(object):
         else:
             return False
 
+    def workspace_dataset_names(self, workspace_path=None, wildcard=None,
+                                include_feature_classes=True,
+                                include_rasters=True, include_tables=True,
+                                include_feature_datasets=True):
+        """Return list of names of workspace's datasets.
+
+        wildcard requires an * to indicate where open; case insensitive.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if workspace_path and workspace_path != self.path:
+            arcpy.env.workspace = workspace_path
+        dataset_names = []
+        if include_feature_classes:
+            # None-value represents the root level.
+            feature_dataset_names = [None]
+            if include_feature_datasets:
+                feature_dataset_names += arcpy.ListDatasets()
+            for feature_dataset_name in feature_dataset_names:
+                dataset_names += arcpy.ListFeatureClasses(
+                    wildcard, feature_dataset = feature_dataset_name
+                    )
+        if include_rasters:
+            dataset_names += arcpy.ListRasters(wildcard)
+        if include_tables:
+            dataset_names += arcpy.ListTables(wildcard)
+        if workspace_path and workspace_path != self.path:
+            arcpy.env.workspace = self.path
+        return dataset_names
+
     # Workspace management methods.
 
     def compress_geodatabase(self, geodatabase_path=None, disconnect_users=False,
