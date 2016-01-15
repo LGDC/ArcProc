@@ -5,6 +5,7 @@ import logging
 import os
 import random
 import string
+import uuid
 
 arcpy = None  # Lazy import.
 
@@ -1913,3 +1914,26 @@ def memory_path(prefix='', suffix='', random_length=4):
 def random_string(length=16):
     """Generates a random string of the given length."""
     return  ''.join(random.choice(string.ascii_letters) for x in range(length))
+
+
+def unique_ids(data_type=uuid.UUID, string_length=16):
+    """Generator for unique IDs."""
+    if data_type in (float, int):
+        unique_id = data_type()
+        while True:
+            yield unique_id
+            unique_id += 1
+    elif data_type in [uuid.UUID]:
+        while True:
+            yield uuid.uuid4()
+    elif data_type in [str]:
+        if not string_length:
+            string_length=16
+        used_ids = set()
+        while True:
+            unique_id = str(uuid.uuid4())[:string_length]
+            while unique_id in used_ids:
+                unique_id = str(uuid.uuid4())[:string_length]
+            yield unique_id
+    else:
+        raise NotImplementedError("Unique IDs for type {} not implemented.")
