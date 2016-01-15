@@ -1904,9 +1904,10 @@ def debug_call(with_argument_values=True):
         return "{}{}".format(frame.f_code.co_name, tuple(argvalues[0]))
 
 
-def memory_path():
+def memory_path(prefix='', suffix='', random_length=4):
     """Creates a memory workspace path to use."""
-    return os.path.join('in_memory', random_string())
+    name = '{}{}{}'.format(prefix, random_string(random_length), suffix)
+    return os.path.join('in_memory', name)
 
 
 def random_string(length=16):
