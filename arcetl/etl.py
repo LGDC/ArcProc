@@ -1241,7 +1241,7 @@ class ArcWorkspace(object):
         """Update field values using another field's values and a coded-values domain."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} values using domain {}.".format(
+            logger.info("Start: Update field {} using domain {}.".format(
                 field_name, domain_name
                 ))
         workspace_path = domain_workspace_path if domain_workspace_path else self.path
@@ -1271,7 +1271,7 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(" ".join([
-                "Start: Update {} field values".format(field_name),
+                "Start: Update field {}".format(field_name),
                 "using the method {}".format(method_name),
                 "from the object constructed by {}.".format(
                     constructor.__name__
@@ -1340,7 +1340,7 @@ class ArcWorkspace(object):
         logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
-                "Start: Update {} field values using function {}.".format(
+                "Start: Update field {} using function {}.".format(
                     field_name, function.__name__
                     )
                 )
@@ -1436,7 +1436,7 @@ class ArcWorkspace(object):
         """Update field values by referencing a joinable field."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} values with joined value {}.{}>.".format(
+            logger.info("Start: Update field {} with joined values {}.{}>.".format(
                 field_name, join_dataset_path,  join_field_name
                 ))
         # Build join-reference.
@@ -1470,7 +1470,7 @@ class ArcWorkspace(object):
         """
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} with near-value {}.{}.".format(
+            logger.info("Start: Update field {} using near-values {}.{}.".format(
                 field_name, near_dataset_path,  near_field_name
                 ))
         # Create a temporary copy of the near dataset.
@@ -1600,7 +1600,7 @@ class ArcWorkspace(object):
         """
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} with overlay value {}.{}.".format(
+            logger.info("Start: Update field {} using overlay values {}.{}.".format(
                 field_name, overlay_dataset_path,  overlay_field_name
                 ))
         # Check flags & set details for spatial join call.
@@ -1656,6 +1656,34 @@ class ArcWorkspace(object):
             dataset_where_sql = dataset_where_sql, info_log = False
             )
         self.delete_dataset(temp_output_path, info_log = False)
+        if info_log:
+            logger.info("End: Update.")
+        return field_name
+
+    def update_field_by_unique_id(self, dataset_path, field_name,
+                                  dataset_where_sql=None, info_log=True):
+        """Update field values by assigning a unique ID."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Update field {} using unique IDs.".format(field_name)
+                )
+        field_metadata = self.field_metadata(dataset_path, field_name)
+        field_type_map = {
+            'double': float, 'single': float,
+            'integer': int, 'long': int, 'short': int, 'smallinteger': int,
+            'guid': uuid.UUID,
+            'string': str, 'text': str,
+            }
+        unique_id_pool = unique_ids(
+            data_type = field_type_map[field_metadata['type']],
+            string_length = field_metadata.get('length', 16)
+            )
+        with arcpy.da.UpdateCursor(
+            dataset_path, [field_name], dataset_where_sql
+            ) as cursor:
+            for row in cursor:
+                cursor.updateRow([next(unique_id_pool)])
         if info_log:
             logger.info("End: Update.")
         return field_name
