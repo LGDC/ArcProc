@@ -1947,12 +1947,12 @@ def memory_path(prefix='', suffix='', random_length=4):
     return os.path.join('in_memory', name)
 
 
-def random_string(length=16):
+def random_string(length=4):
     """Generates a random string of the given length."""
     return  ''.join(random.choice(string.ascii_letters) for x in range(length))
 
 
-def unique_ids(data_type=uuid.UUID, string_length=16):
+def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generator for unique IDs."""
     if data_type in (float, int):
         unique_id = data_type()
@@ -1963,8 +1963,6 @@ def unique_ids(data_type=uuid.UUID, string_length=16):
         while True:
             yield uuid.uuid4()
     elif data_type in [str]:
-        if not string_length:
-            string_length=16
         used_ids = set()
         while True:
             unique_id = str(uuid.uuid4())[:string_length]
