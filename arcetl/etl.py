@@ -329,7 +329,9 @@ class ArcWorkspace(object):
                     )
         return dataset_path
 
-    def create_file_geodatabase(self, geodatabase_path, info_log=True):
+    def create_file_geodatabase(self, geodatabase_path,
+                                xml_workspace_path=None,
+                                include_xml_data=False, info_log=True):
         """Create new file geodatabase."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
@@ -338,17 +340,23 @@ class ArcWorkspace(object):
                 ))
         if os.path.exists(geodatabase_path):
             logger.warning("Geodatabase already exists.")
-        else:
-            arcpy.management.CreateFileGDB(
-                out_folder_path = os.path.dirname(geodatabase_path),
-                out_name = os.path.basename(geodatabase_path),
-                out_version = 'current'
-                )
+            return geodatabase_path
+        arcpy.management.CreateFileGDB(
+            out_folder_path = os.path.dirname(geodatabase_path),
+            out_name = os.path.basename(geodatabase_path),
+            out_version = 'current'
+            )
+        arcpy.management.ImportXMLWorkspaceDocument(
+            target_geodatabase = geodatabase_path,
+            in_file = xml_workspace_path,
+            import_type = 'data' if include_xml_data else 'schema_only',
+            config_keyword = 'defaults'
+            )
         if info_log:
             logger.info("End: Create.")
         return geodatabase_path
 
-    def create_geodatabase_xml_backup(self,geodatabase_path, output_path,
+    def create_geodatabase_xml_backup(self, geodatabase_path, output_path,
                                       include_data=False,
                                       include_metadata=True, info_log=True):
         """Create backup of geodatabase as XML workspace document."""
