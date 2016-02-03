@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 class ETLMetadata(object):
     """Metadata for an extract, transform, & load (ETL) procedure."""
 
-    def __init__(self, etl_name, operations=[]):
+    def __init__(self, etl_name, workspace_path=None, operations=[]):
         self.name = etl_name
         self.operations = list(operations)
+        self.workspace_path = workspace_path
 
     def add_assertion(self, operation_name, **kwargs):
         """Add assertion check to the operations list."""
@@ -50,10 +51,10 @@ class ETLMetadata(object):
             OperationMetadata(operation_name, 'transform', kwargs)
             )
 
-    def run(self, workspace_path=None):
+    def run(self):
         """Perform all actions related to running an ETL."""
         logger.info("Starting ETL for: {}.".format(self.name))
-        with ArcETL(ArcWorkspace(workspace_path)) as etl:
+        with ArcETL(ArcWorkspace(self.workspace_path)) as etl:
             # Perform listed ETL operations.
             for operation in self.operations:
                 if operation.type == 'assert':
@@ -87,7 +88,9 @@ class JobMetadata(object):
     def run(self):
         """Perform actions to complete job."""
         for etl in self.etls:
-            etl.run(self.workspace_path)
+            if not etl.workspace_path:
+                etl.workspace_path = self.workspace_path
+            etl.run()
 
 
 class OperationMetadata(object):
