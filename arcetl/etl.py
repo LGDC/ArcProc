@@ -1454,21 +1454,32 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    def update_field_by_joined_value(self, dataset_path, field_name, join_dataset_path,
-                                     join_field_name, on_field_pairs, dataset_where_sql=None,
+    def update_field_by_joined_value(self, dataset_path, field_name,
+                                     join_dataset_path, join_field_name,
+                                     on_field_pairs, dataset_where_sql=None,
                                      info_log=True):
         """Update field values by referencing a joinable field."""
         logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Update field {} with joined values {}.{}>.".format(
-                field_name, join_dataset_path,  join_field_name
-                ))
+            logger.info(
+                "Start: Update field {} with joined values {}.{}>.".format(
+                    field_name, join_dataset_path,  join_field_name
+                    )
+                )
         # Build join-reference.
-        cursor_field_names = (join_field_name,) + tuple(pair[1] for pair in on_field_pairs)
-        with arcpy.da.SearchCursor(join_dataset_path, cursor_field_names) as cursor:
+        cursor_field_names = (join_field_name,) + tuple(
+            pair[1] for pair in on_field_pairs
+            )
+        with arcpy.da.SearchCursor(
+            join_dataset_path, cursor_field_names
+            ) as cursor:
             join_value = {row[1:]: row[0] for row in cursor}
-        cursor_field_names = (field_name,) + tuple(pair[0] for pair in on_field_pairs)
-        with arcpy.da.UpdateCursor(dataset_path, cursor_field_names, dataset_where_sql) as cursor:
+        cursor_field_names = (field_name,) + tuple(
+            pair[0] for pair in on_field_pairs
+            )
+        with arcpy.da.UpdateCursor(
+            dataset_path, cursor_field_names, dataset_where_sql
+            ) as cursor:
             for row in cursor:
                 new_value = join_value.get(tuple(row[1:]))
                 if new_value != row[0]:
