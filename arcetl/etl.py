@@ -346,12 +346,13 @@ class ArcWorkspace(object):
             out_name = os.path.basename(geodatabase_path),
             out_version = 'current'
             )
-        arcpy.management.ImportXMLWorkspaceDocument(
-            target_geodatabase = geodatabase_path,
-            in_file = xml_workspace_path,
-            import_type = 'data' if include_xml_data else 'schema_only',
-            config_keyword = 'defaults'
-            )
+        if xml_workspace_path:
+            arcpy.management.ImportXMLWorkspaceDocument(
+                target_geodatabase = geodatabase_path,
+                in_file = xml_workspace_path,
+                import_type = 'data' if include_xml_data else 'schema_only',
+                config_keyword = 'defaults'
+                )
         if info_log:
             logger.info("End: Create.")
         return geodatabase_path
