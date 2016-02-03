@@ -45,8 +45,8 @@ class ArcETL(object):
         logger.info("Start: Extract {}.".format(extract_path))
         # Extract to a new dataset.
         self.transform_path = self.workspace.copy_dataset(
-            extract_path, memory_path(), extract_where_sql, schema_only,
-            info_log = False
+            extract_path, unique_temp_dataset_path(prefix = 'extract_'),
+            extract_where_sql, schema_only, info_log = False
             )
         logger.info("End: Extract.")
         return self.transform_path
@@ -85,7 +85,9 @@ class ArcETL(object):
             kwargs['dataset_path'] = self.transform_path
         # If arguments include output_path, supersede old transform path.
         if 'output_path' in inspect.getargspec(transform).args:
-            kwargs['output_path'] = memory_path()
+            kwargs['output_path'] = unique_temp_dataset_path(
+                prefix = transform_name
+                )
         result = transform(**kwargs)
         if 'output_path' in kwargs:
             # Remove old transform_path (if extant).
@@ -284,7 +286,7 @@ class ArcWorkspace(object):
             raise ValueError("{} unsupported dataset type.".format(dataset_path))
         if overwrite and self.is_valid_dataset(output_path):
             self.delete_dataset(output_path, info_log = False)
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         create_view(dataset_path, view_name,
                     dataset_where_sql if not schema_only else "0 = 1", self.path)
         copy_rows(view_name, output_path)
@@ -576,15 +578,15 @@ class ArcWorkspace(object):
             logger.debug("Initial feature count: {}.".format(
                 self.feature_count(dataset_path)
                 ))
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(
             dataset_path, view_name, dataset_where_sql, self.path
             )
-        clip_view_name = random_string()
+        clip_view_name = unique_name(prefix = 'clip_dataset_view_')
         arcpy.management.MakeFeatureLayer(
             clip_dataset_path, clip_view_name, clip_where_sql, self.path
             )
-        temp_output_path = memory_path()
+        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
         arcpy.analysis.Clip(
             in_features = view_name, clip_features = clip_view_name,
             out_feature_class = temp_output_path
@@ -711,7 +713,7 @@ class ArcWorkspace(object):
                 delete_rows = arcpy.management.DeleteRows
             else:
                 raise ValueError("{} unsupported dataset type.".format(dataset_path))
-            view_name = random_string()
+            view_name = unique_name(prefix = 'dataset_view_')
             create_view(dataset_path, view_name, dataset_where_sql, self.path)
             delete_rows(view_name)
             self.delete_dataset(view_name, info_log = False)
@@ -743,11 +745,13 @@ class ArcWorkspace(object):
         # datasets respect it. 0.003280839895013 is the default for all
         # datasets in our geodatabases.
         arcpy.env.XYTolerance = 0.003280839895013
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(
             dataset_path, view_name, dataset_where_sql, self.path
             )
-        temp_dissolved_path = memory_path()
+        temp_dissolved_path = unique_temp_dataset_path(
+            prefix = 'temp_dissolved_'
+            )
         arcpy.management.Dissolve(
             in_features = view_name, out_feature_class = temp_dissolved_path,
             dissolve_field = dissolve_field_names, multi_part = multipart,
@@ -792,15 +796,15 @@ class ArcWorkspace(object):
             logger.debug("Initial feature count: {}.".format(
                 self.feature_count(dataset_path)
                 ))
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(
             dataset_path, view_name, dataset_where_sql, self.path
             )
-        erase_view_name = random_string()
+        erase_view_name = unique_name(prefix = 'erase_dataset_view_')
         arcpy.management.MakeFeatureLayer(
             erase_dataset_path, erase_view_name, erase_where_sql, self.path
             )
-        temp_output_path = memory_path()
+        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
         arcpy.analysis.Erase(
             in_features = view_name, erase_features = erase_view_name,
             out_feature_class = temp_output_path
@@ -840,11 +844,11 @@ class ArcWorkspace(object):
             logger.debug("Initial feature count: {}.".format(
                 self.feature_count(dataset_path)
                 ))
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(
             dataset_path, view_name, dataset_where_sql, self.path
             )
-        location_view_name = random_string()
+        location_view_name = unique_name(prefix = 'location_dataset_view_')
         arcpy.management.MakeFeatureLayer(
             location_path, location_view_name, location_where_sql, self.path
             )
@@ -893,11 +897,15 @@ class ArcWorkspace(object):
         else:
             logger.debug("Initial feature count: {}.".format(self.feature_count(dataset_path)))
         # Create a temporary copy of the identity dataset.
-        temp_identity_path = self.copy_dataset(identity_dataset_path, memory_path(),
-                                               info_log = False)
+        temp_identity_path = self.copy_dataset(
+            identity_dataset_path,
+            unique_temp_dataset_path(prefix = 'temp_identity_'), info_log = False
+            )
         # Create neutral/unique field for holding identity value (avoids collisions).
         temp_field_metadata = self.field_metadata(temp_identity_path, identity_field_name)
-        temp_field_metadata['name'] = random_string()
+        temp_field_metadata['name'] = unique_name(
+            prefix = temp_field_metadata['name']
+            )
         # Cannot add OID-type field, so push to a long-type.
         if temp_field_metadata['type'].lower() == 'oid':
             temp_field_metadata['type'] = 'long'
@@ -916,7 +924,7 @@ class ArcWorkspace(object):
             from_objectid, to_objectid = chunk_objectids[0], chunk_objectids[-1]
             logger.debug("Chunk: Feature object IDs {} to {}".format(from_objectid, to_objectid))
             # Create the temp output of the identity.
-            view_name = random_string()
+            view_name = unique_name(prefix = 'dataset_view_')
             view_where_clause = "{0} >= {1} and {0} <= {2}".format(
                     self.dataset_metadata(dataset_path)['oid_field_name'],
                     from_objectid, to_objectid
@@ -930,7 +938,9 @@ class ArcWorkspace(object):
                 where_clause = view_where_clause, workspace = self.path
                 )
             # Create temporary dataset with the identity values.
-            temp_output_path = memory_path()
+            temp_output_path = unique_temp_dataset_path(
+                prefix = 'temp_output_'
+                )
             arcpy.analysis.Identity(
                 in_features = view_name, identity_features = temp_identity_path,
                 out_feature_class = temp_output_path, join_attributes = 'all', relationship = False
@@ -1023,7 +1033,7 @@ class ArcWorkspace(object):
             raise ValueError(
                 "{} unsupported dataset type.".format(dataset_path)
                 )
-        insert_view_name = random_string()
+        insert_view_name = unique_name(prefix = 'insert_dataset_view_')
         create_view(insert_dataset_path, insert_view_name,
                     insert_where_sql, self.path)
         arcpy.management.Append(inputs = insert_view_name,
@@ -1080,13 +1090,17 @@ class ArcWorkspace(object):
             match_option = 'intersect'
         # Create a temporary copy of the overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            overlay_dataset_path, memory_path(), info_log = False
+            overlay_dataset_path,
+            unique_temp_dataset_path(prefix = 'temp_overlay_'),
+            info_log = False
             )
         # Create neutral field for holding overlay value (avoids collisions).
         temp_field_metadata = self.field_metadata(
             temp_overlay_path, overlay_field_name
             )
-        temp_field_metadata['name'] = random_string()
+        temp_field_metadata['name'] = unique_name(
+            prefix = temp_field_metadata['name']
+            )
         # Cannot add OID-type field, so push to a long-type.
         if temp_field_metadata['type'].lower() == 'oid':
             temp_field_metadata['type'] = 'long'
@@ -1113,7 +1127,7 @@ class ArcWorkspace(object):
                 from_objectid, to_objectid
                 ))
             # Create the temp output of the overlay.
-            view_name = random_string()
+            view_name = unique_name(prefix = 'dataset_view_')
             view_where_clause = "{0} >= {1} and {0} <= {2}".format(
                     self.dataset_metadata(dataset_path)['oid_field_name'],
                     from_objectid, to_objectid
@@ -1125,7 +1139,9 @@ class ArcWorkspace(object):
                 # ArcPy where clauses cannot use 'between'.
                 where_clause = view_where_clause, workspace = self.path
                 )
-            temp_output_path = memory_path()
+            temp_output_path = unique_temp_dataset_path(
+                prefix = 'temp_output_'
+                )
             arcpy.analysis.SpatialJoin(
                 target_features = view_name, join_features = temp_overlay_path,
                 out_feature_class = temp_output_path,
@@ -1139,7 +1155,7 @@ class ArcWorkspace(object):
                     repr(replacement_value), temp_field_metadata['name']
                     )
             else:
-                expression = "!{0}!".format(temp_field_metadata['name'])
+                expression = "!{}!".format(temp_field_metadata['name'])
             self.update_field_by_expression(
                 temp_output_path, field_name, expression, info_log = False
                 )
@@ -1214,10 +1230,15 @@ class ArcWorkspace(object):
         else:
             logger.debug("Initial feature count: {}.".format(self.feature_count(dataset_path)))
         # Create a temporary copy of the union dataset.
-        temp_union_path = self.copy_dataset(union_dataset_path, memory_path(), info_log = False)
+        temp_union_path = self.copy_dataset(
+            union_dataset_path,
+            unique_temp_dataset_path(prefix = 'temp_union_'), info_log = False
+            )
         # Create neutral/unique field for holding union value (avoids collisions).
         temp_field_metadata = self.field_metadata(temp_union_path, union_field_name)
-        temp_field_metadata['name'] = random_string()
+        temp_field_metadata['name'] = unique_name(
+            prefix = temp_field_metadata['name']
+            )
         # Cannot add OID-type field, so push to a long-type.
         if temp_field_metadata['type'].lower() == 'oid':
             temp_field_metadata['type'] = 'long'
@@ -1226,9 +1247,9 @@ class ArcWorkspace(object):
                                         expression = '!{}!'.format(union_field_name),
                                         info_log = False)
         # Create the temp output of the union.
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
-        temp_output_path = memory_path()
+        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
         arcpy.analysis.Union(
             in_features = [view_name, temp_union_path], out_feature_class = temp_output_path,
             join_attributes = 'all', gaps = False
@@ -1330,7 +1351,7 @@ class ArcWorkspace(object):
             raise ValueError(
                 "{} unsupported dataset type.".format(dataset_path)
                 )
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         create_view(dataset_path, view_name, dataset_where_sql, self.path)
         arcpy.management.CalculateField(
             in_table = view_name, field = field_name, expression = expression,
@@ -1510,7 +1531,8 @@ class ArcWorkspace(object):
                 ))
         # Create a temporary copy of the near dataset.
         temp_near_path = self.copy_dataset(
-            near_dataset_path, memory_path(), info_log = False
+            near_dataset_path, unique_temp_dataset_path(prefix = 'temp_near_'),
+            info_log = False
             )
         dataset_oid_field_name = (
             self.dataset_metadata(dataset_path)['oid_field_name']
@@ -1522,7 +1544,9 @@ class ArcWorkspace(object):
         temp_field_metadata = self.field_metadata(
             temp_near_path, near_field_name
             )
-        temp_field_metadata['name'] = random_string()
+        temp_field_metadata['name'] = unique_name(
+            prefix = temp_field_metadata['name']
+            )
         # Cannot add OID-type field, so push to a long-type.
         if temp_field_metadata['type'].lower() == 'oid':
             temp_field_metadata['type'] = 'long'
@@ -1531,16 +1555,16 @@ class ArcWorkspace(object):
             )
         self.update_field_by_expression(
             temp_near_path, temp_field_metadata['name'],
-            expression = '!{}!'.format(near_field_name), info_log = False
+            expression = "!{}!".format(near_field_name), info_log = False
             )
         # Create the temp output of the near features.
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(
             dataset_path, view_name, dataset_where_sql, self.path
             )
-        temp_output_path = memory_path()
+        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
         arcpy.analysis.GenerateNearTable(
-            in_features = dataset_path, near_features = temp_near_path,
+            in_features = view_name, near_features = temp_near_path,
             out_table = temp_output_path, search_radius = max_search_distance,
             location = any([x_coordinate_field_name, y_coordinate_field_name]),
             angle = any([angle_field_name]),
@@ -1650,10 +1674,16 @@ class ArcWorkspace(object):
             join_operation = 'join_one_to_one'
             match_option = 'intersect'
         # Create a temporary copy of the overlay dataset.
-        temp_overlay_path = self.copy_dataset(overlay_dataset_path, memory_path(), info_log = False)
+        temp_overlay_path = self.copy_dataset(
+            overlay_dataset_path,
+            unique_temp_dataset_path(prefix = 'temp_overlay_'),
+            info_log = False
+            )
         # Create neutral field for holding overlay value (avoids collisions).
         temp_field_metadata = self.field_metadata(temp_overlay_path, overlay_field_name)
-        temp_field_metadata['name'] = random_string()
+        temp_field_metadata['name'] = unique_name(
+            prefix = temp_field_metadata['name']
+            )
         # Cannot add OID-type field, so push to a long-type.
         if temp_field_metadata['type'].lower() == 'oid':
             temp_field_metadata['type'] = 'long'
@@ -1663,9 +1693,9 @@ class ArcWorkspace(object):
                                         expression = '!{}!'.format(overlay_field_name),
                                         info_log = False)
         # Create the temp output of the overlay.
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
-        temp_output_path = memory_path()
+        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
         arcpy.analysis.SpatialJoin(
             target_features = view_name, join_features = temp_overlay_path,
             out_feature_class = temp_output_path, join_operation = join_operation,
@@ -1862,7 +1892,7 @@ class ArcWorkspace(object):
             raise RuntimeError("Unable to check out Network Analyst license.")
         # Create break value range.
         break_values = range(ring_width, max_distance + 1, ring_width)
-        view_name = random_string()
+        view_name = unique_name(prefix = 'dataset_view_')
         arcpy.management.MakeFeatureLayer(
             in_features = dataset_path, out_layer = view_name,
             where_clause = dataset_where_sql
@@ -1902,10 +1932,8 @@ class ArcWorkspace(object):
             in_network_analysis_layer="service_area",
             ignore_invalids = True, terminate_on_solve_error = True
             )
-        # Copy output to temp feature class.
-        output_path = self.copy_dataset(
-            'service_area/Polygons', output_path = memory_path(),
-            info_log = False
+        self.copy_dataset(
+            'service_area/Polygons', output_path, info_log = False
             )
         id_field_metadata = self.field_metadata(dataset_path, id_field_name)
         self.add_fields_from_metadata_list(
@@ -1968,17 +1996,6 @@ def debug_call(with_argument_values=True):
         return "{}{}".format(frame.f_code.co_name, tuple(argvalues[0]))
 
 
-def memory_path(prefix='', suffix='', random_length=4):
-    """Creates a memory workspace path to use."""
-    name = '{}{}{}'.format(prefix, random_string(random_length), suffix)
-    return os.path.join('in_memory', name)
-
-
-def random_string(length=4):
-    """Generates a random string of the given length."""
-    return  ''.join(random.choice(string.ascii_letters) for x in range(length))
-
-
 def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generator for unique IDs."""
     if data_type in (float, int):
@@ -1998,3 +2015,18 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
             yield unique_id
     else:
         raise NotImplementedError("Unique IDs for type {} not implemented.")
+
+
+def unique_name(prefix='', suffix='', unique_length=4):
+    """Generate unique name."""
+    return '{}{}{}'.format(
+        prefix,
+        next(unique_ids(data_type = str, string_length = unique_length)),
+        suffix
+        )
+
+
+def unique_temp_dataset_path(workspace='in_memory', prefix='', suffix='',
+                             unique_length=4):
+    """Create unique temporary dataset path."""
+    return os.path.join(workspace, unique_name(prefix, suffix, unique_length))
