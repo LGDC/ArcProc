@@ -387,6 +387,21 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return dataset_path
 
+    def set_dataset_privileges(self, dataset_path, user_name, allow_view=None,
+                               allow_edit=None, info_log=True):
+        """Set privileges for dataset in enterprise geodatabase."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Set privileges for {}.".format(dataset_path))
+        privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
+        arcpy.management.ChangePrivileges(
+            in_dataset= dataset_path, user = user_name,
+            View = privilege_map[allow_view], Edit = privilege_map[allow_edit]
+            )
+        if info_log:
+            logger.info("End: Set.")
+        return dataset_path
+
     # Schema alteration methods.
 
     def add_field(self, dataset_path, field_name, field_type, field_length=None,
