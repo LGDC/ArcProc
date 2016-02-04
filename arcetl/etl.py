@@ -3,8 +3,6 @@ import datetime
 import inspect
 import logging
 import os
-import random
-import string
 import uuid
 
 arcpy = None  # Lazy import.
@@ -12,7 +10,6 @@ arcpy = None  # Lazy import.
 
 logger = logging.getLogger(__name__)
 
-# ETL classes.
 
 class ArcETL(object):
     """Manages a single Arc-style ETL process."""
@@ -110,7 +107,7 @@ class ArcWorkspace(object):
         self.path = path if path else os.getcwd()
         # Set arcpy workspace for tools that require it. Otherwise, avoid implied paths.
         arcpy.env.workspace = self.path
-        logger.info("Initialized ArcWorkspace instance based on {}.".format(path))
+        logger.info("Initialized ArcWorkspace instance.")
 
     # General execution methods.
 
@@ -1983,8 +1980,6 @@ class ArcWorkspace(object):
             logger.info("End: Select.")
         return features
 
-
-# Helper functions.
 
 def debug_call(with_argument_values=True):
     """Return a debug string of the call to the object this is placed in."""
