@@ -1,4 +1,6 @@
 # -*- coding=utf-8 -*-
+import collections
+import csv
 import datetime
 import inspect
 import logging
@@ -2015,6 +2017,39 @@ class ArcWorkspace(object):
         self.copy_dataset(view_name, output_path, dataset_where_sql)
         if info_log:
             logger.info("End: Project.")
+        return output_path
+
+    def write_rows_to_csvfile(self, rows, output_path, field_names,
+                              header=False, file_mode='wb', info_log=True):
+        """Write collected of rows to a CSV-file.
+
+        The rows can be represented by either a dictionary or iterable.
+        """
+        if info_log:
+            logger.info("Start: Write row collection to CSV-file {}".format(
+                output_path
+                ))
+        with open(output_path, file_mode) as csvfile:
+            for index, row in enumerate(rows):
+                if index == 0:
+                    if isinstance(row, dict):
+                        writer = csv.DictWriter(csvfile, field_names)
+                        if header:
+                            writer.writeheader()
+                    elif isinstance(row, collections.Sequence):
+                        writer = csv.writer(csvfile)
+                        if header:
+                            writer.writerow(field_names)
+                    else:
+                        raise TypeError(
+                            "Row objects must be dictionaries or sequences."
+                            )
+                writer.writerow(row)
+        if info_log:
+            logger.info("Final row count: {}.".format(index + 1))
+            logger.info("End: Write.")
+        else:
+            logger.debug("Final row count: {}.".format(index + 1))
         return output_path
 
     # Generators.
