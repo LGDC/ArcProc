@@ -1973,6 +1973,94 @@ class ArcWorkspace(object):
             for values in cursor:
                 yield values
 
+    def oid_field_values(self, dataset_path, field_name,
+                         dataset_where_sql=None):
+        """Generator for tuples of (OID, field_value)."""
+        logger.debug("Called {}".format(debug_call()))
+        with arcpy.da.SearchCursor(
+            dataset_path, ['oid@', field_name], dataset_where_sql
+            ) as cursor:
+            for oid, value in cursor:
+                yield (oid, value)
+
+    def oid_geometry(self, dataset_path, spatial_reference_id=None,
+                     dataset_where_sql=None):
+        """Generator for tuples of (OID, geometry)."""
+        logger.debug("Called {}".format(debug_call()))
+        with arcpy.da.SearchCursor(
+            dataset_path, ['oid@', 'shape@'], dataset_where_sql,
+            spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
+                                 if spatial_reference_id else None)
+            ) as cursor:
+            for oid, geometry in cursor:
+                yield (oid, geometry)
+
+    def xref_near_features(self, dataset_path, dataset_id_field_name,
+                           xref_path, xref_id_field_name,
+                           max_near_distance=None, only_closest=False,
+                           include_distance=False, include_rank=False,
+                           include_angle=False, include_x_coordinate=False,
+                           include_y_coordinate=False):
+        """Generator for cross-referenced near feature-pairs.
+
+        Yielded objects will include at least the dataset ID & XRef ID.
+        Setting max_near_distance to NoneType will generate every possible
+        feature cross-reference.
+        Setting only_closest to True will generate a cross reference only with
+        the closest feature.
+        Setting any include_* to True will include that value in the generated
+        tuple, in argument order.
+        Distance values will match the linear unit of the main dataset.
+        Angle values are in decimal degrees.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        temp_near_path = unique_temp_dataset_path(prefix = 'temp_near_')
+        arcpy.analysis.GenerateNearTable(
+            in_features = dataset_path, near_features = xref_path,
+            out_table = temp_near_path, search_radius = max_near_distance,
+            location = any([include_x_coordinate, include_y_coordinate]),
+            angle = include_angle,
+            closest = only_closest, method = 'geodesic'
+            )
+        near_field_names = ['in_fid', 'near_fid']
+        if include_distance:
+            near_field_names.append('near_dist')
+        if include_rank:
+            near_field_names.append('near_rank')
+        if include_angle:
+            near_field_names.append('near_angle')
+        if include_x_coordinate:
+            near_field_names.append('near_x')
+        if include_y_coordinate:
+            near_field_names.append('near_y')
+        dataset_oid_id_map = self.oid_field_value_map(
+            dataset_path, dataset_id_field_name
+            )
+        xref_oid_id_map = self.oid_field_value_map(
+            xref_path, xref_id_field_name
+            )
+        try:
+            with arcpy.da.SearchCursor(
+                temp_near_path, near_field_names
+                ) as cursor:
+                for row in cursor:
+                    row_info = dict(zip(cursor.fields, row))
+                    result = [dataset_oid_id_map[row_info['in_fid']],
+                              xref_oid_id_map[row_info['near_fid']]]
+                    if include_distance:
+                        result.append(row_info['near_dist'])
+                    if include_rank:
+                        result.append(row_info['near_rank'])
+                    if include_angle:
+                        result.append(row_info['near_angle'])
+                    if include_x_coordinate:
+                        result.append(row_info['near_x'])
+                    if include_y_coordinate:
+                        result.append(row_info['near_y'])
+                    yield tuple(result)
+        finally:
+            self.delete_dataset(temp_near_path)
+
 
 
 def debug_call(with_argument_values=True):
