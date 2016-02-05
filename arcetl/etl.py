@@ -1962,23 +1962,17 @@ class ArcWorkspace(object):
                 ))
         return output_path
 
-    def select_features_to_lists(self, dataset_path, field_names,
-                                 dataset_where_sql=None, info_log=True):
-        """Return features as list of lists."""
+    # Generators.
+
+    def field_values(self, dataset_path, field_names, dataset_where_sql=None):
+        """Generator for tuples of feature field values."""
         logger.debug("Called {}".format(debug_call()))
-        if info_log:
-            logger.info(
-                "Start: Select {} feature into a list of lists.".format(
-                    dataset_path
-                    )
-                )
         with arcpy.da.SearchCursor(
             dataset_path, field_names, dataset_where_sql
             ) as cursor:
-            features = [list(feature) for feature in cursor]
-        if info_log:
-            logger.info("End: Select.")
-        return features
+            for values in cursor:
+                yield values
+
 
 
 def debug_call(with_argument_values=True):
