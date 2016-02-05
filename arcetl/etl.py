@@ -1865,7 +1865,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return from_id_field_name, to_id_field_name
 
-    # Analysis/extraction methods.
+    # Analysis methods.
 
     def generate_facility_service_rings(self, dataset_path, output_path,
                                         network_path, cost_attribute,
@@ -1960,6 +1960,33 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(
                 self.feature_count(dataset_path)
                 ))
+        return output_path
+
+    # Conversion/extraction methods.
+
+    def convert_table_to_spatial_dataset(self, dataset_path, output_path,
+                                         x_field_name, y_field_name,
+                                         z_field_name=None,
+                                         spatial_reference_id=4326,
+                                         dataset_where_sql=None,
+                                         info_log=True):
+        """Convert nonspatial table to a new spatial dataset."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Convert {} to spatial dataset.".format(dataset_path)
+                )
+        view_name = unique_name(prefix = 'dataset_view_')
+        arcpy.management.MakeXYEventLayer(
+            table = dataset_path, out_layer = view_name,
+            in_x_field = x_field_name, in_y_field = y_field_name,
+            in_z_field = z_field_name,
+            spatial_reference = arcpy.SpatialReference(source_srid)
+            )
+        self.copy_dataset(view_name, output_path, dataset_where_sql)
+        self.delete_dataset(view_name)
+        if info_log:
+            logger.info("End: Convert.")
         return output_path
 
     # Generators.
