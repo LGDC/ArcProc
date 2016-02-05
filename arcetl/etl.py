@@ -1,4 +1,8 @@
 # -*- coding=utf-8 -*-
+"""Library of etl objects & functions.
+
+This module file alone is a ready-to-go template for an ArcGIS Python toolbox.
+"""
 import collections
 import csv
 import datetime
@@ -2174,6 +2178,119 @@ class ArcWorkspace(object):
             return {oid: geometry for oid, geometry in cursor}
 
 
+# Necessary class for constructing an ArcGIS Python toolbox.
+class Toolbox(object):
+    """Define the toolbox.
+
+    The name of toolbox is the basename of this file.
+    """
+
+    def __init__(self):
+        self.label = os.path.basename(__file__).replace('_', ' ')
+        # Sets namespace of toolbox when attached to ArcPy (arcpy.{alias}).
+        # Attach using arcpy.AddToolbox().
+        self.alias = 'alias'
+        # List of tool classes associated with this toolbox.
+        self.tools = [
+            # Add tools here by their class name to make visible in toolbox.
+            ToolExample,
+            ]
+
+
+# Example of an individual tool in an ArcGIS Python toolbox.
+class ToolExample(object):
+    """An example tool."""
+
+    def __init__(self):
+        # Sets how the tool is named within the toolbox.
+        self.label = "Label"
+        # Sets name of toolset tool will be placed in (optional).
+        self.category = None
+        # Sets longer description of the tool, shown in the side panel.
+        self.description = "Description."
+        # Sets whether the tool controls ArcGIS while running or not.
+        self.canRunInBackground = False
+        # Define the initialized state of parameters for this tool.
+        # The parameter attribute map is a list of dictionaries, each one
+        # containing attributes that will be set for that parameter when
+        # it is initialized.
+        self.parameter_attribute_maps = [
+            {'name': 'dataset_path',
+             'displayName': "Dataset",
+             'direction': 'Input',
+             'datatype': 'GPFeatureLayer',
+             'parameterType': 'Required',
+             'enabled': True, 'multiValue': False,},
+            {'name': 'dataset_field_names',
+             'displayName': "Dataset Fields to Output",
+             'direction': 'Input',
+             'datatype': 'Field',
+             'parameterType': 'Required',
+             'enabled': True, 'multiValue': True,
+             'parameterDependencies': ['dataset_path'],},
+            {'name': 'buffer_distance',
+             'displayName': "Buffer Distance",
+             'direction': 'Input',
+             'datatype': 'GPLinearUnit',
+             'parameterType': 'Required',
+             'enabled': True, 'multiValue': False,
+             'value': "120 Feet",},
+            {'name': 'output_path',
+             'displayName': "Output Dataset",
+             'direction': 'Output',
+             'datatype': 'DEFeatureClass',
+             'parameterType': 'Required',
+             'enabled': True, 'multiValue': False,},
+        ]
+
+    def getParameterInfo(self):
+        """Load parameters into toolbox."""
+        # Set the parameter attributes in a dictionary in __init__.
+        # Then convert them to parameter objects & return the lot.
+        return [parameter_from_attributes(attribute_map)
+                for attribute_map in self.parameter_attribute_maps]
+
+    def isLicensed(self):
+        """Set whether tool is licensed to execute."""
+        # If tool needs extra licensing, checking here will prevent execution.
+        return True
+
+    def updateParameters(self, parameters):
+        """Modify parameters before internal validation is performed.
+
+        This method is called whenever a parameter has been changed.
+        """
+        # Follow the below format for checking for changes. Remove if unused.
+        parameter_map = {parameter.name: parameter
+                         for parameter in parameters}
+        if all([parameter_map['buffer_distance'].altered,
+                not parameter_map['buffer_distance'].hasBeenValidated]):
+            # Do something.
+            pass
+        return
+
+    def updateMessages(self, parameters):
+        """Modify messages created by internal validation for each parameter.
+
+        This method is called after internal validation.
+        """
+        return
+
+    def execute(self, parameters, messages):
+        """Procedural code of the tool."""
+        # If running ArcPy directly, will need to check-import it.
+        global arcpy
+        if not arcpy:
+            import arcpy
+        # value_map contains dictionary with parameter name/value key/values.
+        value_map = parameter_value_map(parameters)
+        # If using ArcWorkspace, will need to instance it.
+        workspace = ArcWorkspace('in_memory')
+        # If using ArcETL, will need to instance it (best as context manager).
+        with ArcETL('in_memory') as etl:
+            # Do the steps of the tool.
+            messages.addMessage("Can do messages, too.")
+        return
 
 
 def debug_call(with_argument_values=True):
@@ -2184,6 +2301,51 @@ def debug_call(with_argument_values=True):
         return "{}{}".format(frame.f_code.co_name, inspect.formatargvalues(*argvalues))
     else:
         return "{}{}".format(frame.f_code.co_name, tuple(argvalues[0]))
+
+
+def parameter_from_attributes(attribute_map):
+    """Create ArcPy parameter object using an attribute mapping.
+
+    Note that this doesn't check if the attribute exists in the default
+    parameter instance. This means that you can attempt to set a new attribute,
+    but the result will depend on how the class implements setattr (usually
+    this will just attach the new attribute).
+    """
+    global arcpy
+    if not arcpy:
+        import arcpy
+    parameter = arcpy.Parameter()
+    for attribute_name, attribute_value in attribute_map.items():
+        setattr(parameter, attribute_name, attribute_value)
+    # Filter list doesn't stick using setattr.
+    if 'filter.list' in attribute_map:
+        parameter.filter.list = attribute_map['filter.list']
+    return parameter
+
+
+def parameter_value_map(parameters):
+    """Create value map from list of ArcPy parameter objects."""
+    value_map = {}
+    for parameter in parameters:
+        # Multivalue parameters place their values in .values, not .value.
+        # Some values embedded in 'value object' (.value.value), others aren't.
+        if parameter.multiValue:
+            parameter_values = []
+            if parameter.values:
+                for value in parameter.values:
+                    try:
+                        if value.value:
+                            parameter_values.append(value.value)
+                    except AttributeError:
+                        if value:
+                            parameter_values.append(value)
+            value_map[parameter.name] = parameter_values
+        else:
+            try:
+                value_map[parameter.name] = parameter.value.value
+            except AttributeError:
+                value_map[parameter.name] = parameter.value
+    return value_map
 
 
 def sexagesimal_angle_to_decimal(degrees=0, minutes=0, seconds=0, thirds=0,
