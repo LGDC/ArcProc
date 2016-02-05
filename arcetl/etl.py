@@ -2061,6 +2061,29 @@ class ArcWorkspace(object):
         finally:
             self.delete_dataset(temp_near_path)
 
+    # Mappings.
+
+    def oid_field_value_map(self, dataset_path, field_name,
+                            dataset_where_sql=None):
+        """Return dictionary mapping of field value for the feature OID."""
+        logger.debug("Called {}".format(debug_call()))
+        with arcpy.da.SearchCursor(
+            dataset_path, ['oid@', field_name], dataset_where_sql
+            ) as cursor:
+            return {oid: value for oid, value in cursor}
+
+    def oid_geometry_map(self, dataset_path, spatial_reference_id=None,
+                         dataset_where_sql=None):
+        """Return dictionary mapping of geometry for the feature OID."""
+        logger.debug("Called {}".format(debug_call()))
+        with arcpy.da.SearchCursor(
+            dataset_path, ['oid@', 'shape@'], dataset_where_sql,
+            spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
+                                 if spatial_reference_id else None)
+            ) as cursor:
+            return {oid: geometry for oid, geometry in cursor}
+
+
 
 
 def debug_call(with_argument_values=True):
