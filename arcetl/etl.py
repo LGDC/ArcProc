@@ -326,6 +326,8 @@ class ArcWorkspace(object):
                     field.get('length'), field.get('precision'),
                     field.get('scale'), info_log = False
                     )
+        if info_log:
+            logger.info("End: Create.")
         return dataset_path
 
     def create_file_geodatabase(self, geodatabase_path,
@@ -1987,6 +1989,32 @@ class ArcWorkspace(object):
         self.delete_dataset(view_name)
         if info_log:
             logger.info("End: Convert.")
+        return output_path
+
+    def project(self, dataset_path, output_path, spatial_reference_id,
+                dataset_where_sql=None, info_log=True):
+        """Project dataset features to a new dataset."""
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info("Start: Project {} to .".format(
+                dataset_path, arcpy.SpatialReference(spatial_reference_id).name
+                ))
+        dataset_metadata = self.dataset_metadata(dataset_path)
+        # Project tool cannot output to an in-memory workspace (will throw
+        # error 000944). Not a bug. Esri's Project documentation (as of v10.4)
+        # specifically states: "The in_memory workspace is not supported as a
+        # location to write the output dataset."
+        # To avoid all this ado, we'll create a clone dataset & copy features.
+        self.create_dataset(
+            output_path,
+            [field for field in dataset_metadata.fields
+             if field['type'].lower() not in ['geometry ', 'oid']],
+            dataset_metadata['geometry_type'], spatial_reference_id,
+            info_log = False
+            )
+        self.copy_dataset(view_name, output_path, dataset_where_sql)
+        if info_log:
+            logger.info("End: Project.")
         return output_path
 
     # Generators.
