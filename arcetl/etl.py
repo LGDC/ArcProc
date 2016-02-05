@@ -615,83 +615,6 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    def convert_polygons_to_lines(self, dataset_path, output_path,
-                                  topological=False, id_field_name=None,
-                                  info_log=True):
-        """Convert geometry from polygons to lines.
-
-        If topological is set to True, shared outlines will be a single,
-        separate feature. Note that one cannot pass attributes to a topological
-        transformation (as the values would not apply to all adjacent
-        features).
-
-        If an id field name is specified, the output dataset will identify the
-        input features that defined the line feature with the name & values
-        from the provided field. This option will be ignored if the output is
-        non-topological lines, as the field will pass over with the rest of the
-        attributes.
-        """
-        logger.debug("Called {}".format(debug_call()))
-        if info_log:
-            logger.info(
-                "Start: Convert polygon features in {} to lines.".format(
-                    dataset_path)
-                )
-            logger.info("Initial feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-        else:
-            logger.debug("Initial feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-        arcpy.management.PolygonToLine(
-            in_features = dataset_path, out_feature_class = output_path,
-            neighbor_option = topological
-            )
-        if topological:
-            if id_field_name:
-                id_field_info = self.field_metadata(dataset_path,
-                                                    id_field_name)
-                oid_field_name = (
-                    self.dataset_metadata(dataset_path)['oid_field_name']
-                    )
-            sides = ('left', 'right')
-            for side in sides:
-                side_oid_field_name = '{}_FID'.format(side.upper())
-                if id_field_name:
-                    side_id_field_info = id_field_info.copy()
-                    side_id_field_info['name'] = '{}_{}'.format(
-                        side, id_field_name
-                        )
-                    # Cannot create an OID-type field, so force to long.
-                    if side_id_field_info['type'].lower() == 'oid':
-                        side_id_field_info['type'] = 'long'
-                    self.add_fields_from_metadata_list(
-                        output_path, [side_id_field_info], info_log = False
-                        )
-                    self.update_field_by_join_value(
-                        dataset_path = output_path,
-                        field_name = side_id_field_info['name'],
-                        join_dataset_path = dataset_path,
-                        join_field_name = id_field_name,
-                        on_field_name = side_oid_field_name,
-                        on_join_field_name = oid_field_name, info_log = False
-                        )
-                self.delete_field(output_path, side_oid_field_name,
-                                  info_log = False)
-        else:
-            self.delete_field(output_path, 'ORIG_FID', info_log = False)
-        if info_log:
-            logger.info("Final feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-            logger.info("End: Convert.")
-        else:
-            logger.debug("Final feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-        return output_path
-
     def delete_features(self, dataset_path, dataset_where_sql=None,
                         info_log=True):
         """Delete select features."""
@@ -1182,44 +1105,6 @@ class ArcWorkspace(object):
                 self.feature_count(dataset_path)
                 ))
         return dataset_path
-
-    def planarize_features(self, dataset_path, output_path, info_log=True):
-        """Convert feature geometry to lines - planarizing them.
-
-        This method does not make topological linework. However it does carry
-        all attributes with it, rather than just an ID attribute.
-
-        Since this method breaks the new line geometry at intersections, it
-        can be useful to break line geometry features at them.
-        """
-        logger.debug("Called {}".format(debug_call()))
-        if info_log:
-            logger.info(
-                "Start: Planarize features in {}.".format(
-                    dataset_path)
-                )
-            logger.info("Initial feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-        else:
-            logger.debug("Initial feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-        arcpy.management.FeatureToLine(
-            in_features = dataset_path, out_feature_class = output_path,
-            ##cluster_tolerance,
-            attributes = True
-            )
-        if info_log:
-            logger.info("Final feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-            logger.info("End: Planarize.")
-        else:
-            logger.debug("Final feature count: {}.".format(
-                self.feature_count(dataset_path)
-                ))
-        return output_path
 
     def union_features(self, dataset_path, field_name, union_dataset_path, union_field_name,
                        replacement_value=None, dataset_where_sql=None, info_log=True):
@@ -1972,6 +1857,83 @@ class ArcWorkspace(object):
 
     # Conversion/extraction methods.
 
+    def convert_polygons_to_lines(self, dataset_path, output_path,
+                                  topological=False, id_field_name=None,
+                                  info_log=True):
+        """Convert geometry from polygons to lines.
+
+        If topological is set to True, shared outlines will be a single,
+        separate feature. Note that one cannot pass attributes to a topological
+        transformation (as the values would not apply to all adjacent
+        features).
+
+        If an id field name is specified, the output dataset will identify the
+        input features that defined the line feature with the name & values
+        from the provided field. This option will be ignored if the output is
+        non-topological lines, as the field will pass over with the rest of the
+        attributes.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Convert polygon features in {} to lines.".format(
+                    dataset_path)
+                )
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        arcpy.management.PolygonToLine(
+            in_features = dataset_path, out_feature_class = output_path,
+            neighbor_option = topological
+            )
+        if topological:
+            if id_field_name:
+                id_field_info = self.field_metadata(dataset_path,
+                                                    id_field_name)
+                oid_field_name = (
+                    self.dataset_metadata(dataset_path)['oid_field_name']
+                    )
+            sides = ('left', 'right')
+            for side in sides:
+                side_oid_field_name = '{}_FID'.format(side.upper())
+                if id_field_name:
+                    side_id_field_info = id_field_info.copy()
+                    side_id_field_info['name'] = '{}_{}'.format(
+                        side, id_field_name
+                        )
+                    # Cannot create an OID-type field, so force to long.
+                    if side_id_field_info['type'].lower() == 'oid':
+                        side_id_field_info['type'] = 'long'
+                    self.add_fields_from_metadata_list(
+                        output_path, [side_id_field_info], info_log = False
+                        )
+                    self.update_field_by_join_value(
+                        dataset_path = output_path,
+                        field_name = side_id_field_info['name'],
+                        join_dataset_path = dataset_path,
+                        join_field_name = id_field_name,
+                        on_field_name = side_oid_field_name,
+                        on_join_field_name = oid_field_name, info_log = False
+                        )
+                self.delete_field(output_path, side_oid_field_name,
+                                  info_log = False)
+        else:
+            self.delete_field(output_path, 'ORIG_FID', info_log = False)
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Convert.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        return output_path
+
     def convert_table_to_spatial_dataset(self, dataset_path, output_path,
                                          x_field_name, y_field_name,
                                          z_field_name=None,
@@ -1995,6 +1957,44 @@ class ArcWorkspace(object):
         self.delete_dataset(view_name)
         if info_log:
             logger.info("End: Convert.")
+        return output_path
+
+    def planarize_features(self, dataset_path, output_path, info_log=True):
+        """Convert feature geometry to lines - planarizing them.
+
+        This method does not make topological linework. However it does carry
+        all attributes with it, rather than just an ID attribute.
+
+        Since this method breaks the new line geometry at intersections, it
+        can be useful to break line geometry features at them.
+        """
+        logger.debug("Called {}".format(debug_call()))
+        if info_log:
+            logger.info(
+                "Start: Planarize features in {}.".format(
+                    dataset_path)
+                )
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        else:
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+        arcpy.management.FeatureToLine(
+            in_features = dataset_path, out_feature_class = output_path,
+            ##cluster_tolerance,
+            attributes = True
+            )
+        if info_log:
+            logger.info("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
+            logger.info("End: Planarize.")
+        else:
+            logger.debug("Final feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         return output_path
 
     def project(self, dataset_path, output_path, spatial_reference_id,
