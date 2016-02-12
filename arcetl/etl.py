@@ -2348,19 +2348,25 @@ def parameter_value_map(parameters):
     return value_map
 
 
-def sexagesimal_angle_to_decimal(degrees=0, minutes=0, seconds=0, thirds=0,
+def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
                                  fourths=0):
     """Convert sexagesimal-parsed angles to a decimal."""
-    # The degrees must be summed as absolute, or it won't sum right with the
-    # subdivisions.
-    absolute_decimal = sum([
-        abs(float(degrees)), float(minutes)/60, float(seconds)/3600,
-        float(thirds)/216000, float(fourths)/12960000
-        ])
+    if degrees is None:
+        return None
+    # The degrees must be absolute or it won't sum right with subdivisions.
+    absolute_decimal = abs(float(degrees))
     try:
         sign_multiplier = abs(float(degrees))/float(degrees)
     except ZeroDivisionError:
         sign_multiplier = 1
+    if minutes:
+        absolute_decimal += float(minutes)/60
+    if seconds:
+        absolute_decimal += float(seconds)/3600
+    if thirds:
+        absolute_decimal += float(thirds)/216000
+    if fourths:
+        absolute_decimal += float(fourths)/12960000
     return absolute_decimal * sign_multiplier
 
 
