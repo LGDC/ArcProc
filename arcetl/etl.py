@@ -110,7 +110,7 @@ class ArcWorkspace(object):
         global arcpy
         if not arcpy:
             import arcpy
-        self.path = path if path else os.getcwd()
+        self.path = path if path else 'in_memory'
         # Set arcpy workspace for tools that require it. Otherwise, avoid implied paths.
         arcpy.env.workspace = self.path
         logger.info("Initialized ArcWorkspace instance.")
