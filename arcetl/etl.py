@@ -2186,7 +2186,7 @@ class Toolbox(object):
     """
 
     def __init__(self):
-        self.label = os.path.basename(__file__).replace('_', ' ')
+        self.label = "Toolbox Label"
         # Sets namespace of toolbox when attached to ArcPy (arcpy.{alias}).
         # Attach using arcpy.AddToolbox().
         self.alias = 'alias'
@@ -2210,45 +2210,14 @@ class ToolExample(object):
         self.description = "Description."
         # Sets whether the tool controls ArcGIS while running or not.
         self.canRunInBackground = False
-        # Define the initialized state of parameters for this tool.
-        # The parameter attribute map is a list of dictionaries, each one
-        # containing attributes that will be set for that parameter when
-        # it is initialized.
-        self.parameter_attribute_maps = [
-            {'name': 'dataset_path',
-             'displayName': "Dataset",
-             'direction': 'Input',
-             'datatype': 'GPFeatureLayer',
-             'parameterType': 'Required',
-             'enabled': True, 'multiValue': False,},
-            {'name': 'dataset_field_names',
-             'displayName': "Dataset Fields to Output",
-             'direction': 'Input',
-             'datatype': 'Field',
-             'parameterType': 'Required',
-             'enabled': True, 'multiValue': True,
-             'parameterDependencies': ['dataset_path'],},
-            {'name': 'buffer_distance',
-             'displayName': "Buffer Distance",
-             'direction': 'Input',
-             'datatype': 'GPLinearUnit',
-             'parameterType': 'Required',
-             'enabled': True, 'multiValue': False,
-             'value': "120 Feet",},
-            {'name': 'output_path',
-             'displayName': "Output Dataset",
-             'direction': 'Output',
-             'datatype': 'DEFeatureClass',
-             'parameterType': 'Required',
-             'enabled': True, 'multiValue': False,},
-        ]
 
     def getParameterInfo(self):
         """Load parameters into toolbox."""
-        # Set the parameter attributes in a dictionary in __init__.
-        # Then convert them to parameter objects & return the lot.
-        return [parameter_from_attributes(attribute_map)
-                for attribute_map in self.parameter_attribute_maps]
+        return [
+            # Create the parameters in a separate place (allows reusability),
+            # then add them here. Recommended: use parameter_from_attributes
+            # to allow initial definition to be a dictionary/attribute map.
+            ]
 
     def isLicensed(self):
         """Set whether tool is licensed to execute."""
