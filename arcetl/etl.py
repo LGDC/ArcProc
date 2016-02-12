@@ -1951,7 +1951,7 @@ class ArcWorkspace(object):
             table = dataset_path, out_layer = view_name,
             in_x_field = x_field_name, in_y_field = y_field_name,
             in_z_field = z_field_name,
-            spatial_reference = arcpy.SpatialReference(source_srid)
+            spatial_reference = arcpy.SpatialReference(spatial_reference_id)
             )
         self.copy_dataset(view_name, output_path, dataset_where_sql)
         self.delete_dataset(view_name)
