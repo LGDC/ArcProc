@@ -6,6 +6,7 @@ This module file alone is a ready-to-go template for an ArcGIS Python toolbox.
 import collections
 import csv
 import datetime
+import functools
 import inspect
 import logging
 import os
@@ -16,6 +17,22 @@ arcpy = None  # Lazy import.
 
 logger = logging.getLogger(__name__)
 
+
+# Decorators.
+
+def log_call(called_object):
+    """Decorator to log details of an object when called."""
+    @functools.wraps(called_object)
+    def wrapper(*args, **kwargs):
+        logger.debug(
+            " ".join(["@log_call - {}".format(called_object),
+                      "args={}".format(args), "kwargs={}".format(kwargs)])
+            )
+        return called_object(*args, **kwargs)
+    return wrapper
+
+
+# Classes (ETL).
 
 class ArcETL(object):
     """Manages a single Arc-style ETL process."""
@@ -2178,10 +2195,12 @@ class ArcWorkspace(object):
             return {oid: geometry for oid, geometry in cursor}
 
 
-# Necessary class for constructing an ArcGIS Python toolbox.
+# Classes (Toolbox Template).
+
 class Toolbox(object):
     """Define the toolbox.
 
+    Toolbox class is required for constructing and ArcGIS Python toolbox.
     The name of toolbox is the basename of this file.
     """
 
@@ -2197,9 +2216,8 @@ class Toolbox(object):
             ]
 
 
-# Example of an individual tool in an ArcGIS Python toolbox.
 class ToolExample(object):
-    """An example tool."""
+    """Example of an individual tool in an ArcGIS Python toolbox."""
 
     def __init__(self):
         # Sets how the tool is named within the toolbox.
@@ -2230,10 +2248,9 @@ class ToolExample(object):
         This method is called whenever a parameter has been changed.
         """
         # Follow the below format for checking for changes. Remove if unused.
-        parameter_map = {parameter.name: parameter
-                         for parameter in parameters}
-        if all([parameter_map['buffer_distance'].altered,
-                not parameter_map['buffer_distance'].hasBeenValidated]):
+        parameter_map = {parameter.name: parameter for parameter in parameters}
+        if all([parameter_map['a_parameter'].altered,
+                not parameter_map['a_parameter'].hasBeenValidated]):
             # Do something.
             pass
         return
