@@ -38,6 +38,7 @@ class ArcETL(object):
     """Manages a single Arc-style ETL process."""
 
     def __init__(self, workspace=None):
+        logger.info("Initializing.")
         self.workspace = workspace if workspace else ArcWorkspace()
         self.transform_path = None
         logger.info("Initialized ArcETL instance.")
@@ -50,7 +51,6 @@ class ArcETL(object):
 
     def close(self):
         """Clean up instance."""
-        logger.debug("Called {}".format(debug_call()))
         # Clear the transform dataset.
         if (self.transform_path
             and self.workspace.is_valid_dataset(self.transform_path)):
@@ -58,10 +58,10 @@ class ArcETL(object):
                 self.transform_path, info_log = False
                 )
             self.transform_path = None
+        logger.info("Closed ArcETL instance.")
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
-        logger.debug("Called {}".format(debug_call()))
         logger.info("Start: Extract {}.".format(extract_path))
         # Extract to a new dataset.
         self.transform_path = self.workspace.copy_dataset(
@@ -73,13 +73,14 @@ class ArcETL(object):
 
     def load(self, load_path, load_where_sql=None, preserve_features=False):
         """Load features from transform workspace to the load-dataset."""
-        logger.debug("Called {}".format(debug_call()))
         logger.info("Start: Load {}.".format(load_path))
         if self.workspace.is_valid_dataset(load_path):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
-                self.workspace.delete_features(load_path, info_log = False)
+                self.workspace.delete_features(
+                    dataset_path = load_path, info_log = False
+                    )
             self.workspace.insert_features_from_path(
                 load_path, self.transform_path, load_where_sql,
                 info_log = False
@@ -93,12 +94,10 @@ class ArcETL(object):
 
     def make_asssertion(self, assertion_name, **kwargs):
         """Check whether an assertion is valid or not."""
-        logger.debug("Called {}".format(debug_call()))
         raise NotImplementedError
 
     def transform(self, transform_name, **kwargs):
         """Run transform operation as defined in the workspace."""
-        logger.debug("Called {}".format(debug_call()))
         transform = getattr(self.workspace, transform_name)
         # Unless otherwise stated, dataset path is self.transform path.
         if 'dataset_path' not in kwargs:
@@ -134,15 +133,18 @@ class ArcWorkspace(object):
 
     # General execution methods.
 
-    def execute_sql_statement(self, statement, path_to_database=None, info_log=True):
+    @log_call
+    def execute_sql_statement(self, statement, path_to_database=None,
+                              info_log=True):
         """Runs a SQL statement via SDE's SQL execution interface.
 
         This only works if path resolves to an actual SQL database.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Execute SQL statement.")
-        conn = arcpy.ArcSDESQLExecute(path_to_database if path_to_database else self.path)
+        conn = arcpy.ArcSDESQLExecute(
+            path_to_database if path_to_database else self.path
+            )
         try:
             result = conn.execute(statement)
         except AttributeError:
@@ -155,9 +157,9 @@ class ArcWorkspace(object):
 
     # Metadata/property methods.
 
+    @log_call
     def dataset_metadata(self, dataset_path):
         """Return dictionary of dataset's metadata."""
-        logger.debug("Called {}".format(debug_call()))
         metadata = {}
         arc_description = arcpy.Describe(dataset_path)
         metadata['name'] = arc_description.name
@@ -168,56 +170,69 @@ class ArcWorkspace(object):
         if metadata['is_table']:
             if hasattr(arc_description, 'OIDFieldName'):
                 metadata['oid_field_name'] = arc_description.OIDFieldName
-            metadata['field_names'] = [field.name for field in arc_description.fields]
-            metadata['fields'] = []
+            metadata['field_names'], metadata['fields'] = [], []
             for field in arc_description.fields:
-                field_metadata = {
+                metadata['field_names'].append(field.name)
+                metadata['fields'].append({
                     'name': field.name,
-                    'alias_name': field.aliasName, 'base_name': field.baseName,
-                    'type': field.type.lower(), 'length': field.length,
-                    'precision': field.precision, 'scale': field.scale,
-                    # Leaving out these since they're not necessary for ETL (& often problematic).
-                    #'default_value': field.defaultValue, 'is_required': field.required,
-                    #'is_editable': field.editable, 'is_nullable': field.isNullable,
-                    }
-                metadata['fields'].append(field_metadata)
+                    'alias_name': field.aliasName,
+                    'base_name': field.baseName,
+                    'type': field.type.lower(),
+                    'length': field.length,
+                    'precision': field.precision,
+                    'scale': field.scale,
+                    # Leaving out certain field properties which aren't
+                    # necessary for ETL and are often problematic.
+                    #'default_value': field.defaultValue,
+                    #'is_required': field.required,
+                    #'is_editable': field.editable,
+                    #'is_nullable': field.isNullable,
+                    })
         metadata['is_spatial'] = hasattr(arc_description, 'shapeType')
         if metadata['is_spatial']:
             metadata['geometry_type'] = arc_description.shapeType.lower()
-            metadata['spatial_reference_id'] = arc_description.spatialReference.factoryCode
-            metadata['geometry_field_name'] = arc_description.shapeFieldName
+            metadata['spatial_reference_id'] = (
+                arc_description.spatialReference.factoryCode
+                )
+            metadata['geometry_field_name'] = (
+                arc_description.shapeFieldName.lower()
+                )
         return metadata
 
+    @log_call
     def feature_count(self, dataset_path, dataset_where_sql=None):
         """Return the number of features in a dataset."""
-        logger.debug("Called {}".format(debug_call()))
-        with arcpy.da.SearchCursor(in_table = dataset_path,
-                                   field_names = [arcpy.ListFields(dataset_path)[0].name],
-                                   where_clause = dataset_where_sql) as cursor:
-            feature_count = len([None for row in cursor])
-        return feature_count
+        with arcpy.da.SearchCursor(
+            in_table = dataset_path,
+            field_names = [arcpy.ListFields(dataset_path)[0].name],
+            where_clause = dataset_where_sql
+            ) as cursor:
+            return len([None for row in cursor])
 
+    @log_call
     def field_metadata(self, dataset_path, field_name):
         """Return dictionary of field's info."""
-        logger.debug("Called {}".format(debug_call()))
         try:
-            metadata = [
+            return next(
                 field for field
                 in self.dataset_metadata(dataset_path)['fields']
+                # Case-insensitive.
                 if field['name'].lower() == field_name.lower()
-                ][0]
-        except IndexError:
-            raise AttributeError("{} not present on {}".format(field_name, dataset_path))
-        return metadata
+                )
+        except StopIteration:
+            raise AttributeError(
+                "Field {} not present on {}".format(field_name, dataset_path)
+                )
 
+    @log_call
     def is_valid_dataset(self, dataset_path):
         """Check whether a dataset exists/is valid."""
-        logger.debug("Called {}".format(debug_call()))
         if dataset_path and arcpy.Exists(dataset_path):
             return self.dataset_metadata(dataset_path)['is_table']
         else:
             return False
 
+    @log_call
     def workspace_dataset_names(self, workspace_path=None, wildcard=None,
                                 include_feature_classes=True,
                                 include_rasters=True, include_tables=True,
@@ -226,7 +241,6 @@ class ArcWorkspace(object):
 
         wildcard requires an * to indicate where open; case insensitive.
         """
-        logger.debug("Called {}".format(debug_call()))
         if workspace_path and workspace_path != self.path:
             arcpy.env.workspace = workspace_path
         dataset_names = []
@@ -249,10 +263,10 @@ class ArcWorkspace(object):
 
     # Workspace management methods.
 
-    def compress_geodatabase(self, geodatabase_path=None, disconnect_users=False,
-                             info_log=True):
+    @log_call
+    def compress_geodatabase(self, geodatabase_path=None,
+                             disconnect_users=False, info_log=True):
         """Compress geodatabase."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Compress {}.".format(geodatabase_path))
         if not geodatabase_path:
@@ -289,12 +303,14 @@ class ArcWorkspace(object):
             logger.info("End: Compress.")
         return geodatabase_path
 
+    @log_call
     def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None,
                      schema_only=False, overwrite=False, info_log=True):
         """Copy dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Copy {} to {}.".format(dataset_path, output_path))
+            logger.info(
+                "Start: Copy {} to {}.".format(dataset_path, output_path)
+                )
         metadata = self.dataset_metadata(dataset_path)
         if metadata['is_spatial']:
             create_view = arcpy.management.MakeFeatureLayer
@@ -303,23 +319,27 @@ class ArcWorkspace(object):
             create_view = arcpy.management.MakeTableView
             copy_rows = arcpy.management.CopyRows
         else:
-            raise ValueError("{} unsupported dataset type.".format(dataset_path))
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path)
+                )
         if overwrite and self.is_valid_dataset(output_path):
             self.delete_dataset(output_path, info_log = False)
         view_name = unique_name(prefix = 'dataset_view_')
-        create_view(dataset_path, view_name,
-                    dataset_where_sql if not schema_only else "0 = 1", self.path)
+        create_view(
+            dataset_path, view_name,
+            dataset_where_sql if not schema_only else "0 = 1", self.path
+            )
         copy_rows(view_name, output_path)
         self.delete_dataset(view_name, info_log = False)
         if info_log:
             logger.info("End: Copy.")
         return output_path
 
+    @log_call
     def create_dataset(self, dataset_path, field_metadata=[],
                        geometry_type=None, spatial_reference_id=None,
                        info_log=True):
         """Create new dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Create dataset {}.".format(dataset_path))
         if geometry_type:
@@ -353,11 +373,11 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return dataset_path
 
+    @log_call
     def create_file_geodatabase(self, geodatabase_path,
                                 xml_workspace_path=None,
                                 include_xml_data=False, info_log=True):
         """Create new file geodatabase."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Create file geodatabase at {}.".format(
                 geodatabase_path
@@ -381,11 +401,11 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return geodatabase_path
 
+    @log_call
     def create_geodatabase_xml_backup(self, geodatabase_path, output_path,
                                       include_data=False,
                                       include_metadata=True, info_log=True):
         """Create backup of geodatabase as XML workspace document."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Create backup for {} in {}.".format(
@@ -401,9 +421,9 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return output_path
 
+    @log_call
     def delete_dataset(self, dataset_path, info_log=True):
         """Delete dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Delete {}.".format(dataset_path))
         arcpy.management.Delete(dataset_path)
@@ -411,10 +431,10 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return dataset_path
 
+    @log_call
     def set_dataset_privileges(self, dataset_path, user_name, allow_view=None,
                                allow_edit=None, info_log=True):
         """Set privileges for dataset in enterprise geodatabase."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Set privileges for {}.".format(dataset_path))
         privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
@@ -428,13 +448,16 @@ class ArcWorkspace(object):
 
     # Schema alteration methods.
 
-    def add_field(self, dataset_path, field_name, field_type, field_length=None,
-                  field_precision=None, field_scale=None, field_is_nullable=True,
-                  field_is_required=False, info_log=True):
+    @log_call
+    def add_field(self, dataset_path, field_name, field_type,
+                  field_length=None, field_precision=None, field_scale=None,
+                  field_is_nullable=True, field_is_required=False,
+                  info_log=True):
         """Add field to dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Add field {} to {}.".format(field_name, dataset_path))
+            logger.info(
+                "Start: Add field {} to {}.".format(field_name, dataset_path)
+                )
         if field_type.lower() == 'string':
             field_type = 'text'
         elif field_type.lower() == 'integer':
@@ -451,27 +474,35 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return field_name
 
-    def add_fields_from_metadata_list(self, dataset_path, metadata_list, info_log=True):
+    @log_call
+    def add_fields_from_metadata_list(self, dataset_path, metadata_list,
+                                      info_log=True):
         """Add fields to dataset from a list of metadata dictionaries."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Add fields to {} from a metadata list.".format(dataset_path))
+            logger.info(
+                "Start: Add fields to {} from a metadata list.".format(
+                    dataset_path
+                    )
+                )
         for field_info in metadata_list:
             kwargs = {}
             for key, value in field_info.items():
-                if 'field_{}'.format(key) in inspect.getargspec(self.add_field).args:
+                if ('field_{}'.format(key)
+                    in inspect.getargspec(self.add_field).args):
                     kwargs['field_{}'.format(key)] = value
-            field_name = self.add_field(dataset_path = dataset_path, info_log=False, **kwargs)
+                kwargs['dataset_path'] = dataset_path
+                kwargs['info_log'] = False
+            field_name = self.add_field(**kwargs)
             if info_log:
                 logger.info("Added {}.".format(field_name))
         if info_log:
             logger.info("End: Add.")
         return [field_info['name'] for field_info in metadata_list]
 
+    @log_call
     def add_index(self, dataset_path, field_names, index_name=None,
                   is_unique=False, is_ascending=False, info_log=True):
         """Add index to dataset fields."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Add index to {} for {}.".format(
                 dataset_path, field_names
@@ -494,10 +525,10 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return dataset_path
 
+    @log_call
     def rename_field(self, dataset_path, field_name, new_field_name,
                      info_log=True):
         """Rename field."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Rename field {}.{} to {}.".format(
                 dataset_path, field_name, new_field_name
@@ -507,20 +538,21 @@ class ArcWorkspace(object):
             logger.info("End: Rename.")
         return new_field_name
 
+    @log_call
     def delete_field(self, dataset_path, field_name, info_log=True):
         """Delete field from dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Delete field {}.".format(field_name))
-        arcpy.management.DeleteField(in_table = dataset_path, drop_field = field_name)
+        arcpy.management.DeleteField(
+            in_table = dataset_path, drop_field = field_name)
         if info_log:
             logger.info("End: Delete.")
         return field_name
 
+    @log_call
     def join_field(self, dataset_path, join_dataset_path, join_field_name,
                    on_field_name, on_join_field_name, info_log=True):
         """Add field and its values from join-dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Join field {} from {}.".format(
@@ -538,6 +570,7 @@ class ArcWorkspace(object):
 
     # Feature alteration methods.
 
+    @log_call
     def adjust_features_for_shapefile(self, dataset_path,
                                       datetime_null_replacement=datetime.date.min,
                                       integer_null_replacement=0,
@@ -551,7 +584,6 @@ class ArcWorkspace(object):
         preserve_time_not_date flag.
         * Convert nulls to replacement value.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 ("Start: Adjust features in {}"
@@ -584,11 +616,11 @@ class ArcWorkspace(object):
             logger.info("End: Adjust.")
         return dataset_path
 
+    @log_call
     def clip_features(self, dataset_path, clip_dataset_path,
                       dataset_where_sql=None, clip_where_sql=None,
                       info_log=True):
         """Clip feature geometry where overlaps clip dataset geometry."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Clip {} where geometry overlaps {}.".format(
                     dataset_path, clip_dataset_path
@@ -632,10 +664,10 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
+    @log_call
     def delete_features(self, dataset_path, dataset_where_sql=None,
                         info_log=True):
         """Delete select features."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Delete features from {} where {}.".format(
@@ -644,9 +676,11 @@ class ArcWorkspace(object):
                 )
         metadata = self.dataset_metadata(dataset_path)
         # Database-type (also not in-memory) & no sub-selection: use truncate.
-        if (metadata['data_type'] in ['FeatureClass', 'Table']
-            and metadata['workspace_path'] != 'in_memory'
-            and dataset_where_sql is None):
+        if all([
+            dataset_where_sql is None,
+            metadata['data_type'] in ['FeatureClass', 'Table'],
+            metadata['workspace_path'] != 'in_memory'
+            ]):
             arcpy.management.TruncateTable(dataset_path)
         # Non-database or with sub-selection options.
         else:
@@ -657,7 +691,9 @@ class ArcWorkspace(object):
                 create_view = arcpy.management.MakeTableView
                 delete_rows = arcpy.management.DeleteRows
             else:
-                raise ValueError("{} unsupported dataset type.".format(dataset_path))
+                raise ValueError(
+                    "{} unsupported dataset type.".format(dataset_path)
+                    )
             view_name = unique_name(prefix = 'dataset_view_')
             create_view(dataset_path, view_name, dataset_where_sql, self.path)
             delete_rows(view_name)
@@ -666,11 +702,11 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return dataset_path
 
+    @log_call
     def dissolve_features(self, dataset_path, dissolve_field_names,
                           multipart=True, unsplit_lines=False,
                           dataset_where_sql=None, info_log=True):
         """Merge features that share values in given fields."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Dissolve features on {}.".format(dissolve_field_names)
@@ -725,11 +761,11 @@ class ArcWorkspace(object):
                 )
         return dataset_path
 
+    @log_call
     def erase_features(self, dataset_path, erase_dataset_path,
                        dataset_where_sql=None, erase_where_sql=None,
                        info_log=True):
         """Erase feature geometry where overlaps erase dataset geometry."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Erase {} where geometry overlaps {}.".format(
                     dataset_path, erase_dataset_path
@@ -773,11 +809,11 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
+    @log_call
     def keep_features_by_location(self, dataset_path, location_path,
                                   dataset_where_sql=None,
                                   location_where_sql=None, info_log=True):
         """Keep features where geometry overlaps location feature geometry."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Keep {} where geometry overlaps {}.".format(
                     dataset_path, location_path
@@ -820,10 +856,11 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    def identity_features(self, dataset_path, field_name, identity_dataset_path,
-                          identity_field_name, replacement_value=None,
-                          dataset_where_sql=None, chunk_size=4096,
-                          info_log=True):
+    @log_call
+    def identity_features(self, dataset_path, field_name,
+                          identity_dataset_path, identity_field_name,
+                          replacement_value=None, dataset_where_sql=None,
+                          chunk_size=4096, info_log=True):
         """Assign unique identity value to features, splitting where necessary.
 
         replacement_value is a value that will substitute as the identity
@@ -834,20 +871,27 @@ class ArcWorkspace(object):
         warning, but not create an output dataset. Running the identity against
         smaller sets of data generally avoids this conundrum.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
-            logger.info("Start: Identity features with {}.{}.".format(identity_dataset_path,
-                                                                      identity_field_name))
-            logger.info("Initial feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.info("Start: Identity features with {}.{}.".format(
+                identity_dataset_path, identity_field_name
+                ))
+            logger.info("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         else:
-            logger.debug("Initial feature count: {}.".format(self.feature_count(dataset_path)))
+            logger.debug("Initial feature count: {}.".format(
+                self.feature_count(dataset_path)
+                ))
         # Create a temporary copy of the identity dataset.
         temp_identity_path = self.copy_dataset(
             identity_dataset_path,
-            unique_temp_dataset_path(prefix = 'temp_identity_'), info_log = False
+            unique_temp_dataset_path(prefix = 'temp_identity_'),
+            info_log = False
             )
-        # Create neutral/unique field for holding identity value (avoids collisions).
-        temp_field_metadata = self.field_metadata(temp_identity_path, identity_field_name)
+        # Avoid field name collisions with neutral/unique holding field.
+        temp_field_metadata = self.field_metadata(
+            temp_identity_path, identity_field_name
+            )
         temp_field_metadata['name'] = unique_name(
             prefix = temp_field_metadata['name']
             )
@@ -913,11 +957,11 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
+    @log_call
     def insert_features_from_iterables(self, dataset_path,
                                        insert_dataset_iterables, field_names,
                                        info_log=True):
         """Insert features from a collection of iterables."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(" ".join([
                 "Start: Insert features into {}".format(dataset_path),
@@ -933,10 +977,10 @@ class ArcWorkspace(object):
             logger.info("End: Insert.")
         return dataset_path
 
+    @log_call
     def insert_features_from_path(self, dataset_path, insert_dataset_path,
                                   insert_where_sql=None, info_log=True):
         """Insert features from a dataset referred to by a system path."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Insert features to {} from {}.".format(
@@ -989,6 +1033,7 @@ class ArcWorkspace(object):
             logger.info("End: Insert.")
         return dataset_path
 
+    @log_call
     def overlay_features(self, dataset_path, field_name, overlay_dataset_path,
                          overlay_field_name, replacement_value=None,
                          overlay_most_coincident=False,
@@ -1010,7 +1055,6 @@ class ArcWorkspace(object):
         warning, but not create an output dataset. Running the identity against
         smaller sets of data generally avoids this conundrum.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Overlay features with {}.{}.".format(
                 overlay_dataset_path, overlay_field_name
@@ -1123,13 +1167,13 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
+    @log_call
     def union_features(self, dataset_path, field_name, union_dataset_path, union_field_name,
                        replacement_value=None, dataset_where_sql=None, info_log=True):
         """Assign unique union value to each feature, splitting where necessary.
 
         replacement_value is a value that will substitute as the union value.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Union features with {}.{}.".format(union_dataset_path,
                                                                    union_field_name))
@@ -1187,11 +1231,11 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
+    @log_call
     def update_field_by_coded_value_domain(self, dataset_path, field_name, code_field_name,
                                            domain_name, domain_workspace_path=None,
                                            dataset_where_sql=None, info_log=True):
         """Update field values using another field's values and a coded-values domain."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Update field {} using domain {}.".format(
                 field_name, domain_name
@@ -1209,6 +1253,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_constructor_method(self, dataset_path, field_name,
                                            constructor, method_name,
                                            field_as_first_arg=True,
@@ -1220,7 +1265,6 @@ class ArcWorkspace(object):
 
         wraps ArcWorkspace.update_field_by_function.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(" ".join([
                 "Start: Update field {}".format(field_name),
@@ -1239,10 +1283,10 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_expression(self, dataset_path, field_name, expression,
                                    dataset_where_sql=None, info_log=True):
         """Update field values using a (single) code-expression."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Update field {} using expression <{}>.".format(
@@ -1269,6 +1313,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_feature_matching(self, dataset_path, field_name, identifier_field_names,
                                          update_value_type, flag_value=None, sort_field_names=[],
                                          dataset_where_sql=None, info_log=True):
@@ -1276,6 +1321,7 @@ class ArcWorkspace(object):
         valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
         raise NotImplementedError
 
+    @log_call
     def update_field_by_function(self, dataset_path, field_name, function,
                                  field_as_first_arg=True, arg_field_names=[],
                                  kwarg_field_names=[], dataset_where_sql=None,
@@ -1289,7 +1335,6 @@ class ArcWorkspace(object):
         kwarg_field_names indicate fields who values will be passed as keyword
         arguments (field name as key).
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Update field {} using function {}.".format(
@@ -1316,6 +1361,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_geometry(self, dataset_path, field_name,
                                  geometry_property_cascade, update_units=None,
                                  spatial_reference_id=None,
@@ -1325,7 +1371,6 @@ class ArcWorkspace(object):
         If the spatial reference ID is not specified, the spatial reference of
         the dataset is used.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Update field {} values using {} geometry properties.".format(
@@ -1382,12 +1427,12 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_joined_value(self, dataset_path, field_name,
                                      join_dataset_path, join_field_name,
                                      on_field_pairs, dataset_where_sql=None,
                                      info_log=True):
         """Update field values by referencing a joinable field."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Update field {} with joined values {}.{}>.".format(
@@ -1416,6 +1461,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_near_feature(self, dataset_path, field_name,
                                      near_dataset_path, near_field_name,
                                      replacement_value=None,
@@ -1431,7 +1477,6 @@ class ArcWorkspace(object):
         indicating the following fields: distance_field_name, angle_field_name,
         x_coordinate_field_name, y_coordinate_field_name.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Update field {} using near-values {}.{}.".format(
                 field_name, near_dataset_path,  near_field_name
@@ -1549,6 +1594,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_overlay(self, dataset_path, field_name, overlay_dataset_path,
                                 overlay_field_name, replacement_value=None,
                                 overlay_most_coincident=False, overlay_central_coincident=False,
@@ -1564,7 +1610,6 @@ class ArcWorkspace(object):
         operation will perform a basic intersection check, and the result will be at the whim of
         the geoprocessing environment's merge rule for the update field.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Update field {} using overlay values {}.{}.".format(
                 field_name, overlay_dataset_path,  overlay_field_name
@@ -1632,10 +1677,10 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_field_by_unique_id(self, dataset_path, field_name,
                                   dataset_where_sql=None, info_log=True):
         """Update field values by assigning a unique ID."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Update field {} using unique IDs.".format(field_name)
@@ -1660,6 +1705,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
+    @log_call
     def update_fields_by_geometry_node_ids(self, dataset_path,
                                            from_id_field_name,
                                            to_id_field_name, info_log=True):
@@ -1667,7 +1713,6 @@ class ArcWorkspace(object):
 
         Method assumes the IDs are numeric.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(" ".join([
                 "Start: Update node ID fields {} & {}",
@@ -1777,6 +1822,7 @@ class ArcWorkspace(object):
 
     # Analysis methods.
 
+    @log_call
     def generate_facility_service_rings(self, dataset_path, output_path,
                                         network_path, cost_attribute,
                                         ring_width, max_distance,
@@ -1787,7 +1833,6 @@ class ArcWorkspace(object):
                                         id_field_name=None,
                                         dataset_where_sql=None, info_log=True):
         """Create facility service ring features using a network dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Generate service rings for facilities in {}".format(
@@ -1874,6 +1919,7 @@ class ArcWorkspace(object):
 
     # Conversion/extraction methods.
 
+    @log_call
     def convert_polygons_to_lines(self, dataset_path, output_path,
                                   topological=False, id_field_name=None,
                                   info_log=True):
@@ -1890,7 +1936,6 @@ class ArcWorkspace(object):
         non-topological lines, as the field will pass over with the rest of the
         attributes.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Convert polygon features in {} to lines.".format(
@@ -1951,6 +1996,7 @@ class ArcWorkspace(object):
                 ))
         return output_path
 
+    @log_call
     def convert_table_to_spatial_dataset(self, dataset_path, output_path,
                                          x_field_name, y_field_name,
                                          z_field_name=None,
@@ -1958,7 +2004,6 @@ class ArcWorkspace(object):
                                          dataset_where_sql=None,
                                          info_log=True):
         """Convert nonspatial table to a new spatial dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Convert {} to spatial dataset.".format(dataset_path)
@@ -1976,6 +2021,7 @@ class ArcWorkspace(object):
             logger.info("End: Convert.")
         return output_path
 
+    @log_call
     def planarize_features(self, dataset_path, output_path, info_log=True):
         """Convert feature geometry to lines - planarizing them.
 
@@ -1985,7 +2031,6 @@ class ArcWorkspace(object):
         Since this method breaks the new line geometry at intersections, it
         can be useful to break line geometry features at them.
         """
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info(
                 "Start: Planarize features in {}.".format(
@@ -2014,10 +2059,10 @@ class ArcWorkspace(object):
                 ))
         return output_path
 
+    @log_call
     def project(self, dataset_path, output_path, spatial_reference_id,
                 dataset_where_sql=None, info_log=True):
         """Project dataset features to a new dataset."""
-        logger.debug("Called {}".format(debug_call()))
         if info_log:
             logger.info("Start: Project {} to .".format(
                 dataset_path, arcpy.SpatialReference(spatial_reference_id).name
@@ -2040,6 +2085,7 @@ class ArcWorkspace(object):
             logger.info("End: Project.")
         return output_path
 
+    @log_call
     def write_rows_to_csvfile(self, rows, output_path, field_names,
                               header=False, file_mode='wb', info_log=True):
         """Write collected of rows to a CSV-file.
@@ -2075,29 +2121,29 @@ class ArcWorkspace(object):
 
     # Generators.
 
+    @log_call
     def field_values(self, dataset_path, field_names, dataset_where_sql=None):
         """Generator for tuples of feature field values."""
-        logger.debug("Called {}".format(debug_call()))
         with arcpy.da.SearchCursor(
             dataset_path, field_names, dataset_where_sql
             ) as cursor:
             for values in cursor:
                 yield values
 
+    @log_call
     def oid_field_values(self, dataset_path, field_name,
                          dataset_where_sql=None):
         """Generator for tuples of (OID, field_value)."""
-        logger.debug("Called {}".format(debug_call()))
         with arcpy.da.SearchCursor(
             dataset_path, ['oid@', field_name], dataset_where_sql
             ) as cursor:
             for oid, value in cursor:
                 yield (oid, value)
 
+    @log_call
     def oid_geometry(self, dataset_path, spatial_reference_id=None,
                      dataset_where_sql=None):
         """Generator for tuples of (OID, geometry)."""
-        logger.debug("Called {}".format(debug_call()))
         with arcpy.da.SearchCursor(
             dataset_path, ['oid@', 'shape@'], dataset_where_sql,
             spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
@@ -2106,6 +2152,7 @@ class ArcWorkspace(object):
             for oid, geometry in cursor:
                 yield (oid, geometry)
 
+    @log_call
     def xref_near_features(self, dataset_path, dataset_id_field_name,
                            xref_path, xref_id_field_name,
                            max_near_distance=None, only_closest=False,
@@ -2124,7 +2171,6 @@ class ArcWorkspace(object):
         Distance values will match the linear unit of the main dataset.
         Angle values are in decimal degrees.
         """
-        logger.debug("Called {}".format(debug_call()))
         temp_near_path = unique_temp_dataset_path(prefix = 'temp_near_')
         arcpy.analysis.GenerateNearTable(
             in_features = dataset_path, near_features = xref_path,
@@ -2174,19 +2220,19 @@ class ArcWorkspace(object):
 
     # Mappings.
 
+    @log_call
     def oid_field_value_map(self, dataset_path, field_name,
                             dataset_where_sql=None):
         """Return dictionary mapping of field value for the feature OID."""
-        logger.debug("Called {}".format(debug_call()))
         with arcpy.da.SearchCursor(
             dataset_path, ['oid@', field_name], dataset_where_sql
             ) as cursor:
             return {oid: value for oid, value in cursor}
 
+    @log_call
     def oid_geometry_map(self, dataset_path, spatial_reference_id=None,
                          dataset_where_sql=None):
         """Return dictionary mapping of geometry for the feature OID."""
-        logger.debug("Called {}".format(debug_call()))
         with arcpy.da.SearchCursor(
             dataset_path, ['oid@', 'shape@'], dataset_where_sql,
             spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
