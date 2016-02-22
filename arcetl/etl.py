@@ -2325,16 +2325,6 @@ class ToolExample(object):
         return
 
 
-def debug_call(with_argument_values=True):
-    """Return a debug string of the call to the object this is placed in."""
-    frame = inspect.currentframe().f_back
-    argvalues = inspect.getargvalues(frame)
-    if with_argument_values:
-        return "{}{}".format(frame.f_code.co_name, inspect.formatargvalues(*argvalues))
-    else:
-        return "{}{}".format(frame.f_code.co_name, tuple(argvalues[0]))
-
-
 def parameter_from_attributes(attribute_map):
     """Create ArcPy parameter object using an attribute mapping.
 
