@@ -20,15 +20,13 @@ logger = logging.getLogger(__name__)
 
 # Decorators.
 
-def log_call(called_object):
-    """Decorator to log details of an object when called."""
-    @functools.wraps(called_object)
+def log_function(function):
+    """Decorator to log details of an function or method when called."""
+    @functools.wraps(function)
     def wrapper(*args, **kwargs):
         logger.debug(
-            " ".join(["@log_call - {}".format(called_object),
-                      "args={}".format(args), "kwargs={}".format(kwargs)])
-            )
-        return called_object(*args, **kwargs)
+            "@log_function - {}(*{}, **{})".format(function, args, kwargs))
+        return function(*args, **kwargs)
     return wrapper
 
 
@@ -133,7 +131,7 @@ class ArcWorkspace(object):
 
     # General execution methods.
 
-    @log_call
+    @log_function
     def execute_sql_statement(self, statement, path_to_database=None,
                               info_log=True):
         """Runs a SQL statement via SDE's SQL execution interface.
@@ -157,7 +155,7 @@ class ArcWorkspace(object):
 
     # Metadata/property methods.
 
-    @log_call
+    @log_function
     def dataset_metadata(self, dataset_path):
         """Return dictionary of dataset's metadata."""
         metadata = {}
@@ -199,7 +197,7 @@ class ArcWorkspace(object):
                 )
         return metadata
 
-    @log_call
+    @log_function
     def feature_count(self, dataset_path, dataset_where_sql=None):
         """Return the number of features in a dataset."""
         with arcpy.da.SearchCursor(
@@ -209,7 +207,7 @@ class ArcWorkspace(object):
             ) as cursor:
             return len([None for row in cursor])
 
-    @log_call
+    @log_function
     def field_metadata(self, dataset_path, field_name):
         """Return dictionary of field's info."""
         try:
@@ -224,7 +222,7 @@ class ArcWorkspace(object):
                 "Field {} not present on {}".format(field_name, dataset_path)
                 )
 
-    @log_call
+    @log_function
     def is_valid_dataset(self, dataset_path):
         """Check whether a dataset exists/is valid."""
         if dataset_path and arcpy.Exists(dataset_path):
@@ -232,7 +230,7 @@ class ArcWorkspace(object):
         else:
             return False
 
-    @log_call
+    @log_function
     def workspace_dataset_names(self, workspace_path=None, wildcard=None,
                                 include_feature_classes=True,
                                 include_rasters=True, include_tables=True,
@@ -263,7 +261,7 @@ class ArcWorkspace(object):
 
     # Workspace management methods.
 
-    @log_call
+    @log_function
     def compress_geodatabase(self, geodatabase_path=None,
                              disconnect_users=False, info_log=True):
         """Compress geodatabase."""
@@ -303,7 +301,7 @@ class ArcWorkspace(object):
             logger.info("End: Compress.")
         return geodatabase_path
 
-    @log_call
+    @log_function
     def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None,
                      schema_only=False, overwrite=False, info_log=True):
         """Copy dataset."""
@@ -335,7 +333,7 @@ class ArcWorkspace(object):
             logger.info("End: Copy.")
         return output_path
 
-    @log_call
+    @log_function
     def create_dataset(self, dataset_path, field_metadata=[],
                        geometry_type=None, spatial_reference_id=None,
                        info_log=True):
@@ -373,7 +371,7 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return dataset_path
 
-    @log_call
+    @log_function
     def create_file_geodatabase(self, geodatabase_path,
                                 xml_workspace_path=None,
                                 include_xml_data=False, info_log=True):
@@ -401,7 +399,7 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return geodatabase_path
 
-    @log_call
+    @log_function
     def create_geodatabase_xml_backup(self, geodatabase_path, output_path,
                                       include_data=False,
                                       include_metadata=True, info_log=True):
@@ -421,7 +419,7 @@ class ArcWorkspace(object):
             logger.info("End: Create.")
         return output_path
 
-    @log_call
+    @log_function
     def delete_dataset(self, dataset_path, info_log=True):
         """Delete dataset."""
         if info_log:
@@ -431,7 +429,7 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return dataset_path
 
-    @log_call
+    @log_function
     def set_dataset_privileges(self, dataset_path, user_name, allow_view=None,
                                allow_edit=None, info_log=True):
         """Set privileges for dataset in enterprise geodatabase."""
@@ -448,7 +446,7 @@ class ArcWorkspace(object):
 
     # Schema alteration methods.
 
-    @log_call
+    @log_function
     def add_field(self, dataset_path, field_name, field_type,
                   field_length=None, field_precision=None, field_scale=None,
                   field_is_nullable=True, field_is_required=False,
@@ -474,7 +472,7 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return field_name
 
-    @log_call
+    @log_function
     def add_fields_from_metadata_list(self, dataset_path, metadata_list,
                                       info_log=True):
         """Add fields to dataset from a list of metadata dictionaries."""
@@ -499,7 +497,7 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return [field_info['name'] for field_info in metadata_list]
 
-    @log_call
+    @log_function
     def add_index(self, dataset_path, field_names, index_name=None,
                   is_unique=False, is_ascending=False, info_log=True):
         """Add index to dataset fields."""
@@ -525,7 +523,7 @@ class ArcWorkspace(object):
             logger.info("End: Add.")
         return dataset_path
 
-    @log_call
+    @log_function
     def rename_field(self, dataset_path, field_name, new_field_name,
                      info_log=True):
         """Rename field."""
@@ -538,7 +536,7 @@ class ArcWorkspace(object):
             logger.info("End: Rename.")
         return new_field_name
 
-    @log_call
+    @log_function
     def delete_field(self, dataset_path, field_name, info_log=True):
         """Delete field from dataset."""
         if info_log:
@@ -549,7 +547,7 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return field_name
 
-    @log_call
+    @log_function
     def join_field(self, dataset_path, join_dataset_path, join_field_name,
                    on_field_name, on_join_field_name, info_log=True):
         """Add field and its values from join-dataset."""
@@ -570,7 +568,7 @@ class ArcWorkspace(object):
 
     # Feature alteration methods.
 
-    @log_call
+    @log_function
     def adjust_features_for_shapefile(self, dataset_path,
                                       datetime_null_replacement=datetime.date.min,
                                       integer_null_replacement=0,
@@ -616,7 +614,7 @@ class ArcWorkspace(object):
             logger.info("End: Adjust.")
         return dataset_path
 
-    @log_call
+    @log_function
     def clip_features(self, dataset_path, clip_dataset_path,
                       dataset_where_sql=None, clip_where_sql=None,
                       info_log=True):
@@ -664,7 +662,7 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    @log_call
+    @log_function
     def delete_features(self, dataset_path, dataset_where_sql=None,
                         info_log=True):
         """Delete select features."""
@@ -702,7 +700,7 @@ class ArcWorkspace(object):
             logger.info("End: Delete.")
         return dataset_path
 
-    @log_call
+    @log_function
     def dissolve_features(self, dataset_path, dissolve_field_names,
                           multipart=True, unsplit_lines=False,
                           dataset_where_sql=None, info_log=True):
@@ -761,7 +759,7 @@ class ArcWorkspace(object):
                 )
         return dataset_path
 
-    @log_call
+    @log_function
     def erase_features(self, dataset_path, erase_dataset_path,
                        dataset_where_sql=None, erase_where_sql=None,
                        info_log=True):
@@ -809,7 +807,7 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    @log_call
+    @log_function
     def keep_features_by_location(self, dataset_path, location_path,
                                   dataset_where_sql=None,
                                   location_where_sql=None, info_log=True):
@@ -856,7 +854,7 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    @log_call
+    @log_function
     def identity_features(self, dataset_path, field_name,
                           identity_dataset_path, identity_field_name,
                           replacement_value=None, dataset_where_sql=None,
@@ -957,7 +955,7 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
-    @log_call
+    @log_function
     def insert_features_from_iterables(self, dataset_path,
                                        insert_dataset_iterables, field_names,
                                        info_log=True):
@@ -977,7 +975,7 @@ class ArcWorkspace(object):
             logger.info("End: Insert.")
         return dataset_path
 
-    @log_call
+    @log_function
     def insert_features_from_path(self, dataset_path, insert_dataset_path,
                                   insert_where_sql=None, info_log=True):
         """Insert features from a dataset referred to by a system path."""
@@ -1033,7 +1031,7 @@ class ArcWorkspace(object):
             logger.info("End: Insert.")
         return dataset_path
 
-    @log_call
+    @log_function
     def overlay_features(self, dataset_path, field_name, overlay_dataset_path,
                          overlay_field_name, replacement_value=None,
                          overlay_most_coincident=False,
@@ -1167,7 +1165,7 @@ class ArcWorkspace(object):
                 ))
         return dataset_path
 
-    @log_call
+    @log_function
     def union_features(self, dataset_path, field_name, union_dataset_path, union_field_name,
                        replacement_value=None, dataset_where_sql=None, info_log=True):
         """Assign unique union value to each feature, splitting where necessary.
@@ -1231,7 +1229,7 @@ class ArcWorkspace(object):
             logger.debug("Final feature count: {}.".format(self.feature_count(dataset_path)))
         return dataset_path
 
-    @log_call
+    @log_function
     def update_field_by_coded_value_domain(self, dataset_path, field_name, code_field_name,
                                            domain_name, domain_workspace_path=None,
                                            dataset_where_sql=None, info_log=True):
@@ -1253,7 +1251,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_constructor_method(self, dataset_path, field_name,
                                            constructor, method_name,
                                            field_as_first_arg=True,
@@ -1283,7 +1281,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_expression(self, dataset_path, field_name, expression,
                                    dataset_where_sql=None, info_log=True):
         """Update field values using a (single) code-expression."""
@@ -1313,7 +1311,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_feature_matching(self, dataset_path, field_name, identifier_field_names,
                                          update_value_type, flag_value=None, sort_field_names=[],
                                          dataset_where_sql=None, info_log=True):
@@ -1321,7 +1319,7 @@ class ArcWorkspace(object):
         valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
         raise NotImplementedError
 
-    @log_call
+    @log_function
     def update_field_by_function(self, dataset_path, field_name, function,
                                  field_as_first_arg=True, arg_field_names=[],
                                  kwarg_field_names=[], dataset_where_sql=None,
@@ -1361,7 +1359,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_geometry(self, dataset_path, field_name,
                                  geometry_property_cascade, update_units=None,
                                  spatial_reference_id=None,
@@ -1427,7 +1425,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_joined_value(self, dataset_path, field_name,
                                      join_dataset_path, join_field_name,
                                      on_field_pairs, dataset_where_sql=None,
@@ -1461,7 +1459,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_near_feature(self, dataset_path, field_name,
                                      near_dataset_path, near_field_name,
                                      replacement_value=None,
@@ -1594,7 +1592,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_overlay(self, dataset_path, field_name, overlay_dataset_path,
                                 overlay_field_name, replacement_value=None,
                                 overlay_most_coincident=False, overlay_central_coincident=False,
@@ -1677,7 +1675,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_field_by_unique_id(self, dataset_path, field_name,
                                   dataset_where_sql=None, info_log=True):
         """Update field values by assigning a unique ID."""
@@ -1705,7 +1703,7 @@ class ArcWorkspace(object):
             logger.info("End: Update.")
         return field_name
 
-    @log_call
+    @log_function
     def update_fields_by_geometry_node_ids(self, dataset_path,
                                            from_id_field_name,
                                            to_id_field_name, info_log=True):
@@ -1822,7 +1820,7 @@ class ArcWorkspace(object):
 
     # Analysis methods.
 
-    @log_call
+    @log_function
     def generate_facility_service_rings(self, dataset_path, output_path,
                                         network_path, cost_attribute,
                                         ring_width, max_distance,
@@ -1919,7 +1917,7 @@ class ArcWorkspace(object):
 
     # Conversion/extraction methods.
 
-    @log_call
+    @log_function
     def convert_polygons_to_lines(self, dataset_path, output_path,
                                   topological=False, id_field_name=None,
                                   info_log=True):
@@ -1996,7 +1994,7 @@ class ArcWorkspace(object):
                 ))
         return output_path
 
-    @log_call
+    @log_function
     def convert_table_to_spatial_dataset(self, dataset_path, output_path,
                                          x_field_name, y_field_name,
                                          z_field_name=None,
@@ -2021,7 +2019,7 @@ class ArcWorkspace(object):
             logger.info("End: Convert.")
         return output_path
 
-    @log_call
+    @log_function
     def planarize_features(self, dataset_path, output_path, info_log=True):
         """Convert feature geometry to lines - planarizing them.
 
@@ -2059,7 +2057,7 @@ class ArcWorkspace(object):
                 ))
         return output_path
 
-    @log_call
+    @log_function
     def project(self, dataset_path, output_path, spatial_reference_id,
                 dataset_where_sql=None, info_log=True):
         """Project dataset features to a new dataset."""
@@ -2085,7 +2083,7 @@ class ArcWorkspace(object):
             logger.info("End: Project.")
         return output_path
 
-    @log_call
+    @log_function
     def write_rows_to_csvfile(self, rows, output_path, field_names,
                               header=False, file_mode='wb', info_log=True):
         """Write collected of rows to a CSV-file.
@@ -2121,7 +2119,7 @@ class ArcWorkspace(object):
 
     # Generators.
 
-    @log_call
+    @log_function
     def field_values(self, dataset_path, field_names, dataset_where_sql=None):
         """Generator for tuples of feature field values."""
         with arcpy.da.SearchCursor(
@@ -2130,7 +2128,7 @@ class ArcWorkspace(object):
             for values in cursor:
                 yield values
 
-    @log_call
+    @log_function
     def oid_field_values(self, dataset_path, field_name,
                          dataset_where_sql=None):
         """Generator for tuples of (OID, field_value)."""
@@ -2140,7 +2138,7 @@ class ArcWorkspace(object):
             for oid, value in cursor:
                 yield (oid, value)
 
-    @log_call
+    @log_function
     def oid_geometry(self, dataset_path, spatial_reference_id=None,
                      dataset_where_sql=None):
         """Generator for tuples of (OID, geometry)."""
@@ -2152,7 +2150,7 @@ class ArcWorkspace(object):
             for oid, geometry in cursor:
                 yield (oid, geometry)
 
-    @log_call
+    @log_function
     def xref_near_features(self, dataset_path, dataset_id_field_name,
                            xref_path, xref_id_field_name,
                            max_near_distance=None, only_closest=False,
@@ -2220,7 +2218,7 @@ class ArcWorkspace(object):
 
     # Mappings.
 
-    @log_call
+    @log_function
     def oid_field_value_map(self, dataset_path, field_name,
                             dataset_where_sql=None):
         """Return dictionary mapping of field value for the feature OID."""
@@ -2229,7 +2227,7 @@ class ArcWorkspace(object):
             ) as cursor:
             return {oid: value for oid, value in cursor}
 
-    @log_call
+    @log_function
     def oid_geometry_map(self, dataset_path, spatial_reference_id=None,
                          dataset_where_sql=None):
         """Return dictionary mapping of geometry for the feature OID."""
