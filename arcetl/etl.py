@@ -356,6 +356,34 @@ class ArcWorkspace(object):
         log_line('end', logline, log_level)
         return dataset_path
 
+
+    @log_function
+    def create_dataset_view(self, dataset_path, view_name,
+                            dataset_where_sql=None, log_level='info'):
+        """Create new feature layer/table view."""
+        logline = "Create dataset view of {}.".format(dataset_path)
+        log_line('start', logline, log_level)
+        dataset_metadata = self.dataset_metadata(dataset_path)
+        create_view_kwargs ={
+            'in_features': dataset_path, 'in_table': dataset_path,
+            'out_layer': view_name, 'out_view': view_name,
+            'where_clause': dataset_where_sql, 'workspace': self.path}
+        if dataset_metadata['is_spatial']:
+            create_view = arcpy.management.MakeFeatureLayer
+        elif dataset_metadata['is_table']:
+            create_view = arcpy.management.MakeTableView
+        else:
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path))
+        try:
+            create_view(**create_view_kwargs)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        log_line('end', logline, log_level)
+        return view_name
+
+
     @log_function
     def create_file_geodatabase(self, geodatabase_path,
                                 xml_workspace_path=None,
@@ -2095,6 +2123,8 @@ class ToolExample(object):
         return
 
 
+# Functions & generators.
+
 def log_line(line_type, line, level='info'):
     """Log a line in formatted as expected for the type."""
     if not level:
@@ -2203,8 +2233,7 @@ def unique_name(prefix='', suffix='', unique_length=4):
     return '{}{}{}'.format(
         prefix,
         next(unique_ids(data_type = str, string_length = unique_length)),
-        suffix
-        )
+        suffix)
 
 
 def unique_temp_dataset_path(workspace='in_memory', prefix='', suffix='',
