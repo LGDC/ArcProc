@@ -562,6 +562,30 @@ class ArcWorkspace(object):
         return field_name
 
     @log_function
+    def duplicate_field(self, dataset_path, field_name, new_field_name,
+                        duplicate_values=False, dataset_where_sql=None,
+                        log_level='info'):
+        """Create new field as a duplicate of another."""
+        logline = "Duplicate {}.{} as {}.".format(dataset_path, field_name,
+                                                  new_field_name)
+        log_line('start', logline, log_level)
+        new_field_metadata = self.field_metadata(dataset_path, field_name)
+        new_field_metadata['name'] = new_field_name
+        # Cannot add OID-type field, so push to a long-type.
+        if new_field_metadata['type'].lower() == 'oid':
+            new_field_metadata['type'] = 'long'
+        self.add_fields_from_metadata_list(dataset_path, [new_field_metadata],
+                                           log_level = None)
+        if duplicate_values:
+            self.update_field_by_function(
+                dataset_path, new_field_metadata['name'],
+                function = lambda x: x, field_as_first_arg = False,
+                arg_field_names = [field_name],
+                dataset_where_sql = dataset_where_sql, log_level = None)
+        log_line('end', logline, log_level)
+        return new_field_name
+
+    @log_function
     def join_field(self, dataset_path, join_dataset_path, join_field_name,
                    on_field_name, on_join_field_name, log_level='info'):
         """Add field and its values from join-dataset."""
@@ -832,22 +856,15 @@ class ArcWorkspace(object):
                                                          identity_field_name)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        # Create a temporary copy of the identity dataset.
-        temp_identity_path = self.copy_dataset(
-            identity_dataset_path,
-            unique_temp_dataset_path(prefix = 'temp_identity_'),
+        # Create a temporary copy of the overlay dataset.
+        temp_overlay_path = self.copy_dataset(
+            identity_dataset_path, unique_temp_dataset_path('temp_overlay'),
             log_level = None)
-        # Avoid field name collisions with neutral/unique holding field.
-        temp_field_metadata = self.field_metadata(temp_identity_path,
-                                                  identity_field_name)
-        temp_field_metadata['name'] = unique_name(
-            prefix = temp_field_metadata['name'])
-        self.add_fields_from_metadata_list(
-            temp_identity_path, [temp_field_metadata], log_level = None)
-        self.update_field_by_function(
-            temp_identity_path, temp_field_metadata['name'],
-            function = lambda x: x, field_as_first_arg = False,
-            arg_field_names = [identity_field_name], log_level = None)
+        # Avoid field name collisions with neutral holding field.
+        temp_overlay_field_name = self.duplicate_field(
+            temp_overlay_path, identity_field_name,
+            new_field_name = unique_name(identity_field_name),
+            duplicate_values = True, log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
             in_table = dataset_path, field_names = ['oid@'],
@@ -871,12 +888,11 @@ class ArcWorkspace(object):
                 unique_name(prefix = 'chunk_view_'), dataset_path,
                 chunk_where_clause, log_level = None)
             # Create temporary dataset with the identity values.
-            temp_output_path = unique_temp_dataset_path(
-                prefix = 'temp_output_')
+            temp_output_path = unique_temp_dataset_path('temp_output')
             try:
                 arcpy.analysis.Identity(
                     in_features = chunk_view_name,
-                    identity_features = temp_identity_path,
+                    identity_features = temp_overlay_path,
                     out_feature_class = temp_output_path,
                     join_attributes = 'all', relationship = False)
             except arcpy.ExecuteError:
@@ -889,7 +905,7 @@ class ArcWorkspace(object):
                     temp_output_path, field_name,
                     function = lambda x: replacement_value if x else None,
                     field_as_first_arg = False,
-                    arg_field_names = [temp_field_metadata['name']],
+                    arg_field_names = [temp_overlay_field_name],
                     log_level = None)
             # Identity puts empty string when identity feature not present.
             # Fix to null (replacement value function does this inherently).
@@ -898,7 +914,7 @@ class ArcWorkspace(object):
                     temp_output_path, field_name,
                     function = lambda x: None if x == '' else x,
                     field_as_first_arg = False,
-                    arg_field_names = [temp_field_metadata['name']],
+                    arg_field_names = [temp_overlay_field_name],
                     log_level = None)
             # Replace original chunk features with identity features.
             self.delete_features(chunk_view_name, log_level = None)
@@ -906,7 +922,7 @@ class ArcWorkspace(object):
             self.insert_features_from_path(dataset_path, temp_output_path,
                                            log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
-        self.delete_dataset(temp_identity_path, log_level = None)
+        self.delete_dataset(temp_overlay_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
@@ -1015,20 +1031,13 @@ class ArcWorkspace(object):
             match_option = 'intersect'
         # Create temporary copy of overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            overlay_dataset_path,
-            unique_temp_dataset_path(prefix = 'temp_overlay_'),
+            overlay_dataset_path, unique_temp_dataset_path('temp_overlay'),
             log_level = None)
-        # Create neutral field for holding overlay value (avoids collisions).
-        temp_field_metadata = self.field_metadata(temp_overlay_path,
-                                                  overlay_field_name)
-        temp_field_metadata['name'] = unique_name(
-            prefix = temp_field_metadata['name'])
-        self.add_fields_from_metadata_list(
-            temp_overlay_path, [temp_field_metadata], log_level = None)
-        self.update_field_by_function(
-            temp_overlay_path, temp_field_metadata['name'],
-            function = lambda x: x, field_as_first_arg = False,
-            arg_field_names = [overlay_field_name], log_level = None)
+        # Avoid field name collisions with neutral holding field.
+        temp_overlay_field_name = self.duplicate_field(
+            temp_overlay_path, overlay_field_name,
+            new_field_name = unique_name(overlay_field_name),
+            duplicate_values = True, log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
             in_table = dataset_path, field_names = ['oid@'],
@@ -1071,14 +1080,14 @@ class ArcWorkspace(object):
                     temp_output_path, field_name,
                     function = lambda x: replacement_value if x else None,
                     field_as_first_arg = False,
-                    arg_field_names = [temp_field_metadata['name']],
+                    arg_field_names = [temp_overlay_field_name],
                     log_level = None)
             else:
                 self.update_field_by_function(
                     temp_output_path, field_name,
                     function = lambda x: x,
                     field_as_first_arg = False,
-                    arg_field_names = [temp_field_metadata['name']],
+                    arg_field_names = [temp_overlay_field_name],
                     log_level = None)
             # Replace original chunk features with overlay features.
             self.delete_features(chunk_view_name, log_level = None)
@@ -1104,21 +1113,15 @@ class ArcWorkspace(object):
                                                       union_field_name)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        # Create a temporary copy of union dataset.
-        temp_union_path = self.copy_dataset(
-            union_dataset_path,
-            unique_temp_dataset_path(prefix = 'temp_union_'), log_level = None)
-        # Create neutral field for holding union value (avoids collisions).
-        temp_field_metadata = self.field_metadata(temp_union_path,
-                                                  union_field_name)
-        temp_field_metadata['name'] = unique_name(
-            prefix = temp_field_metadata['name'])
-        self.add_fields_from_metadata_list(
-            temp_union_path, [temp_field_metadata], log_level = None)
-        self.update_field_by_function(
-            temp_union_path, temp_field_metadata['name'],
-            function = lambda x: x, field_as_first_arg = False,
-            arg_field_names = [union_field_name], log_level = None)
+        # Create a temporary copy of the overlay dataset.
+        temp_overlay_path = self.copy_dataset(
+            union_dataset_path, unique_temp_dataset_path('temp_overlay'),
+            log_level = None)
+        # Avoid field name collisions with neutral holding field.
+        temp_overlay_field_name = self.duplicate_field(
+            temp_overlay_path, union_field_name,
+            new_field_name = unique_name(union_field_name),
+            duplicate_values = True, log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
             in_table = dataset_path, field_names = ['oid@'],
@@ -1146,7 +1149,7 @@ class ArcWorkspace(object):
                 prefix = 'temp_output_')
             try:
                 arcpy.analysis.Union(
-                    in_features = [view_name, temp_union_path],
+                    in_features = [view_name, temp_overlay_path],
                     out_feature_class = temp_output_path,
                     join_attributes = 'all', gaps = False)
             except arcpy.ExecuteError:
@@ -1159,7 +1162,7 @@ class ArcWorkspace(object):
                     temp_output_path, field_name,
                     function = lambda x: replacement_value if x else None,
                     field_as_first_arg = False,
-                    arg_field_names = [temp_field_metadata['name']],
+                    arg_field_names = [temp_overlay_field_name],
                     log_level = None)
             # Union puts empty string when union feature not present.
             # Fix to null (replacement value function does this inherently).
@@ -1168,7 +1171,7 @@ class ArcWorkspace(object):
                     temp_output_path, field_name,
                     function = lambda x: None if x == '' else x,
                     field_as_first_arg = False,
-                    arg_field_names = [temp_field_metadata['name']],
+                    arg_field_names = [temp_overlay_field_name],
                     log_level = None)
             # Replace original chunk features with union features.
             self.delete_features(chunk_view_name, log_level = None)
@@ -1176,7 +1179,7 @@ class ArcWorkspace(object):
             self.insert_features_from_path(dataset_path, temp_output_path,
                                            log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
-        self.delete_dataset(temp_union_path, log_level = None)
+        self.delete_dataset(temp_overlay_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
