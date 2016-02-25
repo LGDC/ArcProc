@@ -2305,7 +2305,7 @@ def unique_name(prefix='', suffix='', unique_length=4):
         suffix)
 
 
-def unique_temp_dataset_path(workspace='in_memory', prefix='', suffix='',
-                             unique_length=4):
+def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,
+                             workspace='in_memory'):
     """Create unique temporary dataset path."""
     return os.path.join(workspace, unique_name(prefix, suffix, unique_length))
