@@ -1301,54 +1301,50 @@ class ArcWorkspace(object):
         If the spatial reference ID is not specified, the spatial reference of
         the dataset is used.
         """
-        logline = (
-            "Update field {} values using geometry properties {}.".format(
-                field_name, geometry_property_cascade))
+        logline = ("Update field {} values"
+                   "using geometry property cascade {}.").format(
+            field_name, geometry_property_cascade)
         log_line('start', logline, log_level)
         if update_units:
             raise NotImplementedError("update_units not yet implemented.")
+        # Common property representations converted to fit our property map.
+        PROPERTY_ALIAS_CONVERSION_MAP = {
+            'x': 'x-coordinate', 'y': 'y-coordinate', 'z': 'z-coordinate',
+            'xmin': 'x-minimum', 'ymin': 'y-minimum', 'zmin': 'z-minimum',
+            'xmax': 'x-maximum', 'ymax': 'y-maximum', 'zmax': 'z-maximum'}
+        GEOMETRY_PROPERTY_MAP = {
+            'area': ['area'], 'length': ['length'],
+            'centroid': ['centroid'], 'extent': ['extent'],
+            'x-coordinate': ['X'], 'y-coordinate': ['Y'],
+            'z-coordinate': ['Z'],
+            'x-minimum': ['extent', 'XMin'], 'y-minimum': ['extent', 'YMin'],
+            'z-minimum': ['extent', 'ZMin'],
+            'x-maximum': ['extent', 'XMax'], 'y-maximum': ['extent', 'YMax'],
+            'z-maximum': ['extent', 'ZMax']}
         with arcpy.da.UpdateCursor(
-            in_table = dataset_path,
-            field_names = (field_name, 'shape@'),
+            in_table = dataset_path, field_names = [field_name, 'shape@'],
             where_clause = dataset_where_sql,
             spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
-                                 if spatial_reference_id else None)
-            ) as cursor:
+                                 if spatial_reference_id else None)) as cursor:
             for field_value, geometry in cursor:
                 if geometry is None:
                     new_value = None
                 else:
                     new_value = geometry
                     # Cascade down the geometry properties.
-                    for geometry_property in geometry_property_cascade:
-                        geometry_property = geometry_property.lower()
-                        if geometry_property in ['area']:
+                    for _property in geometry_property_cascade:
+                        _property = _property.lower()
+                        # Convert property if an alias.
+                        if _property not in GEOMETRY_PROPERTY_MAP:
                             try:
-                                new_value = new_value.area
-                            except TypeError:
-                                raise
-                        elif geometry_property in ['centroid']:
-                            new_value = new_value.centroid
-                        elif geometry_property in ['length']:
-                            new_value = new_value.length
-                        elif geometry_property in ['x', 'x-coordinate']:
-                            new_value = new_value.X
-                        elif geometry_property in ['y', 'y-coordinate']:
-                            new_value = new_value.Y
-                        elif geometry_property in ['z', 'z-coordinate']:
-                            new_value = new_value.Z
-                        elif geometry_property in ['x-minimum', 'xmin']:
-                            new_value = new_value.extent.XMin
-                        elif geometry_property in ['y-minimum', 'ymin']:
-                            new_value = new_value.extent.YMin
-                        elif geometry_property in ['z-minimum', 'zmin']:
-                            new_value = new_value.extent.ZMin
-                        elif geometry_property in ['x-maximum', 'xmax']:
-                            new_value = new_value.extent.XMax
-                        elif geometry_property in ['y-maximum', 'ymax']:
-                            new_value = new_value.extent.YMax
-                        elif geometry_property in ['z-maximum', 'zmax']:
-                            new_value = new_value.extent.ZMax
+                                _property = (
+                                    PROPERTY_ALIAS_CONVERSION_MAP[_property])
+                            except KeyError:
+                                raise ValueError(
+                                    "Property {} in the cascade not a valid"
+                                    "geometry property or alias.")
+                        for sub_property in GEOMETRY_PROPERTY_MAP[_property]:
+                            new_value = getattr(new_value, sub_property)
                 if new_value != field_value:
                     cursor.updateRow((new_value, geometry))
         log_line('end', logline, log_level)
