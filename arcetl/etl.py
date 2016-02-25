@@ -1025,7 +1025,6 @@ class ArcWorkspace(object):
             prefix = temp_field_metadata['name'])
         self.add_fields_from_metadata_list(
             temp_overlay_path, [temp_field_metadata], log_level = None)
-
         self.update_field_by_function(
             temp_overlay_path, temp_field_metadata['name'],
             function = lambda x: x, field_as_first_arg = False,
@@ -1093,9 +1092,11 @@ class ArcWorkspace(object):
         return dataset_path
 
     @log_function
-    def union_features(self, dataset_path, field_name, union_dataset_path, union_field_name,
-                       replacement_value=None, dataset_where_sql=None, log_level='info'):
-        """Assign unique union value to each feature, splitting where necessary.
+    def union_features(self, dataset_path, field_name, union_dataset_path,
+                       union_field_name, replacement_value=None,
+                       dataset_where_sql=None, chunk_size=4096,
+                       log_level='info'):
+        """Assign unique union value to features, splitting where necessary.
 
         replacement_value is a value that will substitute as the union value.
         """
@@ -1103,50 +1104,79 @@ class ArcWorkspace(object):
                                                       union_field_name)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        # Create a temporary copy of the union dataset.
+        # Create a temporary copy of union dataset.
         temp_union_path = self.copy_dataset(
             union_dataset_path,
-            unique_temp_dataset_path(prefix = 'temp_union_'), log_level = None
-            )
-        # Create neutral/unique field for holding union value (avoids collisions).
-        temp_field_metadata = self.field_metadata(temp_union_path, union_field_name)
+            unique_temp_dataset_path(prefix = 'temp_union_'), log_level = None)
+        # Create neutral field for holding union value (avoids collisions).
+        temp_field_metadata = self.field_metadata(temp_union_path,
+                                                  union_field_name)
         temp_field_metadata['name'] = unique_name(
-            prefix = temp_field_metadata['name']
-            )
-        # Cannot add OID-type field, so push to a long-type.
-        if temp_field_metadata['type'].lower() == 'oid':
-            temp_field_metadata['type'] = 'long'
-        self.add_fields_from_metadata_list(temp_union_path, [temp_field_metadata], log_level = None)
-        self.update_field_by_expression(temp_union_path, temp_field_metadata['name'],
-                                        expression = '!{}!'.format(union_field_name),
-                                        log_level = None)
-        # Create the temp output of the union.
-        view_name = unique_name(prefix = 'dataset_view_')
-        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
-        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
-        arcpy.analysis.Union(
-            in_features = [view_name, temp_union_path], out_feature_class = temp_output_path,
-            join_attributes = 'all', gaps = False
-            )
+            prefix = temp_field_metadata['name'])
+        self.add_fields_from_metadata_list(
+            temp_union_path, [temp_field_metadata], log_level = None)
+        self.update_field_by_function(
+            temp_union_path, temp_field_metadata['name'],
+            function = lambda x: x, field_as_first_arg = False,
+            arg_field_names = [union_field_name], log_level = None)
+        # Get an iterable of all object IDs in the dataset.
+        with arcpy.da.SearchCursor(
+            in_table = dataset_path, field_names = ['oid@'],
+            where_clause = dataset_where_sql) as cursor:
+            # Sorting is important, allows views with ID range instead of list.
+            oids = sorted(oid for (oid,) in cursor)
+        oid_field_name = self.dataset_metadata(dataset_path)['oid_field_name']
+        while oids:
+            chunk = oids[:chunk_size]
+            oids = oids[chunk_size:]
+            logger.debug(
+                "Chunk: Feature OIDs {} to {}".format(chunk[0], chunk[-1]))
+            # ArcPy where clauses cannot use 'between'.
+            chunk_where_clause = (
+                "{field} >= {from_oid} and {field} <= {to_oid}".format(
+                    field = oid_field_name,
+                    from_oid = chunk[0], to_oid = chunk[-1]))
+            if dataset_where_sql:
+                chunk_where_clause += " and ({})".format(dataset_where_sql)
+            chunk_view_name = self.create_dataset_view(
+                unique_name(prefix = 'chunk_view_'), dataset_path,
+                chunk_where_clause, log_level = None)
+            # Create the temp output of the union.
+            temp_output_path = unique_temp_dataset_path(
+                prefix = 'temp_output_')
+            try:
+                arcpy.analysis.Union(
+                    in_features = [view_name, temp_union_path],
+                    out_feature_class = temp_output_path,
+                    join_attributes = 'all', gaps = False)
+            except arcpy.ExecuteError:
+                logger.exception("ArcPy execution.")
+                raise
+            # Push union (or replacement) value from temp to update field.
+            # Apply replacement value if necessary.
+            if replacement_value is not None:
+                self.update_field_by_function(
+                    temp_output_path, field_name,
+                    function = lambda x: replacement_value if x else None,
+                    field_as_first_arg = False,
+                    arg_field_names = [temp_field_metadata['name']],
+                    log_level = None)
+            # Union puts empty string when union feature not present.
+            # Fix to null (replacement value function does this inherently).
+            else:
+                self.update_field_by_function(
+                    temp_output_path, field_name,
+                    function = lambda x: None if x == '' else x,
+                    field_as_first_arg = False,
+                    arg_field_names = [temp_field_metadata['name']],
+                    log_level = None)
+            # Replace original chunk features with union features.
+            self.delete_features(chunk_view_name, log_level = None)
+            self.delete_dataset(chunk_view_name, log_level = None)
+            self.insert_features_from_path(dataset_path, temp_output_path,
+                                           log_level = None)
+            self.delete_dataset(temp_output_path, log_level = None)
         self.delete_dataset(temp_union_path, log_level = None)
-        # Union puts empty string instead of null where identity feature not present; fix.
-        self.update_field_by_expression(
-            temp_output_path, temp_field_metadata['name'],
-            expression = "None if !{0}! == '' else !{0}!".format(temp_field_metadata['name']),
-            log_level = None
-            )
-        # Push the union (or replacement) value from the temp field to the update field.
-        if replacement_value:
-            expression = '{} if !{}! else None'.format(repr(replacement_value),
-                                                       temp_field_metadata['name'])
-        else:
-            expression = '!{}!'.format(temp_field_metadata['name'])
-        self.update_field_by_expression(temp_output_path, field_name, expression, log_level = None)
-        # Replace original features with union features.
-        self.delete_features(view_name, log_level = None)
-        self.delete_dataset(view_name, log_level = None)
-        self.insert_features_from_path(dataset_path, temp_output_path, log_level = None)
-        self.delete_dataset(temp_output_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
