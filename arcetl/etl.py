@@ -548,22 +548,6 @@ class ArcWorkspace(object):
         return dataset_path
 
     @log_function
-    def rename_field(self, dataset_path, field_name, new_field_name,
-                     log_level='info'):
-        """Rename field."""
-        logline = "Rename field {}.{} to {}.".format(dataset_path, field_name,
-                                                     new_field_name)
-        log_line('start', logline, log_level)
-        try:
-            arcpy.management.AlterField(dataset_path,
-                                        field_name, new_field_name)
-        except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
-            raise
-        log_line('end', logline, log_level)
-        return new_field_name
-
-    @log_function
     def delete_field(self, dataset_path, field_name, log_level='info'):
         """Delete field from dataset."""
         logline = "Delete field {}.".format(field_name)
@@ -594,6 +578,22 @@ class ArcWorkspace(object):
             raise
         log_line('end', logline, log_level)
         return join_field_name
+
+    @log_function
+    def rename_field(self, dataset_path, field_name, new_field_name,
+                     log_level='info'):
+        """Rename field."""
+        logline = "Rename field {}.{} to {}.".format(dataset_path, field_name,
+                                                     new_field_name)
+        log_line('start', logline, log_level)
+        try:
+            arcpy.management.AlterField(dataset_path,
+                                        field_name, new_field_name)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        log_line('end', logline, log_level)
+        return new_field_name
 
     # Feature alteration methods.
 
