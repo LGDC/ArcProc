@@ -192,8 +192,7 @@ class ArcWorkspace(object):
     def feature_count(self, dataset_path, dataset_where_sql=None):
         """Return the number of features in a dataset."""
         with arcpy.da.SearchCursor(
-            in_table = dataset_path,
-            field_names = [arcpy.ListFields(dataset_path)[0].name],
+            in_table = dataset_path, field_names = ['oid@'],
             where_clause = dataset_where_sql) as cursor:
             return len([None for row in cursor])
 
@@ -260,33 +259,34 @@ class ArcWorkspace(object):
         if not geodatabase_path:
             geodatabase_path = self.path
         arc_description = arcpy.Describe(geodatabase_path)
-        if hasattr(arc_description, 'workspaceType'):
-            workspace_type = arc_description.workspaceType
-        else:
-            workspace_type = None
-        if workspace_type == 'LocalDatabase':
-            # Local databases cannot disconnect users (connections managed by
-            # file access).
-            disconnect_users = False
-            compress = arcpy.management.CompressFileGeodatabaseData
-        elif workspace_type == 'RemoteDatabase':
-            compress = arcpy.management.Compress
-        else:
+        if not hasattr(arc_description, 'workspaceType'):
             raise ValueError(
-                "{} not a valid geodatabase.".format(geodatabase_path)
-                )
+                "{} not a valid geodatabase.".format(geodatabase_path))
+        if arc_description.workspaceType == 'LocalDatabase':
+            _compress = arcpy.management.CompressFileGeodatabaseData
+            _compress_kwargs = {'in_data': geodatabase_path}
+            # Local databases cannot disconnect users (connections managed
+            # by file access).
+            disconnect_users = False
+        elif arc_description.workspaceType == 'RemoteDatabase':
+            _compress = arcpy.management.Compress
+            _compress_kwargs = {'in_workspace': geodatabase_path}
+        else:
+            raise ValueError("{} not a valid geodatabase type.".format(
+                arc_description.workspaceType))
         if disconnect_users:
-            arcpy.AcceptConnections(
-                sde_workspace = geodatabase_path, accept_connections = False
-                )
-            arcpy.DisconnectUser(
-                sde_workspace = geodatabase_path, users = 'all'
-                )
-        compress(geodatabase_path)
+            arcpy.AcceptConnections(sde_workspace = geodatabase_path,
+                                    accept_connections = False)
+            arcpy.DisconnectUser(sde_workspace = geodatabase_path,
+                                 users = 'all')
+        try:
+            _compress(**_compress_kwargs)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         if disconnect_users:
-            arcpy.AcceptConnections(
-                sde_workspace = geodatabase_path, accept_connections = True
-                )
+            arcpy.AcceptConnections(sde_workspace = geodatabase_path,
+                                    accept_connections = True)
         log_line('end', logline, log_level)
         return geodatabase_path
 
@@ -296,26 +296,30 @@ class ArcWorkspace(object):
         """Copy dataset."""
         logline = "Copy {} to {}.".format(dataset_path, output_path)
         log_line('start', logline, log_level)
-        metadata = self.dataset_metadata(dataset_path)
-        if metadata['is_spatial']:
-            create_view = arcpy.management.MakeFeatureLayer
-            copy_rows = arcpy.management.CopyFeatures
-        elif  metadata['is_table']:
-            create_view = arcpy.management.MakeTableView
-            copy_rows = arcpy.management.CopyRows
+        dataset_metadata = self.dataset_metadata(dataset_path)
+        dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'dataset_view_'), dataset_path,
+            dataset_where_sql, log_level = None)
+
+        if dataset_metadata['is_spatial']:
+            _copy = arcpy.management.CopyFeatures
+            _copy_kwargs = {'in_features': dataset_view_name,
+                            'out_feature_class': output_path}
+        elif  dataset_metadata['is_table']:
+            _copy = arcpy.management.CopyRows
+            _copy_kwargs = {'in_rows': dataset_view_name,
+                            'out_table': output_path}
         else:
             raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path)
-                )
+                "{} unsupported dataset type.".format(dataset_path))
         if overwrite and self.is_valid_dataset(output_path):
             self.delete_dataset(output_path, log_level = None)
-        view_name = unique_name(prefix = 'dataset_view_')
-        create_view(
-            dataset_path, view_name,
-            dataset_where_sql if not schema_only else "0 = 1", self.path
-            )
-        copy_rows(view_name, output_path)
-        self.delete_dataset(view_name, log_level = None)
+        try:
+            _copy(**_copy_kwargs)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(dataset_view_name, log_level = None)
         log_line('end', logline, log_level)
         return output_path
 
@@ -326,24 +330,21 @@ class ArcWorkspace(object):
         """Create new dataset."""
         logline = "Create dataset {}.".format(dataset_path)
         log_line('start', logline, log_level)
+        _create_kwargs = {'out_path': os.path.dirname(dataset_path),
+                          'out_name': os.path.basename(dataset_path)}
         if geometry_type:
-            if spatial_reference_id:
-                spatial_reference = arcpy.SpatialReference(
-                    spatial_reference_id
-                    )
-            else:
-                spatial_reference = arcpy.SpatialReference(4326)
-            arcpy.management.CreateFeatureclass(
-                out_path = os.path.dirname(dataset_path),
-                out_name = os.path.basename(dataset_path),
-                geometry_type = geometry_type,
-                spatial_reference = spatial_reference
-                )
+            _create = arcpy.management.CreateFeatureclass
+            _create_kwargs['geometry_type'] = geometry_type,
+            # Default to EPSG 4326 (unprojected WGS 84).
+            _create_kwargs['spatial_reference'] = arcpy.SpatialReference(
+                spatial_reference_id if spatial_reference_id else 4326)
         else:
-            arcpy.management.CreateTable(
-                out_path = os.path.dirname(dataset_path),
-                out_name = os.path.basename(dataset_path)
-                )
+            _create = arcpy.management.CreateTable
+        try:
+            _create(**_create_kwargs)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         if field_metadata:
             if isinstance(field_metadata, dict):
                 field_metadata = [field_metadata]
@@ -351,38 +352,37 @@ class ArcWorkspace(object):
                 self.add_field(
                     dataset_path, field['name'], field['type'],
                     field.get('length'), field.get('precision'),
-                    field.get('scale'), log_level = None
-                    )
+                    field.get('scale'), log_level = None)
         log_line('end', logline, log_level)
         return dataset_path
 
-
     @log_function
-    def create_dataset_view(self, dataset_path, view_name,
+    def create_dataset_view(self, view_name, dataset_path,
                             dataset_where_sql=None, log_level='info'):
         """Create new feature layer/table view."""
         logline = "Create dataset view of {}.".format(dataset_path)
         log_line('start', logline, log_level)
         dataset_metadata = self.dataset_metadata(dataset_path)
-        create_view_kwargs ={
-            'in_features': dataset_path, 'in_table': dataset_path,
-            'out_layer': view_name, 'out_view': view_name,
-            'where_clause': dataset_where_sql, 'workspace': self.path}
+        _create_kwargs = {'where_clause': dataset_where_sql,
+                          'workspace': self.path}
         if dataset_metadata['is_spatial']:
-            create_view = arcpy.management.MakeFeatureLayer
+            _create = arcpy.management.MakeFeatureLayer
+            _create_kwargs['in_features'] = dataset_path
+            _create_kwargs['out_layer'] = view_name
         elif dataset_metadata['is_table']:
-            create_view = arcpy.management.MakeTableView
+            _create = arcpy.management.MakeTableView
+            _create_kwargs['in_table'] = dataset_path
+            _create_kwargs['out_view'] = view_name
         else:
             raise ValueError(
                 "{} unsupported dataset type.".format(dataset_path))
         try:
-            create_view(**create_view_kwargs)
+            _create(**_create_kwargs)
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
         log_line('end', logline, log_level)
         return view_name
-
 
     @log_function
     def create_file_geodatabase(self, geodatabase_path,
@@ -394,18 +394,25 @@ class ArcWorkspace(object):
         if os.path.exists(geodatabase_path):
             logger.warning("Geodatabase already exists.")
             return geodatabase_path
-        arcpy.management.CreateFileGDB(
-            out_folder_path = os.path.dirname(geodatabase_path),
-            out_name = os.path.basename(geodatabase_path),
-            out_version = 'current'
-            )
+        try:
+            arcpy.management.CreateFileGDB(
+                out_folder_path = os.path.dirname(geodatabase_path),
+                out_name = os.path.basename(geodatabase_path),
+                out_version = 'current')
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         if xml_workspace_path:
-            arcpy.management.ImportXMLWorkspaceDocument(
-                target_geodatabase = geodatabase_path,
-                in_file = xml_workspace_path,
-                import_type = 'data' if include_xml_data else 'schema_only',
-                config_keyword = 'defaults'
-                )
+            try:
+                arcpy.management.ImportXMLWorkspaceDocument(
+                    target_geodatabase = geodatabase_path,
+                    in_file = xml_workspace_path,
+                    import_type = ('data' if include_xml_data
+                                   else 'schema_only'),
+                    config_keyword = 'defaults')
+            except arcpy.ExecuteError:
+                logger.exception("ArcPy execution.")
+                raise
         log_line('end', logline, log_level)
         return geodatabase_path
 
@@ -417,11 +424,14 @@ class ArcWorkspace(object):
         logline = "Create backup for {} in {}.".format(geodatabase_path,
                                                        output_path)
         log_line('start', logline, log_level)
-        arcpy.management.ExportXMLWorkspaceDocument(
-            in_data = geodatabase_path, out_file = output_path,
-            export_type = 'data' if include_data else 'schema_only',
-            storage_type = 'binary', export_metadata = include_metadata
-            )
+        try:
+            arcpy.management.ExportXMLWorkspaceDocument(
+                in_data = geodatabase_path, out_file = output_path,
+                export_type = 'data' if include_data else 'schema_only',
+                storage_type = 'binary', export_metadata = include_metadata)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return output_path
 
@@ -430,7 +440,11 @@ class ArcWorkspace(object):
         """Delete dataset."""
         logline = "Delete {}.".format(dataset_path)
         log_line('start', logline, log_level)
-        arcpy.management.Delete(dataset_path)
+        try:
+            arcpy.management.Delete(dataset_path)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return dataset_path
 
@@ -441,11 +455,15 @@ class ArcWorkspace(object):
         logline = "Set privileges for {} on {}.".format(user_name,
                                                         dataset_path)
         log_line('start', logline, log_level)
-        privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
-        arcpy.management.ChangePrivileges(
-            in_dataset= dataset_path, user = user_name,
-            View = privilege_map[allow_view], Edit = privilege_map[allow_edit]
-            )
+        PRIVILEGE_MAP = {True: 'grant', False: 'revoke', None: 'as_is'}
+        try:
+            arcpy.management.ChangePrivileges(
+                in_dataset = dataset_path, user = user_name,
+                View = PRIVILEGE_MAP[allow_view],
+                Edit = PRIVILEGE_MAP[allow_edit])
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return dataset_path
 
@@ -457,20 +475,22 @@ class ArcWorkspace(object):
                   field_is_nullable=True, field_is_required=False,
                   log_level='info'):
         """Add field to dataset."""
-        logline = "Add field {} to {}.".format(field_name, dataset_path)
+        logline = "Add field {}.{}.".format(dataset_path, field_name)
         log_line('start', logline, log_level)
-        if field_type.lower() == 'string':
-            field_type = 'text'
-        elif field_type.lower() == 'integer':
-            field_type = 'long'
+        TYPE_CONVERSION_MAP = {'string': 'text', 'integer': 'long'}
+        field_type = TYPE_CONVERSION_MAP.get(field_type, field_type)
         if field_type.lower() == 'text' and field_length is None:
             field_length = 64
-        arcpy.management.AddField(
-            dataset_path, field_name, field_type = field_type,
-            field_length = field_length, field_precision = field_precision,
-            field_scale = field_scale, field_is_nullable = field_is_nullable,
-            field_is_required = field_is_required
-            )
+        try:
+            arcpy.management.AddField(
+                dataset_path, field_name, field_type = field_type,
+                field_length = field_length,
+                field_precision = field_precision, field_scale = field_scale,
+                field_is_nullable = field_is_nullable,
+                field_is_required = field_is_required)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return field_name
 
@@ -480,18 +500,22 @@ class ArcWorkspace(object):
         """Add fields to dataset from a list of metadata dictionaries."""
         logline = "Add fields to {} from a metadata list.".format(dataset_path)
         log_line('start', logline, log_level)
-        for field_info in metadata_list:
-            kwargs = {}
-            for key, value in field_info.items():
-                if ('field_{}'.format(key)
-                    in inspect.getargspec(self.add_field).args):
-                    kwargs['field_{}'.format(key)] = value
-                kwargs['dataset_path'] = dataset_path
-                kwargs['log_level'] = 'debug'
-            field_name = self.add_field(**kwargs)
-            getattr(logger, log_level)("Added {}.".format(field_name))
+        for field_metadata in metadata_list:
+            _add_kwargs = {'dataset_path': dataset_path, 'log_level': None}
+            for attribute in ['name', 'type', 'length', 'precision', 'scale',
+                              'is_nullable', 'is_required']:
+                if attribute in field_metadata:
+                    _add_kwargs['field_{}'.format(attribute)] = (
+                        field_metadata[attribute])
+            try:
+                field_name = self.add_field(**_add_kwargs)
+            except arcpy.ExecuteError:
+                logger.exception("ArcPy execution.")
+                raise
+            if log_level:
+                getattr(logger, log_level)("Added {}.".format(field_name))
         log_line('end', logline, log_level)
-        return [field_info['name'] for field_info in metadata_list]
+        return [field_metadata['name'] for field_metadata in metadata_list]
 
     @log_function
     def add_index(self, dataset_path, field_names, index_name=None,
@@ -502,17 +526,24 @@ class ArcWorkspace(object):
         field_types = {
             field['type'].lower() for field
             in self.dataset_metadata(dataset_path)['fields']
-            if field['name'].lower() in [name.lower() for name in field_names]
-            }
-        if 'geometry' in field_types:
-            if len(field_names) != 1:
-                raise RuntimeError("Cannot create a composite spatial index.")
-            arcpy.management.AddSpatialIndex(dataset_path)
+            if field['name'].lower() in [name.lower() for name in field_names]}
+        if 'geometry' in field_types and len(field_names) != 1:
+            raise RuntimeError("Cannot create a composite spatial index.")
+        elif 'geometry' in field_types:
+            _add = arcpy.management.AddSpatialIndex
+            _add_kwargs = {'in_features': dataset_path}
         else:
-            index_name = '_'.join(['ndx'] + field_names)
-            arcpy.management.AddIndex(
-                dataset_path, field_names, index_name, is_unique, is_ascending
-                )
+            _add = arcpy.management.AddIndex
+            _add_kwargs = {
+                'in_table': dataset_path, 'fields': field_names,
+                'index_name': (index_name if index_name
+                               else '_'.join(['ndx'] + field_names)),
+                'unique': is_unique, 'ascending': is_ascending}
+        try:
+            _add(**_add_kwargs)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return dataset_path
 
@@ -523,7 +554,12 @@ class ArcWorkspace(object):
         logline = "Rename field {}.{} to {}.".format(dataset_path, field_name,
                                                      new_field_name)
         log_line('start', logline, log_level)
-        arcpy.management.AlterField(dataset_path, field_name, new_field_name)
+        try:
+            arcpy.management.AlterField(dataset_path,
+                                        field_name, new_field_name)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return new_field_name
 
@@ -532,8 +568,12 @@ class ArcWorkspace(object):
         """Delete field from dataset."""
         logline = "Delete field {}.".format(field_name)
         log_line('start', logline, log_level)
-        arcpy.management.DeleteField(in_table = dataset_path,
-                                     drop_field = field_name)
+        try:
+            arcpy.management.DeleteField(in_table = dataset_path,
+                                         drop_field = field_name)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return field_name
 
@@ -544,23 +584,24 @@ class ArcWorkspace(object):
         logline = "Join field {} from {}.".format(join_field_name,
                                                   join_dataset_path)
         log_line('start', logline, log_level)
-        arcpy.management.JoinField(
-            dataset_path, in_field = on_field_name,
-            join_table = join_dataset_path, join_field = on_join_field_name,
-            fields = join_field_name
-            )
+        try:
+            arcpy.management.JoinField(
+                dataset_path, in_field = on_field_name,
+                join_table = join_dataset_path,
+                join_field = on_join_field_name, fields = join_field_name)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return join_field_name
 
     # Feature alteration methods.
 
     @log_function
-    def adjust_features_for_shapefile(self, dataset_path,
-                                      datetime_null_replacement=datetime.date.min,
-                                      integer_null_replacement=0,
-                                      numeric_null_replacement=0.0,
-                                      string_null_replacement='',
-                                      log_level='info'):
+    def adjust_features_for_shapefile(
+        self, dataset_path, datetime_null_replacement=datetime.date.min,
+        integer_null_replacement=0, numeric_null_replacement=0.0,
+        string_null_replacement='', log_level='info'):
         """Adjust features to meet shapefile requirements.
 
         Adjustments currently made:
@@ -572,29 +613,27 @@ class ArcWorkspace(object):
             dataset_path)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        dataset = self.dataset_metadata(dataset_path)
-        type_function_map = {
+        TYPE_FUNCTION_MAP = {
             # Blob omitted: Not a valid shapefile type.
             'date': (lambda x: datetime_null_replacement if x is None
                      # Shapefiles can only store dates, not times.
                      else x.date()),
-            'double': lambda x: 0.0 if x is None else x,
+            'double': lambda x: numeric_null_replacement if x is None else x,
             # Geometry passed-through: Shapefile loader handles this.
             #'guid': Not valid shapefile type.
-            'integer': lambda x: 0 if x is None else x,
+            'integer': lambda x: integer_null_replacement if x is None else x,
             # OID passed-through: Shapefile loader handles this.
             # Raster omitted: Not a valid shapefile type.
-            'single': lambda x: 0.0 if x is None else x,
-            'smallinteger': lambda x: 0 if x is None else x,
-            'string': lambda x: '' if x is None else x,
-            }
-        for field in dataset['fields']:
-            if field['type'].lower() in type_function_map:
+            'single': lambda x: numeric_null_replacement if x is None else x,
+            'smallinteger': (lambda x: integer_null_replacement if x is None
+                             else x),
+            'string': lambda x: string_null_replacement if x is None else x}
+        for field in self.dataset_metadata(dataset_path)['fields']:
+            if field['type'].lower() in TYPE_FUNCTION_MAP:
                 self.update_field_by_function(
                     dataset_path, field['name'],
-                    function = type_function_map[field['type']],
-                    log_level = None
-                    )
+                    function = TYPE_FUNCTION_MAP[field['type'].lower()],
+                    log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
@@ -608,26 +647,27 @@ class ArcWorkspace(object):
             dataset_path, clip_dataset_path)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        view_name = unique_name(prefix = 'dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            dataset_path, view_name, dataset_where_sql, self.path
-            )
-        clip_view_name = unique_name(prefix = 'clip_dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            clip_dataset_path, clip_view_name, clip_where_sql, self.path
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'dataset_view_'), dataset_path,
+            dataset_where_sql, log_level = None)
+        clip_dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'clip_dataset_view_'), clip_dataset_path,
+            clip_where_sql, log_level = None)
         temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
-        arcpy.analysis.Clip(
-            in_features = view_name, clip_features = clip_view_name,
-            out_feature_class = temp_output_path
-            )
-        self.delete_dataset(clip_view_name, log_level = None)
+        try:
+            arcpy.analysis.Clip(
+                in_features = dataset_view_name,
+                clip_features = clip_dataset_view_name,
+                out_feature_class = temp_output_path)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(clip_dataset_view_name, log_level = None)
         # Load back into the dataset.
-        self.delete_features(view_name, log_level = None)
-        self.delete_dataset(view_name, log_level = None)
-        self.insert_features_from_path(
-            dataset_path, temp_output_path, log_level = None
-            )
+        self.delete_features(dataset_view_name, log_level = None)
+        self.delete_dataset(dataset_view_name, log_level = None)
+        self.insert_features_from_path(dataset_path, temp_output_path,
+                                       log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
@@ -641,30 +681,28 @@ class ArcWorkspace(object):
                                                              dataset_where_sql)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        metadata = self.dataset_metadata(dataset_path)
-        # Database-type (also not in-memory) & no sub-selection: use truncate.
-        if all([
-            dataset_where_sql is None,
-            metadata['data_type'] in ['FeatureClass', 'Table'],
-            metadata['workspace_path'] != 'in_memory'
-            ]):
-            arcpy.management.TruncateTable(dataset_path)
-        # Non-database or with sub-selection options.
+        dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'dataset_view_'), dataset_path,
+            dataset_where_sql, log_level = None)
+        dataset_metadata = self.dataset_metadata(dataset_path)
+        # Can use (faster) truncate when:
+        # (1) Database-type; (2) not in-memory; (3) no sub-selection.
+        if all([dataset_where_sql is None,
+                dataset_metadata['data_type'] in ['FeatureClass', 'Table'],
+                dataset_metadata['workspace_path'] != 'in_memory']):
+            _delete = arcpy.management.TruncateTable
+            _delete_kwargs = {'in_table': dataset_view_name}
+        elif dataset_metadata['is_spatial']:
+            _delete = arcpy.management.DeleteFeatures
+            _delete_kwargs = {'in_features': dataset_view_name}
+        elif dataset_metadata['is_table']:
+            _delete = arcpy.management.DeleteRows
+            _delete_kwargs = {'in_rows': dataset_view_name}
         else:
-            if metadata['is_spatial']:
-                create_view = arcpy.management.MakeFeatureLayer
-                delete_rows = arcpy.management.DeleteFeatures
-            elif metadata['is_table']:
-                create_view = arcpy.management.MakeTableView
-                delete_rows = arcpy.management.DeleteRows
-            else:
-                raise ValueError(
-                    "{} unsupported dataset type.".format(dataset_path)
-                    )
-            view_name = unique_name(prefix = 'dataset_view_')
-            create_view(dataset_path, view_name, dataset_where_sql, self.path)
-            delete_rows(view_name)
-            self.delete_dataset(view_name, log_level = None)
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path))
+        _delete(**_delete_kwargs)
+        self.delete_dataset(dataset_view_name, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
@@ -682,26 +720,26 @@ class ArcWorkspace(object):
         # datasets respect it. 0.003280839895013 is the default for all
         # datasets in our geodatabases.
         arcpy.env.XYTolerance = 0.003280839895013
-        view_name = unique_name(prefix = 'dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            dataset_path, view_name, dataset_where_sql, self.path
-            )
-        temp_dissolved_path = unique_temp_dataset_path(
-            prefix = 'temp_dissolved_'
-            )
-        arcpy.management.Dissolve(
-            in_features = view_name, out_feature_class = temp_dissolved_path,
-            dissolve_field = dissolve_field_names, multi_part = multipart,
-            unsplit_lines = unsplit_lines
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'dataset_view_'), dataset_path,
+            dataset_where_sql, log_level = None)
+        temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
+        try:
+            arcpy.management.Dissolve(
+                in_features = dataset_view_name,
+                out_feature_class = temp_output_path,
+                dissolve_field = dissolve_field_names, multi_part = multipart,
+                unsplit_lines = unsplit_lines)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         # Delete undissolved features that are now dissolved (in the temp).
-        self.delete_features(view_name, log_level = None)
-        self.delete_dataset(view_name, log_level = None)
+        self.delete_features(dataset_view_name, log_level = None)
+        self.delete_dataset(dataset_view_name, log_level = None)
         # Copy the dissolved features (in the temp) to the dataset.
-        self.insert_features_from_path(
-            dataset_path, temp_dissolved_path, log_level = None
-            )
-        self.delete_dataset(temp_dissolved_path, log_level = None)
+        self.insert_features_from_path(dataset_path, temp_output_path,
+                                       log_level = None)
+        self.delete_dataset(temp_output_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
@@ -715,60 +753,62 @@ class ArcWorkspace(object):
             dataset_path, erase_dataset_path)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        view_name = unique_name(prefix = 'dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            dataset_path, view_name, dataset_where_sql, self.path
-            )
-        erase_view_name = unique_name(prefix = 'erase_dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            erase_dataset_path, erase_view_name, erase_where_sql, self.path
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'dataset_view_'), dataset_path,
+            dataset_where_sql, log_level = None)
+        erase_dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'erase_dataset_view_'), erase_dataset_path,
+            erase_where_sql, log_level = None)
         temp_output_path = unique_temp_dataset_path(prefix = 'temp_output_')
-        arcpy.analysis.Erase(
-            in_features = view_name, erase_features = erase_view_name,
-            out_feature_class = temp_output_path
-            )
-        self.delete_dataset(erase_view_name, log_level = None)
+        try:
+            arcpy.analysis.Erase(
+                in_features = dataset_view_name,
+                erase_features = erase_dataset_view_name,
+                out_feature_class = temp_output_path)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(erase_dataset_view_name, log_level = None)
         # Load back into the dataset.
-        self.delete_features(view_name, log_level = None)
-        self.delete_dataset(view_name, log_level = None)
-        self.insert_features_from_path(
-            dataset_path, temp_output_path, log_level = None
-            )
+        self.delete_features(dataset_view_name, log_level = None)
+        self.delete_dataset(dataset_view_name, log_level = None)
+        self.insert_features_from_path(dataset_path, temp_output_path,
+                                       log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
 
     @log_function
-    def keep_features_by_location(self, dataset_path, location_path,
+    def keep_features_by_location(self, dataset_path, location_dataset_path,
                                   dataset_where_sql=None,
                                   location_where_sql=None, log_level='info'):
         """Keep features where geometry overlaps location feature geometry."""
-        logline = "Keep {} where geometry overlaps {}.".format(dataset_path,
-                                                               location_path)
+        logline = "Keep {} where geometry overlaps {}.".format(
+            dataset_path, location_dataset_path)
         log_line('start', logline, log_level)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
-        view_name = unique_name(prefix = 'dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            dataset_path, view_name, dataset_where_sql, self.path
-            )
-        location_view_name = unique_name(prefix = 'location_dataset_view_')
-        arcpy.management.MakeFeatureLayer(
-            location_path, location_view_name, location_where_sql, self.path
-            )
-        arcpy.management.SelectLayerByLocation(
-            in_layer = view_name, overlap_type = 'intersect',
-            select_features = location_view_name,
-            selection_type = 'new_selection'
-            )
-        self.delete_dataset(location_view_name, log_level = None)
-        # Switch selection & delete features not overlapping location.
-        arcpy.management.SelectLayerByLocation(
-            in_layer = view_name, selection_type = 'switch_selection'
-            )
-        self.delete_features(view_name, log_level = None)
-        self.delete_dataset(view_name, log_level = None)
+        dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'dataset_view_'), dataset_path,
+            dataset_where_sql, log_level = None)
+        location_dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'location_dataset_view_'),
+            location_dataset_path, location_where_sql, log_level = None)
+        try:
+            arcpy.management.SelectLayerByLocation(
+                in_layer = dataset_view_name, overlap_type = 'intersect',
+                select_features = location_dataset_view_name,
+                selection_type = 'new_selection')
+            # Switch selection for non-overlapping features (to delete).
+            arcpy.management.SelectLayerByLocation(
+                in_layer = dataset_view_name,
+                selection_type = 'switch_selection')
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(location_dataset_view_name, log_level = None)
+        self.delete_features(dataset_view_name, log_level = None)
+        self.delete_dataset(dataset_view_name, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
@@ -796,68 +836,75 @@ class ArcWorkspace(object):
         temp_identity_path = self.copy_dataset(
             identity_dataset_path,
             unique_temp_dataset_path(prefix = 'temp_identity_'),
-            log_level = None
-            )
+            log_level = None)
         # Avoid field name collisions with neutral/unique holding field.
-        temp_field_metadata = self.field_metadata(
-            temp_identity_path, identity_field_name
-            )
+        temp_field_metadata = self.field_metadata(temp_identity_path,
+                                                  identity_field_name)
         temp_field_metadata['name'] = unique_name(
-            prefix = temp_field_metadata['name']
-            )
-        # Cannot add OID-type field, so push to a long-type.
-        if temp_field_metadata['type'].lower() == 'oid':
-            temp_field_metadata['type'] = 'long'
-        self.add_fields_from_metadata_list(temp_identity_path, [temp_field_metadata],
-                                           log_level = None)
-        self.update_field_by_expression(temp_identity_path, temp_field_metadata['name'],
-                                        expression = '!{}!'.format(identity_field_name),
-                                        log_level = None)
+            prefix = temp_field_metadata['name'])
+        self.add_fields_from_metadata_list(
+            temp_identity_path, [temp_field_metadata], log_level = None)
+        self.update_field_by_function(
+            temp_identity_path, temp_field_metadata['name'],
+            function = lambda x: x, field_as_first_arg = False,
+            arg_field_names = [identity_field_name], log_level = None)
         # Get an iterable of all object IDs in the dataset.
-        with arcpy.da.SearchCursor(dataset_path, ['oid@'], dataset_where_sql) as cursor:
-            # Sorting is important, allows us to create view with ID range instead of list.
-            objectids = sorted((row[0] for row in cursor))
-        while objectids:
-            chunk_objectids = objectids[:chunk_size]
-            objectids = objectids[chunk_size:]
-            from_objectid, to_objectid = chunk_objectids[0], chunk_objectids[-1]
-            logger.debug("Chunk: Feature object IDs {} to {}".format(from_objectid, to_objectid))
-            # Create the temp output of the identity.
-            view_name = unique_name(prefix = 'dataset_view_')
-            view_where_clause = "{0} >= {1} and {0} <= {2}".format(
-                    self.dataset_metadata(dataset_path)['oid_field_name'],
-                    from_objectid, to_objectid
-                    )
+        with arcpy.da.SearchCursor(
+            in_table = dataset_path, field_names = ['oid@'],
+            where_clause = dataset_where_sql) as cursor:
+            # Sorting is important, allows views with ID range instead of list.
+            oids = sorted(oid for (oid,) in cursor)
+        oid_field_name = self.dataset_metadata(dataset_path)['oid_field_name']
+        while oids:
+            chunk = oids[:chunk_size]
+            oids = oids[chunk_size:]
+            logger.debug(
+                "Chunk: Feature OIDs {} to {}".format(chunk[0], chunk[-1]))
+            # ArcPy where clauses cannot use 'between'.
+            chunk_where_clause = (
+                "{field} >= {from_oid} and {field} <= {to_oid}".format(
+                    field = oid_field_name,
+                    from_oid = chunk[0], to_oid = chunk[-1]))
             if dataset_where_sql:
-                view_where_clause += " and ({})".dataset_where_sql
-            view_where_clause
-            arcpy.management.MakeFeatureLayer(
-                in_features = dataset_path, out_layer = view_name,
-                # ArcPy where clauses cannot use 'between'.
-                where_clause = view_where_clause, workspace = self.path
-                )
+                chunk_where_clause += " and ({})".format(dataset_where_sql)
+            chunk_view_name = self.create_dataset_view(
+                unique_name(prefix = 'chunk_view_'), dataset_path,
+                chunk_where_clause, log_level = None)
             # Create temporary dataset with the identity values.
             temp_output_path = unique_temp_dataset_path(
-                prefix = 'temp_output_'
-                )
-            arcpy.analysis.Identity(
-                in_features = view_name, identity_features = temp_identity_path,
-                out_feature_class = temp_output_path, join_attributes = 'all', relationship = False
-                )
-            # Push the identity (or replacement) value from the temp field to the update field.
-            if replacement_value:
-                expression = '{} if !{}! else None'.format(repr(replacement_value),
-                                                           temp_field_metadata['name'])
+                prefix = 'temp_output_')
+            try:
+                arcpy.analysis.Identity(
+                    in_features = chunk_view_name,
+                    identity_features = temp_identity_path,
+                    out_feature_class = temp_output_path,
+                    join_attributes = 'all', relationship = False)
+            except arcpy.ExecuteError:
+                logger.exception("ArcPy execution.")
+                raise
+            # Push identity (or replacement) value from temp to update field.
+            # Apply replacement value if necessary.
+            if replacement_value is not None:
+                self.update_field_by_function(
+                    temp_output_path, field_name,
+                    function = lambda x: replacement_value if x else None,
+                    field_as_first_arg = False,
+                    arg_field_names = [temp_field_metadata['name']],
+                    log_level = None)
+            # Identity puts empty string when identity feature not present.
+            # Fix to null (replacement value function does this inherently).
             else:
-                # Identity puts empty string identity feature not present. Fix to null.
-                expression = "!{0}! if !{0}! else None".format(temp_field_metadata['name'])
-            self.update_field_by_expression(
-                temp_output_path, field_name, expression, log_level = None
-                )
+                self.update_field_by_function(
+                    temp_output_path, field_name,
+                    function = lambda x: None if x == '' else x,
+                    field_as_first_arg = False,
+                    arg_field_names = [temp_field_metadata['name']],
+                    log_level = None)
             # Replace original chunk features with identity features.
-            self.delete_features(view_name, log_level = None)
-            self.delete_dataset(view_name, log_level = None)
-            self.insert_features_from_path(dataset_path, temp_output_path, log_level = None)
+            self.delete_features(chunk_view_name, log_level = None)
+            self.delete_dataset(chunk_view_name, log_level = None)
+            self.insert_features_from_path(dataset_path, temp_output_path,
+                                           log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
         self.delete_dataset(temp_identity_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
@@ -906,33 +953,26 @@ class ArcWorkspace(object):
         for field_name_type in ('geometry_field_name', 'oid_field_name'):
             if dataset_metadata.get(field_name_type):
                 dataset_field_names.remove(
-                    dataset_metadata[field_name_type].lower()
-                    )
+                    dataset_metadata[field_name_type].lower())
                 insert_dataset_field_names.remove(
-                    insert_dataset_metadata[field_name_type].lower()
-                    )
+                    insert_dataset_metadata[field_name_type].lower())
         field_maps = arcpy.FieldMappings()
         for field_name in dataset_field_names:
             if field_name in insert_dataset_field_names:
                 field_map = arcpy.FieldMap()
                 field_map.addInputField(insert_dataset_path, field_name)
                 field_maps.addFieldMap(field_map)
-        insert_dataset_metadata = self.dataset_metadata(insert_dataset_path)
-        if dataset_metadata['is_spatial']:
-            create_view = arcpy.management.MakeFeatureLayer
-        elif dataset_metadata['is_table']:
-            create_view = arcpy.management.MakeTableView
-        else:
-            raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path)
-                )
-        insert_view_name = unique_name(prefix = 'insert_dataset_view_')
-        create_view(insert_dataset_path, insert_view_name,
-                    insert_where_sql, self.path)
-        arcpy.management.Append(inputs = insert_view_name,
-                                target = dataset_path, schema_type = 'no_test',
-                                field_mapping = field_maps)
-        self.delete_dataset(insert_view_name, log_level = None)
+        insert_dataset_view_name = self.create_dataset_view(
+            unique_name(prefix = 'insert_dataset_view_'), insert_dataset_path,
+            insert_where_sql, log_level = None)
+        try:
+            arcpy.management.Append(
+                inputs = insert_dataset_view_name, target = dataset_path,
+                schema_type = 'no_test', field_mapping = field_maps)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(insert_dataset_view_name, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
         log_line('end', logline, log_level)
         return dataset_path
@@ -966,91 +1006,86 @@ class ArcWorkspace(object):
         # Check flags & set details for spatial join call.
         if overlay_most_coincident:
             raise NotImplementedError(
-                "overlay_most_coincident is not yet implemented."
-                )
+                "overlay_most_coincident not yet implemented.")
         elif overlay_central_coincident:
             join_operation = 'join_one_to_many'
             match_option = 'have_their_center_in'
         else:
             join_operation = 'join_one_to_many'
             match_option = 'intersect'
-        # Create a temporary copy of the overlay dataset.
+        # Create temporary copy of overlay dataset.
         temp_overlay_path = self.copy_dataset(
             overlay_dataset_path,
             unique_temp_dataset_path(prefix = 'temp_overlay_'),
-            log_level = None
-            )
+            log_level = None)
         # Create neutral field for holding overlay value (avoids collisions).
-        temp_field_metadata = self.field_metadata(
-            temp_overlay_path, overlay_field_name
-            )
+        temp_field_metadata = self.field_metadata(temp_overlay_path,
+                                                  overlay_field_name)
         temp_field_metadata['name'] = unique_name(
-            prefix = temp_field_metadata['name']
-            )
-        # Cannot add OID-type field, so push to a long-type.
-        if temp_field_metadata['type'].lower() == 'oid':
-            temp_field_metadata['type'] = 'long'
+            prefix = temp_field_metadata['name'])
         self.add_fields_from_metadata_list(
-            temp_overlay_path, [temp_field_metadata], log_level = None
-            )
-        self.update_field_by_expression(
+            temp_overlay_path, [temp_field_metadata], log_level = None)
+
+        self.update_field_by_function(
             temp_overlay_path, temp_field_metadata['name'],
-            expression = '!{}!'.format(overlay_field_name), log_level = None
-            )
+            function = lambda x: x, field_as_first_arg = False,
+            arg_field_names = [overlay_field_name], log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
-            dataset_path, ['oid@'], dataset_where_sql
-            ) as cursor:
-            # Sorting is important, allows us to create view with ID range
-            # instead of list.
-            objectids = sorted((row[0] for row in cursor))
-        while objectids:
-            chunk_objectids = objectids[:chunk_size]
-            objectids = objectids[chunk_size:]
-            from_objectid, to_objectid = (chunk_objectids[0],
-                                          chunk_objectids[-1])
-            logger.debug("Chunk: Feature object IDs {} to {}".format(
-                from_objectid, to_objectid
-                ))
-            # Create the temp output of the overlay.
-            view_name = unique_name(prefix = 'dataset_view_')
-            view_where_clause = "{0} >= {1} and {0} <= {2}".format(
-                    self.dataset_metadata(dataset_path)['oid_field_name'],
-                    from_objectid, to_objectid
-                    )
+            in_table = dataset_path, field_names = ['oid@'],
+            where_clause = dataset_where_sql) as cursor:
+            # Sorting is important, allows views with ID range instead of list.
+            oids = sorted(oid for (oid,) in cursor)
+        oid_field_name = self.dataset_metadata(dataset_path)['oid_field_name']
+        while oids:
+            chunk = oids[:chunk_size]
+            oids = oids[chunk_size:]
+            logger.debug(
+                "Chunk: Feature OIDs {} to {}".format(chunk[0], chunk[-1]))
+            # ArcPy where clauses cannot use 'between'.
+            chunk_where_clause = (
+                "{field} >= {from_oid} and {field} <= {to_oid}".format(
+                    field = oid_field_name,
+                    from_oid = chunk[0], to_oid = chunk[-1]))
             if dataset_where_sql:
-                view_where_clause += " and ({})".dataset_where_sql
-            arcpy.management.MakeFeatureLayer(
-                in_features = dataset_path, out_layer = view_name,
-                # ArcPy where clauses cannot use 'between'.
-                where_clause = view_where_clause, workspace = self.path
-                )
+                chunk_where_clause += " and ({})".format(dataset_where_sql)
+            chunk_view_name = self.create_dataset_view(
+                unique_name(prefix = 'chunk_view_'), dataset_path,
+                chunk_where_clause, log_level = None)
+            # Create the temp output of the overlay.
             temp_output_path = unique_temp_dataset_path(
-                prefix = 'temp_output_'
-                )
-            arcpy.analysis.SpatialJoin(
-                target_features = view_name, join_features = temp_overlay_path,
-                out_feature_class = temp_output_path,
-                join_operation = join_operation, join_type = 'keep_all',
-                match_option = match_option
-                )
-            # Push the overlay (or replacement) value from the temp field to
-            # the update field.
-            if replacement_value:
-                expression = '{} if !{}! else None'.format(
-                    repr(replacement_value), temp_field_metadata['name']
-                    )
+                prefix = 'temp_output_')
+            try:
+                arcpy.analysis.SpatialJoin(
+                    target_features = chunk_view_name,
+                    join_features = temp_overlay_path,
+                    out_feature_class = temp_output_path,
+                    join_operation = join_operation, join_type = 'keep_all',
+                    match_option = match_option)
+            except arcpy.ExecuteError:
+                logger.exception("ArcPy execution.")
+                raise
+            # Push overlay (or replacement) value from temp to update field.
+            # Apply replacement value if necessary.
+            if replacement_value is not None:
+                self.update_field_by_function(
+                    temp_output_path, field_name,
+                    function = lambda x: replacement_value if x else None,
+                    field_as_first_arg = False,
+                    arg_field_names = [temp_field_metadata['name']],
+                    log_level = None)
             else:
-                expression = "!{}!".format(temp_field_metadata['name'])
-            self.update_field_by_expression(
-                temp_output_path, field_name, expression, log_level = None
-                )
+                self.update_field_by_function(
+                    temp_output_path, field_name,
+                    function = lambda x: x,
+                    field_as_first_arg = False,
+                    arg_field_names = [temp_field_metadata['name']],
+                    log_level = None)
             # Replace original chunk features with overlay features.
-            self.delete_features(view_name, log_level = None)
-            self.delete_dataset(view_name, log_level = None)
-            self.insert_features_from_path(
-                dataset_path, temp_output_path, log_level = None
-                )
+            self.delete_features(chunk_view_name, log_level = None)
+            self.delete_dataset(chunk_view_name, log_level = None)
+            self.insert_features_from_path(dataset_path, temp_output_path,
+                                           log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
         self.delete_dataset(temp_overlay_path, log_level = None)
         log_line('feature_count', self.feature_count(dataset_path), log_level)
