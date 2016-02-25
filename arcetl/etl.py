@@ -1214,7 +1214,7 @@ class ArcWorkspace(object):
 
         wraps ArcWorkspace.update_field_by_function.
         """
-        logline = ("Update field {} using the method {}"
+        logline = ("Update field {} using method {}"
                    "from the object constructed by {}").format(
             field_name, method_name, constructor.__name__)
         log_line('start', logline, log_level)
@@ -1222,8 +1222,7 @@ class ArcWorkspace(object):
         self.update_field_by_function(
             dataset_path, field_name, function, field_as_first_arg,
             arg_field_names, kwarg_field_names, dataset_where_sql,
-            log_level = None
-            )
+            log_level = None)
         log_line('end', logline, log_level)
         return field_name
 
@@ -1231,25 +1230,20 @@ class ArcWorkspace(object):
     def update_field_by_expression(self, dataset_path, field_name, expression,
                                    dataset_where_sql=None, log_level='info'):
         """Update field values using a (single) code-expression."""
-        logline = "Update field {} using expression <{}>.".format(field_name,
-                                                                  expression)
+        logline = "Update field {} using expression <{}>.".format(
+            field_name, expression)
         log_line('start', logline, log_level)
-        dataset_metadata = self.dataset_metadata(dataset_path)
-        if dataset_metadata['is_spatial']:
-            create_view = arcpy.management.MakeFeatureLayer
-        elif dataset_metadata['is_table']:
-            create_view = arcpy.management.MakeTableView
-        else:
-            raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path)
-                )
-        view_name = unique_name('dataset_view')
-        create_view(dataset_path, view_name, dataset_where_sql, self.path)
-        arcpy.management.CalculateField(
-            in_table = view_name, field = field_name, expression = expression,
-            expression_type = 'python_9.3'
-            )
-        self.delete_dataset(view_name, log_level = None)
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
+        try:
+            arcpy.management.CalculateField(
+                in_table = dataset_view_name, field = field_name,
+                expression = expression, expression_type = 'python_9.3')
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(dataset_view_name, log_level = None)
         log_line('end', logline, log_level)
         return field_name
 
