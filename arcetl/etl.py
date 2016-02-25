@@ -1182,22 +1182,23 @@ class ArcWorkspace(object):
         return dataset_path
 
     @log_function
-    def update_field_by_coded_value_domain(self, dataset_path, field_name, code_field_name,
-                                           domain_name, domain_workspace_path=None,
-                                           dataset_where_sql=None, log_level='info'):
-        """Update field values using another field's values and a coded-values domain."""
-        logline = "Update field {} using domain {}.".format(field_name,
-                                                            domain_name)
+    def update_field_by_coded_value_domain(self, dataset_path, field_name,
+                                           code_field_name, domain_name,
+                                           domain_workspace_path=None,
+                                           dataset_where_sql=None,
+                                           log_level='info'):
+        """Update field values using a coded-values domain."""
+        logline = "Update field {} using domain {} referenced in {}.".format(
+            field_name, domain_name, code_field_name)
         log_line('start', logline, log_level)
-        workspace_path = domain_workspace_path if domain_workspace_path else self.path
-        code_description = [domain for domain in arcpy.da.ListDomains(workspace_path)
-                            if domain.name == domain_name][0].codedValues
-        cursor_field_names = (field_name, code_field_name)
-        with arcpy.da.UpdateCursor(dataset_path, cursor_field_names, dataset_where_sql) as cursor:
-            for old_description, code in cursor:
-                new_description = code_description.get(code) if code else None
-                if new_description != old_description:
-                    cursor.updateRow((new_description, code))
+        code_description_map = next(
+            domain for domain in arcpy.da.ListDomains(
+                domain_workspace_path if domain_workspace_path else self.path)
+            if domain.name.lower() == domain_name.lower()).codedValues
+        self.update_field_by_function(
+            dataset_path, field_name, function = code_description_map.get,
+            field_as_first_arg = False, arg_field_names = [code_field_name],
+            dataset_where_sql = dataset_where_sql, log_level = None)
         log_line('end', logline, log_level)
         return field_name
 
