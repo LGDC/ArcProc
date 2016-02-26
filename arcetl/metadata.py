@@ -20,8 +20,7 @@ class ETLMetadata(object):
     def add_assertion(self, operation_name, **kwargs):
         """Add assertion check to the operations list."""
         elf.operations.append(
-            OperationMetadata(operation_name, 'assert', kwargs)
-            )
+            OperationMetadata(operation_name, 'assert', kwargs))
 
     def add_execution(self, function, **kwargs):
         """Add execution of the function provided."""
@@ -38,8 +37,7 @@ class ETLMetadata(object):
     def add_operation(self, operation_name, **kwargs):
         """Add generic operation to the operations list."""
         self.operations.append(
-            OperationMetadata(operation_name, 'operate', kwargs)
-            )
+            OperationMetadata(operation_name, 'operate', kwargs))
 
     def add_operation_from_metadata(self, *operation_metadata):
         """Add operation metadata to the operations list."""
@@ -48,8 +46,7 @@ class ETLMetadata(object):
     def add_transformation(self, operation_name, **kwargs):
         """Add transformation to the the operations list."""
         self.operations.append(
-            OperationMetadata(operation_name, 'transform', kwargs)
-            )
+            OperationMetadata(operation_name, 'transform', kwargs))
 
     def run(self):
         """Perform all actions related to running an ETL."""
@@ -69,8 +66,7 @@ class ETLMetadata(object):
                     etl.transform(operation.name, **operation.kwargs)
                 else:
                     raise ValueError(
-                        "Invalid operation type: {}.".format(operation.type)
-                        )
+                        "Invalid operation type: {}.".format(operation.type))
 
 
 class JobMetadata(object):

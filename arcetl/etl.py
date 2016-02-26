@@ -2115,8 +2115,7 @@ class Toolbox(object):
         # List of tool classes associated with this toolbox.
         self.tools = [
             # Add tools here by their class name to make visible in toolbox.
-            ToolExample,
-            ]
+            ToolExample]
 
 
 class ToolExample(object):
@@ -2134,11 +2133,10 @@ class ToolExample(object):
 
     def getParameterInfo(self):
         """Load parameters into toolbox."""
-        return [
-            # Create the parameters in a separate place (allows reusability),
-            # then add them here. Recommended: use parameter_from_attributes
-            # to allow initial definition to be a dictionary/attribute map.
-            ]
+        # Create the parameters in a separate place (allows reusability),
+        # then add them here. Recommended: use parameter_from_attributes
+        # to allow initial definition to be a dictionary/attribute map.
+        return []
 
     def isLicensed(self):
         """Set whether tool is licensed to execute."""
@@ -2173,10 +2171,11 @@ class ToolExample(object):
             import arcpy
         # value_map contains dictionary with parameter name/value key/values.
         value_map = parameter_value_map(parameters)
-        # If using ArcWorkspace, will need to instance it.
-        workspace = ArcWorkspace('in_memory')
-        # If using ArcETL, will need to instance it (best as context manager).
-        with ArcETL('in_memory') as etl:
+        # If using ArcWorkspace directly, will need to instance it.
+        workspace = ArcWorkspace()
+        # If using ArcETL directly, will need to instance it.
+        # Best instanced as context manager.
+        with ArcETL() as etl:
             # Do the steps of the tool.
             messages.addMessage("Can do messages, too.")
         return
