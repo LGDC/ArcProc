@@ -1248,10 +1248,13 @@ class ArcWorkspace(object):
         return field_name
 
     @log_function
-    def update_field_by_feature_matching(self, dataset_path, field_name, identifier_field_names,
-                                         update_value_type, flag_value=None, sort_field_names=[],
-                                         dataset_where_sql=None, log_level='info'):
-        """Update field values by aggregating information about matching features."""
+    def update_field_by_feature_matching(self, dataset_path, field_name,
+                                         identifier_field_names,
+                                         update_value_type, flag_value=None,
+                                         sort_field_names=[],
+                                         dataset_where_sql=None,
+                                         log_level='info'):
+        """Update field values by aggregating info about matching features."""
         valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
         raise NotImplementedError
 
@@ -1273,18 +1276,16 @@ class ArcWorkspace(object):
             field_name, function.__name__)
         log_line('start', logline, log_level)
         cursor_field_names = (
-            [field_name] + list(arg_field_names) + list(kwarg_field_names)
-            )
-        with arcpy.da.UpdateCursor(
-            dataset_path, cursor_field_names, dataset_where_sql
-            ) as cursor:
+            [field_name] + list(arg_field_names) + list(kwarg_field_names))
+        with arcpy.da.UpdateCursor(in_table = dataset_path,
+                                   field_names = cursor_field_names,
+                                   where_clause = dataset_where_sql) as cursor:
             for row in cursor:
                 args = row[1:len(arg_field_names) + 1]
                 if field_as_first_arg:
                     args.insert(0, row[0])
-                kwargs = dict(zip(
-                    kwarg_field_names, row[len(arg_field_names) + 1:]
-                    ))
+                kwargs = dict(zip(kwarg_field_names,
+                                  row[len(arg_field_names) + 1:]))
                 new_value = function(*args, **kwargs)
                 if row[0] != new_value:
                     cursor.updateRow([new_value] + list(row[1:]))
@@ -1357,27 +1358,24 @@ class ArcWorkspace(object):
                                      log_level='info'):
         """Update field values by referencing a joinable field."""
         logline = "Update field {} with joined values from {}.{}>.".format(
-            field_name, join_dataset_path,  join_field_name
-            )
+            field_name, join_dataset_path,  join_field_name)
         log_line('start', logline, log_level)
         # Build join-reference.
-        cursor_field_names = (join_field_name,) + tuple(
-            pair[1] for pair in on_field_pairs
-            )
         with arcpy.da.SearchCursor(
-            join_dataset_path, cursor_field_names
+            in_table = join_dataset_path,
+            field_names = (
+                [join_field_name] + [pair[1] for pair in on_field_pairs])
             ) as cursor:
-            join_value = {row[1:]: row[0] for row in cursor}
-        cursor_field_names = (field_name,) + tuple(
-            pair[0] for pair in on_field_pairs
-            )
+            join_value = {tuple(row[1:]): row[0] for row in cursor}
         with arcpy.da.UpdateCursor(
-            dataset_path, cursor_field_names, dataset_where_sql
+            in_table = dataset_path,
+            field_names = [field_name] + [pair[0] for pair in on_field_pairs],
+            where_clause = dataset_where_sql
             ) as cursor:
             for row in cursor:
                 new_value = join_value.get(tuple(row[1:]))
-                if new_value != row[0]:
-                    cursor.updateRow([new_value,] + list(row[1:]))
+                if row[0] != new_value:
+                    cursor.updateRow([new_value] + list(row[1:]))
         log_line('end', logline, log_level)
         return field_name
 
@@ -1400,79 +1398,73 @@ class ArcWorkspace(object):
         logline = "Update field {} using near-values {}.{}.".format(
             field_name, near_dataset_path,  near_field_name)
         log_line('start', logline, log_level)
-        # Create a temporary copy of the near dataset.
+        # Create a temporary copy of near dataset.
         temp_near_path = self.copy_dataset(
             near_dataset_path, unique_temp_dataset_path('temp_near'),
-            log_level = None
-            )
-        dataset_oid_field_name = (
-            self.dataset_metadata(dataset_path)['oid_field_name']
-            )
-        temp_near_oid_field_name = (
-            self.dataset_metadata(temp_near_path)['oid_field_name']
-            )
-        # Create neutral field for holding near value (avoids collisions).
-        temp_field_metadata = self.field_metadata(
-            temp_near_path, near_field_name
-            )
-        temp_field_metadata['name'] = unique_name(temp_field_metadata['name'])
-        # Cannot add OID-type field, so push to a long-type.
-        if temp_field_metadata['type'].lower() == 'oid':
-            temp_field_metadata['type'] = 'long'
-        self.add_fields_from_metadata_list(
-            temp_near_path, [temp_field_metadata], log_level = None
-            )
-        self.update_field_by_expression(
-            temp_near_path, temp_field_metadata['name'],
-            expression = "!{}!".format(near_field_name), log_level = None
-            )
+            log_level = None)
+        # Avoid field name collisions with neutral holding field.
+        temp_near_field_name = self.duplicate_field(
+            temp_near_path, near_field_name,
+            new_field_name = unique_name(near_field_name),
+            duplicate_values = True, log_level = None)
         # Create the temp output of the near features.
-        view_name = unique_name('dataset_view')
-        arcpy.management.MakeFeatureLayer(
-            dataset_path, view_name, dataset_where_sql, self.path
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
         temp_output_path = unique_temp_dataset_path('temp_output')
-        arcpy.analysis.GenerateNearTable(
-            in_features = view_name, near_features = temp_near_path,
-            out_table = temp_output_path, search_radius = max_search_distance,
-            location = any([x_coordinate_field_name, y_coordinate_field_name]),
-            angle = any([angle_field_name]),
-            closest = 'all', closest_count = near_rank,
-            # Would prefer geodesic, but that forces XY values to lon-lat.
-            method ='planar'
-            )
-        self.delete_dataset(view_name, log_level = None)
+        try:
+            arcpy.analysis.GenerateNearTable(
+                in_features = dataset_view_name,
+                near_features = temp_near_path,
+                out_table = temp_output_path,
+                search_radius = max_search_distance,
+                location = any([x_coordinate_field_name,
+                                y_coordinate_field_name]),
+                angle = any([angle_field_name]),
+                closest = 'all', closest_count = near_rank,
+                # Would prefer geodesic, but that forces XY values to lon-lat.
+                method ='planar')
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(dataset_view_name, log_level = None)
         # Remove near rows not matching chosen rank.
         self.delete_features(
             temp_output_path,
             dataset_where_sql = "near_rank <> {}".format(near_rank),
-            log_level = None
-            )
+            log_level = None)
         # Join near values to the near output.
         self.join_field(
-            temp_output_path, temp_near_path,
-            join_field_name = temp_field_metadata['name'],
-            on_field_name = 'near_fid',
-            on_join_field_name = temp_near_oid_field_name, log_level = None
-            )
+            temp_output_path, join_dataset_path = temp_near_path,
+            join_field_name = temp_near_field_name, on_field_name = 'near_fid',
+            on_join_field_name = (
+                self.dataset_metadata(temp_near_path)['oid_field_name']),
+            log_level = None)
         self.delete_dataset(temp_near_path, log_level = None)
-        # Apply replacement value, if set.
-        if replacement_value:
-            expression = '{} if !{}! else None'.format(
-                repr(replacement_value), temp_field_metadata['name']
-                )
-            self.update_field_by_expression(
-                temp_output_path, temp_field_metadata['name'], expression,
-                log_level = None
-                )
+        # Push overlay (or replacement) value from temp to update field.
+        # Apply replacement value if necessary.
+        if replacement_value is not None:
+            self.update_field_by_function(
+                temp_output_path, field_name,
+                function = lambda x: replacement_value if x else None,
+                field_as_first_arg = False,
+                arg_field_names = [temp_near_field_name],
+                log_level = None)
+        else:
+            self.update_field_by_function(
+                temp_output_path, field_name,
+                function = lambda x: x,
+                field_as_first_arg = False,
+                arg_field_names = [temp_near_field_name],
+                log_level = None)
         # Update values in original dataset.
+        dataset_oid_field_name = (
+            self.dataset_metadata(dataset_path)['oid_field_name'])
         self.update_field_by_joined_value(
             dataset_path, field_name,
-            join_dataset_path = temp_output_path,
-            join_field_name = temp_field_metadata['name'],
+            join_dataset_path = temp_output_path, join_field_name = field_name,
             on_field_pairs = [(dataset_oid_field_name, 'in_fid')],
-            dataset_where_sql = dataset_where_sql, log_level = None
-            )
+            dataset_where_sql = dataset_where_sql, log_level = None)
         # Update ancillary near property fields.
         if distance_field_name:
             self.update_field_by_joined_value(
@@ -1511,20 +1503,25 @@ class ArcWorkspace(object):
         return field_name
 
     @log_function
-    def update_field_by_overlay(self, dataset_path, field_name, overlay_dataset_path,
-                                overlay_field_name, replacement_value=None,
-                                overlay_most_coincident=False, overlay_central_coincident=False,
+    def update_field_by_overlay(self, dataset_path, field_name,
+                                overlay_dataset_path, overlay_field_name,
+                                replacement_value=None,
+                                overlay_most_coincident=False,
+                                overlay_central_coincident=False,
                                 dataset_where_sql=None, log_level='info'):
         """Update field by finding overlay feature value.
 
-        Since only one value will be selected in the overlay, operations with multiple overlaying
-        features will respect the geoprocessing environment's merge rule. This rule will generally
-        defer to the 'first' feature's value.
+        Since only one value will be selected in the overlay, operations with
+        multiple overlaying features will respect the geoprocessing
+        environment's merge rule. This rule generally defaults to the 'first'
+        feature's value.
 
-        Please note that only one overlay flag at a time can be used. If mutliple are set to True,
-        the first one referenced in the code will be used. If no overlay flags are set, the
-        operation will perform a basic intersection check, and the result will be at the whim of
-        the geoprocessing environment's merge rule for the update field.
+        Please note that only one overlay flag at a time can be used (e.g.
+        overlay_most_coincident, overlay_central_coincident). If mutliple are
+        set to True, the first one referenced in the code will be used. If no
+        overlay flags are set, the operation will perform a basic intersection
+        check, and the result will be at the whim of the geoprocessing
+        environment's merge rule for the update field.
         """
         logline = "Update field {} using overlay values {}.{}.".format(
             field_name, overlay_dataset_path,  overlay_field_name)
@@ -1532,59 +1529,63 @@ class ArcWorkspace(object):
         # Check flags & set details for spatial join call.
         if overlay_most_coincident:
             raise NotImplementedError(
-                "overlay_most_coincident is not yet implemented."
-                )
+                "overlay_most_coincident is not yet implemented.")
         elif overlay_central_coincident:
             join_operation = 'join_one_to_one'
             match_option = 'have_their_center_in'
         else:
             join_operation = 'join_one_to_one'
             match_option = 'intersect'
-        # Create a temporary copy of the overlay dataset.
+        # Create temporary copy of overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            overlay_dataset_path,
-            unique_temp_dataset_path('temp_overlay'),
-            log_level = None
-            )
-        # Create neutral field for holding overlay value (avoids collisions).
-        temp_field_metadata = self.field_metadata(temp_overlay_path, overlay_field_name)
-        temp_field_metadata['name'] = unique_name(temp_field_metadata['name'])
-        # Cannot add OID-type field, so push to a long-type.
-        if temp_field_metadata['type'].lower() == 'oid':
-            temp_field_metadata['type'] = 'long'
-        self.add_fields_from_metadata_list(temp_overlay_path, [temp_field_metadata],
-                                           log_level = None)
-        self.update_field_by_expression(temp_overlay_path, temp_field_metadata['name'],
-                                        expression = '!{}!'.format(overlay_field_name),
-                                        log_level = None)
-        # Create the temp output of the overlay.
-        view_name = unique_name('dataset_view')
-        arcpy.management.MakeFeatureLayer(dataset_path, view_name, dataset_where_sql, self.path)
+            overlay_dataset_path, unique_temp_dataset_path('temp_overlay'),
+            log_level = None)
+        # Avoid field name collisions with neutral holding field.
+        temp_overlay_field_name = self.duplicate_field(
+            temp_overlay_path, overlay_field_name,
+            new_field_name = unique_name(overlay_field_name),
+            duplicate_values = True, log_level = None)
+        # Create temp output of the overlay.
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
         temp_output_path = unique_temp_dataset_path('temp_output')
-        arcpy.analysis.SpatialJoin(
-            target_features = view_name, join_features = temp_overlay_path,
-            out_feature_class = temp_output_path, join_operation = join_operation,
-            join_type = 'keep_common', match_option = match_option
-            )
-        self.delete_dataset(view_name, log_level = None)
+        try:
+            arcpy.analysis.SpatialJoin(
+                target_features = dataset_view_name,
+                join_features = temp_overlay_path,
+                out_feature_class = temp_output_path,
+                join_operation = join_operation, join_type = 'keep_common',
+                match_option = match_option)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(dataset_view_name, log_level = None)
         self.delete_dataset(temp_overlay_path, log_level = None)
-        # Apply replacement value, if set.
-        if replacement_value:
-            expression = '{} if !{}! else None'.format(
-                repr(replacement_value), temp_field_metadata['name']
-                )
-            self.update_field_by_expression(
-                temp_output_path, temp_field_metadata['name'], expression,
-                log_level = None
-                )
+        # Push overlay (or replacement) value from temp to update field.
+        # Apply replacement value if necessary.
+        if replacement_value is not None:
+            self.update_field_by_function(
+                temp_output_path, field_name,
+                function = lambda x: replacement_value if x else None,
+                field_as_first_arg = False,
+                arg_field_names = [temp_overlay_field_name],
+                log_level = None)
+        else:
+            self.update_field_by_function(
+                temp_output_path, field_name,
+                function = lambda x: x,
+                field_as_first_arg = False,
+                arg_field_names = [temp_overlay_field_name],
+                log_level = None)
         # Update values in original dataset.
         self.update_field_by_joined_value(
             dataset_path, field_name,
-            join_dataset_path = temp_output_path, join_field_name = temp_field_metadata['name'],
-            on_field_pairs = [(self.dataset_metadata(dataset_path)['oid_field_name'],
-                               'target_fid')],
-            dataset_where_sql = dataset_where_sql, log_level = None
-            )
+            join_dataset_path = temp_output_path, join_field_name = field_name,
+            on_field_pairs = [
+                (self.dataset_metadata(dataset_path)['oid_field_name'],
+                 'target_fid')],
+            dataset_where_sql = dataset_where_sql, log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
         log_line('end', logline, log_level)
         return field_name
@@ -1600,15 +1601,13 @@ class ArcWorkspace(object):
             'double': float, 'single': float,
             'integer': int, 'long': int, 'short': int, 'smallinteger': int,
             'guid': uuid.UUID,
-            'string': str, 'text': str,
-            }
+            'string': str, 'text': str}
         unique_id_pool = unique_ids(
             data_type = field_type_map[field_metadata['type']],
-            string_length = field_metadata.get('length', 16)
-            )
+            string_length = field_metadata.get('length', 16))
         with arcpy.da.UpdateCursor(
-            dataset_path, [field_name], dataset_where_sql
-            ) as cursor:
+            in_table = dataset_path, field_names = [field_name],
+            where_clause = dataset_where_sql) as cursor:
             for row in cursor:
                 cursor.updateRow([next(unique_id_pool)])
         log_line('end', logline, log_level)
@@ -1617,19 +1616,21 @@ class ArcWorkspace(object):
     @log_function
     def update_fields_by_geometry_node_ids(self, dataset_path,
                                            from_id_field_name,
-                                           to_id_field_name, log_level='info'):
+                                           to_id_field_name,
+                                           log_level='info'):
         """Update fields with node IDs based on feature geometry.
 
         Method assumes the IDs are numeric.
         """
-        logline = ("Update node ID fields {} & {}"
-                   "based on feature geometry.").format(from_id_field_name,
-                                                        to_id_field_name)
+        logline = (
+            "Update node ID fields {} & {} based on feature geometry.").format(
+            from_id_field_name, to_id_field_name)
         log_line('start', logline, log_level)
         # Get next available node ID.
         node_ids = set()
         with arcpy.da.SearchCursor(
-            dataset_path, [from_id_field_name, to_id_field_name]
+            in_table = dataset_path,
+            field_names = [from_id_field_name, to_id_field_name]
             ) as cursor:
             for row in cursor:
                 node_ids.update(row)
@@ -1638,9 +1639,9 @@ class ArcWorkspace(object):
         next_open_node_id = max(node_ids) + 1 if node_ids else 1
         # Build node XY mapping.
         with arcpy.da.SearchCursor(
-            dataset_path,
-            ['oid@', from_id_field_name, to_id_field_name, 'shape@']
-            ) as cursor:
+            in_table = dataset_path,
+            field_names = ['oid@', from_id_field_name,
+                           to_id_field_name, 'shape@']) as cursor:
             node_xy_map= {}
             # {node_xy: {'node_id': int(), 'f_oids': set(), 't_oids': set()},}
             for oid, fnode_id, tnode_id, geometry in cursor:
@@ -1649,19 +1650,16 @@ class ArcWorkspace(object):
                 # Add the XY if not yet present.
                 for node_id, xy, oid_set_key in [
                     (fnode_id, fnode_xy, 'f_oids'),
-                    (tnode_id, tnode_xy, 't_oids')
-                    ]:
+                    (tnode_id, tnode_xy, 't_oids')]:
                     if xy not in node_xy_map:
                         # Add XY with the node ID.
-                        node_xy_map[xy] = {
-                            'node_id': None, 'f_oids': set(), 't_oids': set(),
-                            }
+                        node_xy_map[xy] = {'node_id': None,
+                                           'f_oids': set(), 't_oids': set()}
                     # Choose lowest non-missing ID to perpetuate at the XY.
                     try:
                         node_xy_map[xy]['node_id'] = min(
                             x for x in [node_xy_map[xy]['node_id'], node_id]
-                            if x is not None
-                            )
+                            if x is not None)
                     # ValueError means there's no ID already on there.
                     except ValueError:
                         node_xy_map[xy]['node_id'] = next_open_node_id
@@ -1675,9 +1673,7 @@ class ArcWorkspace(object):
             new_node_id = node_xy_map[new_xy]['node_id']
             new_feature_count = len(
                 node_xy_map[new_xy]['f_oids'].union(
-                    node_xy_map[new_xy]['t_oids']
-                    )
-                )
+                    node_xy_map[new_xy]['t_oids']))
             # If ID already present in node_id_map, re-ID one of the nodes.
             if new_node_id in node_id_map:
                 old_node_id = new_node_id
@@ -1687,8 +1683,7 @@ class ArcWorkspace(object):
                 if new_feature_count > old_feature_count:
                     node_xy_map[old_xy]['node_id'] = next_open_node_id
                     node_id_map[next_open_node_id] = (
-                        node_id_map.pop(old_node_id)
-                        )
+                        node_id_map.pop(old_node_id))
                     next_open_node_id += 1
                 # Re-ID new node if old node has more links (or tequal counts).
                 else:
@@ -1697,7 +1692,7 @@ class ArcWorkspace(object):
                     next_open_node_id += 1
             # Now add the new node.
             node_id_map[new_node_id] = {'node_xy': new_xy,
-                                        'feature_count': new_feature_count,}
+                                        'feature_count': new_feature_count}
         # Build a feature-node mapping from node_xy_map.
         feature_nodes = {}
         # {feature_oid: {'fnode': int(), 'tnode': int()},}
@@ -1705,8 +1700,7 @@ class ArcWorkspace(object):
             node_id = node_xy_map[xy]['node_id']
             # If feature object ID is missing in feature_nodes: add.
             for feature_oid in node_xy_map[xy]['f_oids'].union(
-                node_xy_map[xy]['t_oids']
-                ):
+                node_xy_map[xy]['t_oids']):
                 if feature_oid not in feature_nodes:
                     feature_nodes[feature_oid] = {}
             for feature_oid in node_xy_map[xy]['f_oids']:
@@ -1715,14 +1709,14 @@ class ArcWorkspace(object):
                 feature_nodes[feature_oid]['tnode'] = node_id
         # Push changes to features.
         with arcpy.da.UpdateCursor(
-            dataset_path, ['oid@', from_id_field_name, to_id_field_name]
-            ) as cursor:
+            in_table = dataset_path,
+            field_names = ['oid@',
+                           from_id_field_name, to_id_field_name]) as cursor:
             for oid, old_fnode_id, old_tnode_id in cursor:
                 new_fnode_id = feature_nodes[oid]['fnode']
                 new_tnode_id = feature_nodes[oid]['tnode']
-                if any([
-                    old_fnode_id != new_fnode_id, old_tnode_id != new_tnode_id
-                    ]):
+                if any([old_fnode_id != new_fnode_id,
+                        old_tnode_id != new_tnode_id]):
                     cursor.updateRow([oid, new_fnode_id, new_tnode_id])
         log_line('end', logline, log_level)
         return from_id_field_name, to_id_field_name
@@ -1738,7 +1732,8 @@ class ArcWorkspace(object):
                                         detailed_rings=False,
                                         overlap_facilities=True,
                                         id_field_name=None,
-                                        dataset_where_sql=None, log_level='info'):
+                                        dataset_where_sql=None,
+                                        log_level='info'):
         """Create facility service ring features using a network dataset."""
         logline = "Generate service rings for facilities in {}".format(
             dataset_path)
@@ -1748,68 +1743,69 @@ class ArcWorkspace(object):
             raise RuntimeError("Unable to check out Network Analyst license.")
         # Create break value range.
         break_values = range(ring_width, max_distance + 1, ring_width)
-        view_name = unique_name('dataset_view')
-        arcpy.management.MakeFeatureLayer(
-            in_features = dataset_path, out_layer = view_name,
-            where_clause = dataset_where_sql
-            )
-        arcpy.na.MakeServiceAreaLayer(
-            in_network_dataset = network_path,
-            out_network_analysis_layer = 'service_area',
-            impedance_attribute = cost_attribute,
-            travel_from_to = (
-                'travel_from' if travel_from_facility else 'travel_to'
-                ),
-            default_break_values = ' '.join(
-                str(x) for x in range(ring_width, max_distance + 1, ring_width)
-                ),
-            polygon_type = (
-                'detailed_polys' if detailed_rings else 'simple_polys'
-                ),
-            merge = 'no_merge' if overlap_facilities else 'no_overlap',
-            nesting_type = 'rings',
-            UTurn_policy = 'allow_dead_ends_and_intersections_only',
-            restriction_attribute_name = restriction_attributes,
-            # The trim seems to override the non-overlapping part in larger
-            # analyses.
-            ##polygon_trim = True, poly_trim_value = ring_width,
-            hierarchy = 'no_hierarchy'
-            )
-        arcpy.na.AddLocations(
-            in_network_analysis_layer = "service_area",
-            sub_layer = "Facilities",
-            in_table = view_name,
-            field_mappings = 'Name {} #'.format(id_field_name),
-            search_tolerance = max_distance, match_type = 'match_to_closest',
-            append = 'clear', snap_to_position_along_network = 'no_snap',
-            exclude_restricted_elements = True,
-            )
-        arcpy.na.Solve(
-            in_network_analysis_layer="service_area",
-            ignore_invalids = True, terminate_on_solve_error = True
-            )
-        self.copy_dataset(
-            'service_area/Polygons', output_path, log_level = None
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
+        try:
+            arcpy.na.MakeServiceAreaLayer(
+                in_network_dataset = network_path,
+                out_network_analysis_layer = 'service_area',
+                impedance_attribute = cost_attribute,
+                travel_from_to = ('travel_from' if travel_from_facility
+                                  else 'travel_to'),
+                default_break_values = ' '.join(
+                    str(x) for x
+                    in range(ring_width, max_distance + 1, ring_width)),
+                polygon_type = ('detailed_polys' if detailed_rings
+                                else 'simple_polys'),
+                merge = 'no_merge' if overlap_facilities else 'no_overlap',
+                nesting_type = 'rings',
+                UTurn_policy = 'allow_dead_ends_and_intersections_only',
+                restriction_attribute_name = restriction_attributes,
+                # The trim seems to override the non-overlapping part in
+                # larger analyses.
+                #polygon_trim = True, poly_trim_value = ring_width,
+                hierarchy = 'no_hierarchy')
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        try:
+            arcpy.na.AddLocations(
+                in_network_analysis_layer = "service_area",
+                sub_layer = "Facilities", in_table = dataset_view_name,
+                field_mappings = 'Name {} #'.format(id_field_name),
+                search_tolerance = max_distance,
+                match_type = 'match_to_closest', append = 'clear',
+                snap_to_position_along_network = 'no_snap',
+                exclude_restricted_elements = True)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        try:
+            arcpy.na.Solve(
+                in_network_analysis_layer = "service_area",
+                ignore_invalids = True, terminate_on_solve_error = True)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.copy_dataset('service_area/Polygons', output_path,
+                          log_level = None)
         id_field_metadata = self.field_metadata(dataset_path, id_field_name)
-        self.add_fields_from_metadata_list(
-            output_path, [id_field_metadata], log_level = None
-            )
+        self.add_fields_from_metadata_list(output_path, [id_field_metadata],
+                                           log_level = None)
         type_extract_function_map = {
-            'short': (lambda x: int(x.split(' : ')[0]) if x else None),
-            'long': (lambda x: int(x.split(' : ')[0]) if x else None),
-            'double': (lambda x: float(x.split(' : ')[0]) if x else None),
-            'single': (lambda x: float(x.split(' : ')[0]) if x else None),
-            'string': (lambda x: x.split(' : ')[0] if x else None),
-            }
+            'short': lambda x: int(x.split(' : ')[0]) if x else None,
+            'long': lambda x: int(x.split(' : ')[0]) if x else None,
+            'double': lambda x: float(x.split(' : ')[0]) if x else None,
+            'single': lambda x: float(x.split(' : ')[0]) if x else None,
+            'string': lambda x: x.split(' : ')[0] if x else None}
         self.delete_dataset('service_area')
         self.update_field_by_function(
             output_path, id_field_name,
             function = type_extract_function_map[id_field_metadata['type']],
             field_as_first_arg = False, arg_field_names = ['Name'],
-            log_level = None
-            )
-        self.delete_dataset(view_name, log_level = None)
+            log_level = None)
+        self.delete_dataset(dataset_view_name, log_level = None)
         log_line('end', logline, log_level)
         return output_path
 
@@ -1818,35 +1814,41 @@ class ArcWorkspace(object):
     @log_function
     def convert_polygons_to_lines(self, dataset_path, output_path,
                                   topological=False, id_field_name=None,
-                                  log_level='info'):
+                                  dataset_where_sql=None, log_level='info'):
         """Convert geometry from polygons to lines.
 
         If topological is set to True, shared outlines will be a single,
-        separate feature. Note that one cannot pass attributes to a topological
-        transformation (as the values would not apply to all adjacent
-        features).
+        separate feature. Note that one cannot pass attributes to a
+        topological transformation (as the values would not apply to all
+        adjacent features).
 
         If an id field name is specified, the output dataset will identify the
         input features that defined the line feature with the name & values
         from the provided field. This option will be ignored if the output is
-        non-topological lines, as the field will pass over with the rest of the
-        attributes.
+        non-topological lines, as the field will pass over with the rest of
+        the attributes.
         """
-        logline = "Convert polygon features in {} to lines.".format(
-            dataset_path)
+        logline = (
+            "Convert polygon features in {} to lines.".format(dataset_path))
         log_line('start', logline, log_level)
-        arcpy.management.PolygonToLine(
-            in_features = dataset_path, out_feature_class = output_path,
-            neighbor_option = topological
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
+        try:
+            arcpy.management.PolygonToLine(
+                in_features = dataset_view_name,
+                out_feature_class = output_path, neighbor_option = topological)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.delete_dataset(dataset_view_name)
         if topological:
             if id_field_name:
                 id_field_info = self.field_metadata(dataset_path,
                                                     id_field_name)
                 oid_field_name = (
-                    self.dataset_metadata(dataset_path)['oid_field_name']
-                    )
-            sides = ('left', 'right')
+                    self.dataset_metadata(dataset_path)['oid_field_name'])
+            sides = ['left', 'right']
             for side in sides:
                 side_oid_field_name = '{}_FID'.format(side.upper())
                 if id_field_name:
@@ -1858,16 +1860,14 @@ class ArcWorkspace(object):
                     if side_id_field_info['type'].lower() == 'oid':
                         side_id_field_info['type'] = 'long'
                     self.add_fields_from_metadata_list(
-                        output_path, [side_id_field_info], log_level = None
-                        )
+                        output_path, [side_id_field_info], log_level = None)
                     self.update_field_by_join_value(
                         dataset_path = output_path,
                         field_name = side_id_field_info['name'],
                         join_dataset_path = dataset_path,
                         join_field_name = id_field_name,
                         on_field_name = side_oid_field_name,
-                        on_join_field_name = oid_field_name, log_level = None
-                        )
+                        on_join_field_name = oid_field_name, log_level = None)
                 self.delete_field(output_path, side_oid_field_name,
                                   log_level = None)
         else:
@@ -1882,23 +1882,28 @@ class ArcWorkspace(object):
                                          spatial_reference_id=4326,
                                          dataset_where_sql=None,
                                          log_level='info'):
-        """Convert nonspatial table to a new spatial dataset."""
+        """Convert nonspatial coordinate table to a new spatial dataset."""
         logline = "Convert {} to spatial dataset.".format(dataset_path)
         log_line('start', logline, log_level)
-        view_name = unique_name('dataset_view')
-        arcpy.management.MakeXYEventLayer(
-            table = dataset_path, out_layer = view_name,
-            in_x_field = x_field_name, in_y_field = y_field_name,
-            in_z_field = z_field_name,
-            spatial_reference = arcpy.SpatialReference(spatial_reference_id)
-            )
-        self.copy_dataset(view_name, output_path, dataset_where_sql)
-        self.delete_dataset(view_name)
+        dataset_view_name = unique_name('dataset_view')
+        try:
+            arcpy.management.MakeXYEventLayer(
+                table = dataset_path, out_layer = dataset_view_name,
+                in_x_field = x_field_name, in_y_field = y_field_name,
+                in_z_field = z_field_name,
+                spatial_reference = (
+                    arcpy.SpatialReference(spatial_reference_id)))
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
+        self.copy_dataset(dataset_view_name, output_path, dataset_where_sql)
+        self.delete_dataset(dataset_view_name)
         log_line('end', logline, log_level)
         return output_path
 
     @log_function
-    def planarize_features(self, dataset_path, output_path, log_level='info'):
+    def planarize_features(self, dataset_path, output_path,
+                           dataset_where_sql=None, log_level='info'):
         """Convert feature geometry to lines - planarizing them.
 
         This method does not make topological linework. However it does carry
@@ -1909,11 +1914,18 @@ class ArcWorkspace(object):
         """
         logline = "Planarize features in {}.".format(dataset_path)
         log_line('start', logline, log_level)
-        arcpy.management.FeatureToLine(
-            in_features = dataset_path, out_feature_class = output_path,
-            ##cluster_tolerance,
-            attributes = True
-            )
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
+        try:
+            arcpy.management.FeatureToLine(
+                in_features = dataset_view_name,
+                out_feature_class = output_path,
+                ##cluster_tolerance,
+                attributes = True)
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         log_line('end', logline, log_level)
         return output_path
 
@@ -1933,11 +1945,12 @@ class ArcWorkspace(object):
         self.create_dataset(
             output_path,
             [field for field in dataset_metadata.fields
+             # Geometry & OID taken care of internally.
              if field['type'].lower() not in ['geometry ', 'oid']],
             dataset_metadata['geometry_type'], spatial_reference_id,
-            log_level = None
-            )
-        self.copy_dataset(view_name, output_path, dataset_where_sql)
+            log_level = None)
+        self.copy_dataset(dataset_path, output_path, dataset_where_sql,
+                          log_level = None)
         log_line('end', logline, log_level)
         return output_path
 
@@ -1963,8 +1976,7 @@ class ArcWorkspace(object):
                             writer.writerow(field_names)
                     else:
                         raise TypeError(
-                            "Row objects must be dictionaries or sequences."
-                            )
+                            "Row objects must be dictionaries or sequences.")
                 writer.writerow(row)
         log_line('end', logline, log_level)
         return output_path
@@ -1972,35 +1984,33 @@ class ArcWorkspace(object):
     # Generators.
 
     @log_function
-    def field_values(self, dataset_path, field_names, dataset_where_sql=None):
+    def field_values(self, dataset_path, field_names,
+                     spatial_reference_id=None, dataset_where_sql=None):
         """Generator for tuples of feature field values."""
         with arcpy.da.SearchCursor(
-            dataset_path, field_names, dataset_where_sql
-            ) as cursor:
+            in_table = dataset_path, field_names = field_names,
+            where_clause = dataset_where_sql,
+            spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
+                                 if spatial_reference_id else None)) as cursor:
             for values in cursor:
                 yield values
 
     @log_function
-    def oid_field_values(self, dataset_path, field_name,
-                         dataset_where_sql=None):
+    def oid_field_value(self, dataset_path, field_name,
+                        spatial_reference_id=None, dataset_where_sql=None):
         """Generator for tuples of (OID, field_value)."""
-        with arcpy.da.SearchCursor(
-            dataset_path, ['oid@', field_name], dataset_where_sql
-            ) as cursor:
-            for oid, value in cursor:
-                yield (oid, value)
+        for oid, value in self.field_values(
+            dataset_path, ['oid@', field_name], spatial_reference_id,
+            dataset_where_sql):
+            yield (oid, value)
 
     @log_function
     def oid_geometry(self, dataset_path, spatial_reference_id=None,
                      dataset_where_sql=None):
         """Generator for tuples of (OID, geometry)."""
-        with arcpy.da.SearchCursor(
-            dataset_path, ['oid@', 'shape@'], dataset_where_sql,
-            spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
-                                 if spatial_reference_id else None)
-            ) as cursor:
-            for oid, geometry in cursor:
-                yield (oid, geometry)
+        for oid, value in self.oid_field_value(
+            dataset_path, 'shape@', spatial_reference_id, dataset_where_sql):
+            yield (oid, value)
 
     @log_function
     def xref_near_features(self, dataset_path, dataset_id_field_name,
@@ -2008,7 +2018,7 @@ class ArcWorkspace(object):
                            max_near_distance=None, only_closest=False,
                            include_distance=False, include_rank=False,
                            include_angle=False, include_x_coordinate=False,
-                           include_y_coordinate=False):
+                           include_y_coordinate=False, dataset_where_sql=None):
         """Generator for cross-referenced near feature-pairs.
 
         Yielded objects will include at least the dataset ID & XRef ID.
@@ -2021,14 +2031,20 @@ class ArcWorkspace(object):
         Distance values will match the linear unit of the main dataset.
         Angle values are in decimal degrees.
         """
+        dataset_view_name = self.create_dataset_view(
+            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            log_level = None)
         temp_near_path = unique_temp_dataset_path('temp_near')
-        arcpy.analysis.GenerateNearTable(
-            in_features = dataset_path, near_features = xref_path,
-            out_table = temp_near_path, search_radius = max_near_distance,
-            location = any([include_x_coordinate, include_y_coordinate]),
-            angle = include_angle,
-            closest = only_closest, method = 'geodesic'
-            )
+        try:
+            arcpy.analysis.GenerateNearTable(
+                in_features = dataset_view_name, near_features = xref_path,
+                out_table = temp_near_path, search_radius = max_near_distance,
+                location = any([include_x_coordinate, include_y_coordinate]),
+                angle = include_angle, closest = only_closest,
+                method = 'geodesic')
+        except arcpy.ExecuteError:
+            logger.exception("ArcPy execution.")
+            raise
         near_field_names = ['in_fid', 'near_fid']
         if include_distance:
             near_field_names.append('near_dist')
@@ -2040,55 +2056,46 @@ class ArcWorkspace(object):
             near_field_names.append('near_x')
         if include_y_coordinate:
             near_field_names.append('near_y')
-        dataset_oid_id_map = self.oid_field_value_map(
-            dataset_path, dataset_id_field_name
-            )
-        xref_oid_id_map = self.oid_field_value_map(
-            xref_path, xref_id_field_name
-            )
-        try:
-            with arcpy.da.SearchCursor(
-                temp_near_path, near_field_names
-                ) as cursor:
-                for row in cursor:
-                    row_info = dict(zip(cursor.fields, row))
-                    result = [dataset_oid_id_map[row_info['in_fid']],
-                              xref_oid_id_map[row_info['near_fid']]]
-                    if include_distance:
-                        result.append(row_info['near_dist'])
-                    if include_rank:
-                        result.append(row_info['near_rank'])
-                    if include_angle:
-                        result.append(row_info['near_angle'])
-                    if include_x_coordinate:
-                        result.append(row_info['near_x'])
-                    if include_y_coordinate:
-                        result.append(row_info['near_y'])
-                    yield tuple(result)
-        finally:
-            self.delete_dataset(temp_near_path)
+        dataset_oid_id_map = self.oid_field_value_map(dataset_view_name,
+                                                      dataset_id_field_name)
+        xref_oid_id_map = self.oid_field_value_map(xref_path,
+                                                   xref_id_field_name)
+        with arcpy.da.SearchCursor(in_table = temp_near_path,
+                                   field_names = near_field_names) as cursor:
+            for row in cursor:
+                row_info = dict(zip(cursor.fields, row))
+                result = [dataset_oid_id_map[row_info['in_fid']],
+                          xref_oid_id_map[row_info['near_fid']]]
+                if include_distance:
+                    result.append(row_info['near_dist'])
+                if include_rank:
+                    result.append(row_info['near_rank'])
+                if include_angle:
+                    result.append(row_info['near_angle'])
+                if include_x_coordinate:
+                    result.append(row_info['near_x'])
+                if include_y_coordinate:
+                    result.append(row_info['near_y'])
+                yield tuple(result)
+        self.delete_dataset(temp_near_path)
 
     # Mappings.
 
     @log_function
     def oid_field_value_map(self, dataset_path, field_name,
-                            dataset_where_sql=None):
+                            spatial_reference_id=None, dataset_where_sql=None):
         """Return dictionary mapping of field value for the feature OID."""
-        with arcpy.da.SearchCursor(
-            dataset_path, ['oid@', field_name], dataset_where_sql
-            ) as cursor:
-            return {oid: value for oid, value in cursor}
+        return {oid: value for oid, value
+                in self.oid_field_value(
+                    dataset_path, field_name, spatial_reference_id,
+                    dataset_where_sql)}
 
     @log_function
     def oid_geometry_map(self, dataset_path, spatial_reference_id=None,
                          dataset_where_sql=None):
         """Return dictionary mapping of geometry for the feature OID."""
-        with arcpy.da.SearchCursor(
-            dataset_path, ['oid@', 'shape@'], dataset_where_sql,
-            spatial_reference = (arcpy.SpatialReference(spatial_reference_id)
-                                 if spatial_reference_id else None)
-            ) as cursor:
-            return {oid: geometry for oid, geometry in cursor}
+        return self.oid_field_value_map(
+            dataset_path, 'shape@', spatial_reference_id, dataset_where_sql)
 
 
 # Classes (Toolbox Template).
