@@ -357,14 +357,15 @@ class ArcWorkspace(object):
 
     @log_function
     def create_dataset_view(self, view_name, dataset_path,
-                            dataset_where_sql=None, log_level='info'):
+                            dataset_where_sql=None, force_nonspatial=False,
+                            log_level='info'):
         """Create new feature layer/table view."""
         logline = "Create dataset view of {}.".format(dataset_path)
         log_line('start', logline, log_level)
         dataset_metadata = self.dataset_metadata(dataset_path)
         _create_kwargs = {'where_clause': dataset_where_sql,
                           'workspace': self.path}
-        if dataset_metadata['is_spatial']:
+        if dataset_metadata['is_spatial'] and not force_nonspatial:
             _create = arcpy.management.MakeFeatureLayer
             _create_kwargs['in_features'] = dataset_path
             _create_kwargs['out_layer'] = view_name
