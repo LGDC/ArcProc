@@ -13,7 +13,7 @@ import os
 import uuid
 
 arcpy = None  # Lazy import.
-
+import decorator
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +23,12 @@ logger = logging.getLogger(__name__)
 def log_function(function):
     """Decorator to log details of an function or method when called."""
     @functools.wraps(function)
-    def wrapper(*args, **kwargs):
-        logger.debug(
-            "@log_function - {}(*{}, **{})".format(function, args, kwargs))
+    def wrapper(function, *args, **kwargs):
+        logger.debug(" ".join(["@log_function - {}".format(function),
+                              "(*args={},".format(args),
+                              "**kwargs={})".format(kwargs)]))
         return function(*args, **kwargs)
-    return wrapper
+    return decorator.decorator(wrapper)(function)
 
 
 # Classes (ETL).
@@ -97,16 +98,15 @@ class ArcETL(object):
         # Unless otherwise stated, dataset path is self.transform path.
         if 'dataset_path' not in kwargs:
             kwargs['dataset_path'] = self.transform_path
-        # If arguments include output_path, supersede old transform path.
+        # Add output_path to kwargs if needed.
         if 'output_path' in inspect.getargspec(transform).args:
             kwargs['output_path'] = unique_temp_dataset_path(transform_name)
         result = transform(**kwargs)
+        # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
-            # Remove old transform_path (if extant).
             if self.workspace.is_valid_dataset(self.transform_path):
                 self.workspace.delete_dataset(self.transform_path,
                                               log_level = None)
-            # Replace with output_path.
             self.transform_path = result
         return result
 
