@@ -298,8 +298,8 @@ class ArcWorkspace(object):
         dataset_metadata = self.dataset_metadata(dataset_path)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path,
-            dataset_where_sql, log_level = None)
-
+            dataset_where_sql = "0=1" if schema_only else dataset_where_sql,
+            log_level = None)
         if dataset_metadata['is_spatial']:
             _copy = arcpy.management.CopyFeatures
             _copy_kwargs = {'in_features': dataset_view_name,
