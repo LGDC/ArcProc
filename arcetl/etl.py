@@ -49,13 +49,14 @@ class ArcETL(object):
 
     def close(self):
         """Clean up instance."""
+        logger.info("Closing ArcETL instance.")
         # Clear the transform dataset.
         if (self.transform_path
             and self.workspace.is_valid_dataset(self.transform_path)):
             self.workspace.delete_dataset(self.transform_path,
                                           log_level = None)
             self.transform_path = None
-        logger.info("Closed ArcETL instance.")
+        logger.info("Closed.")
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
@@ -980,7 +981,10 @@ class ArcWorkspace(object):
                 field_maps.addFieldMap(field_map)
         insert_dataset_view_name = self.create_dataset_view(
             unique_name('insert_dataset_view'), insert_dataset_path,
-            insert_where_sql, log_level = None)
+            insert_where_sql,
+            # Insert view must be nonspatial to append to nonspatial table.
+            force_nonspatial=(not dataset_metadata['is_spatial']),
+            log_level=None)
         try:
             arcpy.management.Append(
                 inputs = insert_dataset_view_name, target = dataset_path,
@@ -1304,7 +1308,7 @@ class ArcWorkspace(object):
         the dataset is used.
         """
         logline = ("Update field {} values"
-                   "using geometry property cascade {}.").format(
+                   " using geometry property cascade {}.").format(
             field_name, geometry_property_cascade)
         log_line('start', logline, log_level)
         if update_units:

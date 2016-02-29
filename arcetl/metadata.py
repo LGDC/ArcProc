@@ -67,6 +67,7 @@ class ETLMetadata(object):
                 else:
                     raise ValueError(
                         "Invalid operation type: {}.".format(operation.type))
+        logger.info("End ETL.")
 
 
 class JobMetadata(object):
