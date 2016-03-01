@@ -12,10 +12,10 @@ import logging
 import os
 import uuid
 
-arcpy = None  # Lazy import.
+import arcpy
 import decorator
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 # Decorators.
@@ -24,9 +24,9 @@ def log_function(function):
     """Decorator to log details of an function or method when called."""
     @functools.wraps(function)
     def wrapper(function, *args, **kwargs):
-        logger.debug(" ".join(["@log_function - {}".format(function),
-                              "(*args={},".format(args),
-                              "**kwargs={})".format(kwargs)]))
+        """Function wrapper for decorator."""
+        logger.debug("@log_function - %s(*args=%s, **kwargs=%s)",
+                     function, args, kwargs)
         return function(*args, **kwargs)
     return decorator.decorator(wrapper)(function)
 
@@ -51,10 +51,9 @@ class ArcETL(object):
         """Clean up instance."""
         logger.info("Closing ArcETL instance.")
         # Clear the transform dataset.
-        if (self.transform_path
-            and self.workspace.is_valid_dataset(self.transform_path)):
-            self.workspace.delete_dataset(self.transform_path,
-                                          log_level = None)
+        if all([self.transform_path
+                and self.workspace.is_valid_dataset(self.transform_path)]):
+            self.workspace.delete_dataset(self.transform_path, log_level=None)
             self.transform_path = None
         logger.info("Closed.")
 
@@ -65,7 +64,7 @@ class ArcETL(object):
         # Extract to a new dataset.
         self.transform_path = self.workspace.copy_dataset(
             extract_path, unique_temp_dataset_path('extract'),
-            extract_where_sql, schema_only, log_level = None)
+            extract_where_sql, schema_only, log_level=None)
         log_line('end', logline)
         return self.transform_path
 
@@ -77,15 +76,15 @@ class ArcETL(object):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
-                self.workspace.delete_features(
-                    dataset_path = load_path, log_level = None)
+                self.workspace.delete_features(dataset_path=load_path,
+                                               log_level=None)
             self.workspace.insert_features_from_path(
                 load_path, self.transform_path, load_where_sql,
-                log_level = None)
+                log_level=None)
         else:
             # Load to a new dataset.
             self.workspace.copy_dataset(self.transform_path, load_path,
-                                        load_where_sql, log_level = None)
+                                        load_where_sql, log_level=None)
         log_line('end', logline)
         return load_path
 
@@ -107,18 +106,15 @@ class ArcETL(object):
         if 'output_path' in kwargs:
             if self.workspace.is_valid_dataset(self.transform_path):
                 self.workspace.delete_dataset(self.transform_path,
-                                              log_level = None)
+                                              log_level=None)
             self.transform_path = result
         return result
 
 
-class ArcWorkspace(object):
+class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
     """Manages an Arc-style workspace with built-in operations."""
 
     def __init__(self, path=None):
-        global arcpy
-        if not arcpy:
-            import arcpy
         self.path = path if path else 'in_memory'
         # Set arcpy workspace for tools that require it.
         # Otherwise, avoid implied paths.
@@ -2211,9 +2207,6 @@ def parameter_from_attributes(attribute_map):
     but the result will depend on how the class implements setattr (usually
     this will just attach the new attribute).
     """
-    global arcpy
-    if not arcpy:
-        import arcpy
     parameter = arcpy.Parameter()
     for attribute_name, attribute_value in attribute_map.items():
         setattr(parameter, attribute_name, attribute_value)
