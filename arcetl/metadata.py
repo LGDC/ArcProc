@@ -1,10 +1,10 @@
 # -*- coding=utf-8 -*-
 import logging
 
-from .etl import ArcETL, ArcWorkspace
+from etl import ArcETL, ArcWorkspace
 
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 # Metadata classes.
