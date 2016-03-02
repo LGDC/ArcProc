@@ -2,6 +2,8 @@
 """Helper objects."""
 import functools
 import logging
+import os
+import uuid
 
 import decorator
 
@@ -33,3 +35,37 @@ def log_line(line_type, line, level='info'):
     else:
         raise ValueError("Invalid line_type: {}".format(line_type))
     return
+
+
+def unique_ids(data_type=uuid.UUID, string_length=4):
+    """Generator for unique IDs."""
+    if data_type in (float, int):
+        unique_id = data_type()
+        while True:
+            yield unique_id
+            unique_id += 1
+    elif data_type in [uuid.UUID]:
+        while True:
+            yield uuid.uuid4()
+    elif data_type in [str]:
+        used_ids = set()
+        while True:
+            unique_id = str(uuid.uuid4())[:string_length]
+            while unique_id in used_ids:
+                unique_id = str(uuid.uuid4())[:string_length]
+            yield unique_id
+    else:
+        raise NotImplementedError(
+            "Unique IDs for {} type not implemented.".format(data_type))
+
+
+def unique_name(prefix='', suffix='', unique_length=4):
+    """Generate unique name."""
+    return '{}{}{}'.format(
+        prefix, next(unique_ids(str, unique_length)), suffix)
+
+
+def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,
+                             workspace='in_memory'):
+    """Create unique temporary dataset path."""
+    return os.path.join(workspace, unique_name(prefix, suffix, unique_length))

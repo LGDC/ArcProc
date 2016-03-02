@@ -51,7 +51,7 @@ class ArcETL(object):
         helpers.log_line('start', logline)
         # Extract to a new dataset.
         self.transform_path = self.workspace.copy_dataset(
-            extract_path, unique_temp_dataset_path('extract'),
+            extract_path, helpers.unique_temp_dataset_path('extract'),
             extract_where_sql, schema_only, log_level=None)
         helpers.log_line('end', logline)
         return self.transform_path
@@ -88,7 +88,7 @@ class ArcETL(object):
             kwargs['dataset_path'] = self.transform_path
         # Add output_path to kwargs if needed.
         if 'output_path' in inspect.getargspec(transform).args:
-            kwargs['output_path'] = unique_temp_dataset_path(transform_name)
+            kwargs['output_path'] = helpers.unique_temp_dataset_path(transform_name)
         result = transform(**kwargs)
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
@@ -282,7 +282,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('start', logline, log_level)
         dataset_metadata = self.dataset_metadata(dataset_path)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path,
+            helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql = "0=1" if schema_only else dataset_where_sql,
             log_level = None)
         if dataset_metadata['is_spatial']:
@@ -657,12 +657,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('start', logline, log_level)
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path,
+            helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
         clip_dataset_view_name = self.create_dataset_view(
-            unique_name('clip_dataset_view'), clip_dataset_path,
+            helpers.unique_name('clip_dataset_view'), clip_dataset_path,
             clip_where_sql, log_level = None)
-        temp_output_path = unique_temp_dataset_path('temp_output')
+        temp_output_path = helpers.unique_temp_dataset_path('temp_output')
         try:
             arcpy.analysis.Clip(
                 in_features = dataset_view_name,
@@ -691,7 +691,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('start', logline, log_level)
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path,
+            helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
         dataset_metadata = self.dataset_metadata(dataset_path)
         # Can use (faster) truncate when:
@@ -730,9 +730,9 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         # datasets in our geodatabases.
         arcpy.env.XYTolerance = 0.003280839895013
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path,
+            helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
-        temp_output_path = unique_temp_dataset_path('temp_output')
+        temp_output_path = helpers.unique_temp_dataset_path('temp_output')
         try:
             arcpy.management.Dissolve(
                 in_features = dataset_view_name,
@@ -763,12 +763,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('start', logline, log_level)
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path,
+            helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
         erase_dataset_view_name = self.create_dataset_view(
-            unique_name('erase_dataset_view'), erase_dataset_path,
+            helpers.unique_name('erase_dataset_view'), erase_dataset_path,
             erase_where_sql, log_level = None)
-        temp_output_path = unique_temp_dataset_path('temp_output')
+        temp_output_path = helpers.unique_temp_dataset_path('temp_output')
         try:
             arcpy.analysis.Erase(
                 in_features = dataset_view_name,
@@ -798,10 +798,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('start', logline, log_level)
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path,
+            helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
         location_dataset_view_name = self.create_dataset_view(
-            unique_name('location_dataset_view'),
+            helpers.unique_name('location_dataset_view'),
             location_dataset_path, location_where_sql, log_level = None)
         try:
             arcpy.management.SelectLayerByLocation(
@@ -843,12 +843,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Create a temporary copy of the overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            identity_dataset_path, unique_temp_dataset_path('temp_overlay'),
+            identity_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
             log_level = None)
         # Avoid field name collisions with neutral holding field.
         temp_overlay_field_name = self.duplicate_field(
             temp_overlay_path, identity_field_name,
-            new_field_name = unique_name(identity_field_name),
+            new_field_name = helpers.unique_name(identity_field_name),
             duplicate_values = True, log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
@@ -869,10 +869,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             if dataset_where_sql:
                 chunk_where_clause += " and ({})".format(dataset_where_sql)
             chunk_view_name = self.create_dataset_view(
-                unique_name('chunk_view'), dataset_path,
+                helpers.unique_name('chunk_view'), dataset_path,
                 chunk_where_clause, log_level = None)
             # Create temporary dataset with the identity values.
-            temp_output_path = unique_temp_dataset_path('temp_output')
+            temp_output_path = helpers.unique_temp_dataset_path('temp_output')
             try:
                 arcpy.analysis.Identity(
                     in_features = chunk_view_name,
@@ -963,7 +963,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 field_map.addInputField(insert_dataset_path, field_name)
                 field_maps.addFieldMap(field_map)
         insert_dataset_view_name = self.create_dataset_view(
-            unique_name('insert_dataset_view'), insert_dataset_path,
+            helpers.unique_name('insert_dataset_view'), insert_dataset_path,
             insert_where_sql,
             # Insert view must be nonspatial to append to nonspatial table.
             force_nonspatial=(not dataset_metadata['is_spatial']),
@@ -1018,12 +1018,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             match_option = 'intersect'
         # Create temporary copy of overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            overlay_dataset_path, unique_temp_dataset_path('temp_overlay'),
+            overlay_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
             log_level = None)
         # Avoid field name collisions with neutral holding field.
         temp_overlay_field_name = self.duplicate_field(
             temp_overlay_path, overlay_field_name,
-            new_field_name = unique_name(overlay_field_name),
+            new_field_name = helpers.unique_name(overlay_field_name),
             duplicate_values = True, log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
@@ -1044,10 +1044,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             if dataset_where_sql:
                 chunk_where_clause += " and ({})".format(dataset_where_sql)
             chunk_view_name = self.create_dataset_view(
-                unique_name('chunk_view'), dataset_path,
+                helpers.unique_name('chunk_view'), dataset_path,
                 chunk_where_clause, log_level = None)
             # Create the temp output of the overlay.
-            temp_output_path = unique_temp_dataset_path('temp_output')
+            temp_output_path = helpers.unique_temp_dataset_path('temp_output')
             try:
                 arcpy.analysis.SpatialJoin(
                     target_features = chunk_view_name,
@@ -1100,12 +1100,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Create a temporary copy of the overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            union_dataset_path, unique_temp_dataset_path('temp_overlay'),
+            union_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
             log_level = None)
         # Avoid field name collisions with neutral holding field.
         temp_overlay_field_name = self.duplicate_field(
             temp_overlay_path, union_field_name,
-            new_field_name = unique_name(union_field_name),
+            new_field_name = helpers.unique_name(union_field_name),
             duplicate_values = True, log_level = None)
         # Get an iterable of all object IDs in the dataset.
         with arcpy.da.SearchCursor(
@@ -1126,10 +1126,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             if dataset_where_sql:
                 chunk_where_clause += " and ({})".format(dataset_where_sql)
             chunk_view_name = self.create_dataset_view(
-                unique_name('chunk_view'), dataset_path,
+                helpers.unique_name('chunk_view'), dataset_path,
                 chunk_where_clause, log_level = None)
             # Create the temp output of the union.
-            temp_output_path = unique_temp_dataset_path('temp_output')
+            temp_output_path = helpers.unique_temp_dataset_path('temp_output')
             try:
                 arcpy.analysis.Union(
                     in_features = [view_name, temp_overlay_path],
@@ -1220,7 +1220,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             field_name, expression)
         helpers.log_line('start', logline, log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
         try:
             arcpy.management.CalculateField(
@@ -1386,18 +1386,18 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         helpers.log_line('start', logline, log_level)
         # Create a temporary copy of near dataset.
         temp_near_path = self.copy_dataset(
-            near_dataset_path, unique_temp_dataset_path('temp_near'),
+            near_dataset_path, helpers.unique_temp_dataset_path('temp_near'),
             log_level = None)
         # Avoid field name collisions with neutral holding field.
         temp_near_field_name = self.duplicate_field(
             temp_near_path, near_field_name,
-            new_field_name = unique_name(near_field_name),
+            new_field_name = helpers.unique_name(near_field_name),
             duplicate_values = True, log_level = None)
         # Create the temp output of the near features.
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
-        temp_output_path = unique_temp_dataset_path('temp_output')
+        temp_output_path = helpers.unique_temp_dataset_path('temp_output')
         try:
             arcpy.analysis.GenerateNearTable(
                 in_features = dataset_view_name,
@@ -1524,18 +1524,18 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             match_option = 'intersect'
         # Create temporary copy of overlay dataset.
         temp_overlay_path = self.copy_dataset(
-            overlay_dataset_path, unique_temp_dataset_path('temp_overlay'),
+            overlay_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
             log_level = None)
         # Avoid field name collisions with neutral holding field.
         temp_overlay_field_name = self.duplicate_field(
             temp_overlay_path, overlay_field_name,
-            new_field_name = unique_name(overlay_field_name),
+            new_field_name = helpers.unique_name(overlay_field_name),
             duplicate_values = True, log_level = None)
         # Create temp output of the overlay.
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
-        temp_output_path = unique_temp_dataset_path('temp_output')
+        temp_output_path = helpers.unique_temp_dataset_path('temp_output')
         try:
             arcpy.analysis.SpatialJoin(
                 target_features = dataset_view_name,
@@ -1588,7 +1588,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             'integer': int, 'long': int, 'short': int, 'smallinteger': int,
             'guid': uuid.UUID,
             'string': str, 'text': str}
-        unique_id_pool = unique_ids(
+        unique_id_pool = helpers.unique_ids(
             data_type = field_type_map[field_metadata['type']],
             string_length = field_metadata.get('length', 16))
         with arcpy.da.UpdateCursor(
@@ -1730,7 +1730,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         # Create break value range.
         break_values = range(ring_width, max_distance + 1, ring_width)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
         try:
             arcpy.na.MakeServiceAreaLayer(
@@ -1818,7 +1818,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             "Convert polygon features in {} to lines.".format(dataset_path))
         helpers.log_line('start', logline, log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
         try:
             arcpy.management.PolygonToLine(
@@ -1871,7 +1871,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """Convert nonspatial coordinate table to a new spatial dataset."""
         logline = "Convert {} to spatial dataset.".format(dataset_path)
         helpers.log_line('start', logline, log_level)
-        dataset_view_name = unique_name('dataset_view')
+        dataset_view_name = helpers.unique_name('dataset_view')
         try:
             arcpy.management.MakeXYEventLayer(
                 table = dataset_path, out_layer = dataset_view_name,
@@ -1901,7 +1901,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         logline = "Planarize features in {}.".format(dataset_path)
         helpers.log_line('start', logline, log_level)
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
         try:
             arcpy.management.FeatureToLine(
@@ -2018,9 +2018,9 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         Angle values are in decimal degrees.
         """
         dataset_view_name = self.create_dataset_view(
-            unique_name('dataset_view'), dataset_path, dataset_where_sql,
+            helpers.unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
-        temp_near_path = unique_temp_dataset_path('temp_near')
+        temp_near_path = helpers.unique_temp_dataset_path('temp_near')
         try:
             arcpy.analysis.GenerateNearTable(
                 in_features = dataset_view_name, near_features = xref_path,
@@ -2106,37 +2106,3 @@ def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
     if fourths:
         absolute_decimal += float(fourths)/12960000
     return absolute_decimal * sign_multiplier
-
-
-def unique_ids(data_type=uuid.UUID, string_length=4):
-    """Generator for unique IDs."""
-    if data_type in (float, int):
-        unique_id = data_type()
-        while True:
-            yield unique_id
-            unique_id += 1
-    elif data_type in [uuid.UUID]:
-        while True:
-            yield uuid.uuid4()
-    elif data_type in [str]:
-        used_ids = set()
-        while True:
-            unique_id = str(uuid.uuid4())[:string_length]
-            while unique_id in used_ids:
-                unique_id = str(uuid.uuid4())[:string_length]
-            yield unique_id
-    else:
-        raise NotImplementedError(
-            "Unique IDs for {} type not implemented.".format(data_type))
-
-
-def unique_name(prefix='', suffix='', unique_length=4):
-    """Generate unique name."""
-    return '{}{}{}'.format(
-        prefix, next(unique_ids(str, unique_length)), suffix)
-
-
-def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,
-                             workspace='in_memory'):
-    """Create unique temporary dataset path."""
-    return os.path.join(workspace, unique_name(prefix, suffix, unique_length))
