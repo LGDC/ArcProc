@@ -1,13 +1,12 @@
 # -*- coding=utf-8 -*-
+"""Metadata objects."""
 import logging
 
 from etl import ArcETL, ArcWorkspace
 
 
-logger = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
-
-# Metadata classes.
 
 class ETLMetadata(object):
     """Metadata for an extract, transform, & load (ETL) procedure."""
@@ -52,7 +51,7 @@ class ETLMetadata(object):
 
     def run(self):
         """Perform all actions related to running an ETL."""
-        logger.info("Starting ETL for: %s.", self.name)
+        LOG.info("Starting ETL for: %s.", self.name)
         # Perform listed ETL operations.
         try:
             for function, kwargs in self.operations:
@@ -61,7 +60,7 @@ class ETLMetadata(object):
             raise
         finally:
             self.etl.close()
-        logger.info("End ETL.")
+        LOG.info("End ETL.")
 
 
 class JobMetadata(object):

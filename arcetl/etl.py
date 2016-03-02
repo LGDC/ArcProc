@@ -17,7 +17,7 @@ import decorator
 
 import helpers
 
-logger = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 # Classes (ETL).
@@ -28,7 +28,7 @@ class ArcETL(object):
     def __init__(self, workspace=None):
         self.workspace = workspace if workspace else ArcWorkspace()
         self.transform_path = None
-        logger.info("Initialized ArcETL instance.")
+        LOG.info("Initialized ArcETL instance.")
 
     def __enter__(self):
         return self
@@ -38,13 +38,13 @@ class ArcETL(object):
 
     def close(self):
         """Clean up instance."""
-        logger.info("Closing ArcETL instance.")
+        LOG.info("Closing ArcETL instance.")
         # Clear the transform dataset.
         if all([self.transform_path
                 and self.workspace.is_valid_dataset(self.transform_path)]):
             self.workspace.delete_dataset(self.transform_path, log_level=None)
             self.transform_path = None
-        logger.info("Closed.")
+        LOG.info("Closed.")
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
@@ -108,7 +108,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         # Set arcpy workspace for tools that require it.
         # Otherwise, avoid implied paths.
         arcpy.env.workspace = self.path
-        logger.info("Initialize ArcWorkspace instance.")
+        LOG.info("Initialized ArcWorkspace instance.")
 
     # General execution methods.
 
@@ -126,7 +126,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             result = conn.execute(statement)
         except AttributeError:
-            logger.exception("Incorrect SQL syntax.")
+            LOG.exception("Incorrect SQL syntax.")
             raise
         del conn  # Yeah, what can you do?
         helpers.log_line('end', logline, log_level)
@@ -267,7 +267,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             _compress(**_compress_kwargs)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         if disconnect_users:
             arcpy.AcceptConnections(sde_workspace = geodatabase_path,
@@ -302,7 +302,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             _copy(**_copy_kwargs)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name, log_level = None)
         helpers.log_line('end', logline, log_level)
@@ -328,7 +328,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             _create(**_create_kwargs)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         if field_metadata:
             if isinstance(field_metadata, dict):
@@ -365,7 +365,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             _create(**_create_kwargs)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return view_name
@@ -378,7 +378,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         logline = "Create file geodatabase at {}.".format(geodatabase_path)
         helpers.log_line('start', logline, log_level)
         if os.path.exists(geodatabase_path):
-            logger.warning("Geodatabase already exists.")
+            LOG.warning("Geodatabase already exists.")
             return geodatabase_path
         try:
             arcpy.management.CreateFileGDB(
@@ -386,7 +386,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 out_name = os.path.basename(geodatabase_path),
                 out_version = 'current')
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         if xml_workspace_path:
             try:
@@ -397,7 +397,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                                    else 'schema_only'),
                     config_keyword = 'defaults')
             except arcpy.ExecuteError:
-                logger.exception("ArcPy execution.")
+                LOG.exception("ArcPy execution.")
                 raise
         helpers.log_line('end', logline, log_level)
         return geodatabase_path
@@ -416,7 +416,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 export_type = 'data' if include_data else 'schema_only',
                 storage_type = 'binary', export_metadata = include_metadata)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return output_path
@@ -429,7 +429,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             arcpy.management.Delete(dataset_path)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return dataset_path
@@ -448,7 +448,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 View = PRIVILEGE_MAP[allow_view],
                 Edit = PRIVILEGE_MAP[allow_edit])
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return dataset_path
@@ -475,7 +475,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 field_is_nullable = field_is_nullable,
                 field_is_required = field_is_required)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return field_name
@@ -496,10 +496,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             try:
                 field_name = self.add_field(**_add_kwargs)
             except arcpy.ExecuteError:
-                logger.exception("ArcPy execution.")
+                LOG.exception("ArcPy execution.")
                 raise
             if log_level:
-                getattr(logger, log_level)("Added {}.".format(field_name))
+                getattr(LOG, log_level)("Added {}.".format(field_name))
         helpers.log_line('end', logline, log_level)
         return [field_metadata['name'] for field_metadata in metadata_list]
 
@@ -528,7 +528,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         try:
             _add(**_add_kwargs)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return dataset_path
@@ -542,7 +542,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             arcpy.management.DeleteField(in_table = dataset_path,
                                          drop_field = field_name)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return field_name
@@ -584,7 +584,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 join_table = join_dataset_path,
                 join_field = on_join_field_name, fields = join_field_name)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return join_field_name
@@ -600,7 +600,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             arcpy.management.AlterField(dataset_path,
                                         field_name, new_field_name)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return new_field_name
@@ -670,7 +670,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 clip_features = clip_dataset_view_name,
                 out_feature_class = temp_output_path)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(clip_dataset_view_name, log_level = None)
         # Load back into the dataset.
@@ -741,7 +741,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 dissolve_field = dissolve_field_names, multi_part = multipart,
                 unsplit_lines = unsplit_lines)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         # Delete undissolved features that are now dissolved (in the temp).
         self.delete_features(dataset_view_name, log_level = None)
@@ -776,7 +776,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 erase_features = erase_dataset_view_name,
                 out_feature_class = temp_output_path)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(erase_dataset_view_name, log_level = None)
         # Load back into the dataset.
@@ -814,7 +814,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 in_layer = dataset_view_name,
                 selection_type = 'switch_selection')
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(location_dataset_view_name, log_level = None)
         self.delete_features(dataset_view_name, log_level = None)
@@ -861,8 +861,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         while oids:
             chunk = oids[:chunk_size]
             oids = oids[chunk_size:]
-            logger.debug(
-                "Chunk: Feature OIDs {} to {}".format(chunk[0], chunk[-1]))
+            LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
             # ArcPy where clauses cannot use 'between'.
             chunk_where_clause = (
                 "{field} >= {from_oid} and {field} <= {to_oid}".format(
@@ -882,7 +881,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     out_feature_class = temp_output_path,
                     join_attributes = 'all', relationship = False)
             except arcpy.ExecuteError:
-                logger.exception("ArcPy execution.")
+                LOG.exception("ArcPy execution.")
                 raise
             # Push identity (or replacement) value from temp to update field.
             # Apply replacement value if necessary.
@@ -975,7 +974,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 inputs = insert_dataset_view_name, target = dataset_path,
                 schema_type = 'no_test', field_mapping = field_maps)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(insert_dataset_view_name, log_level = None)
         helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
@@ -1037,8 +1036,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         while oids:
             chunk = oids[:chunk_size]
             oids = oids[chunk_size:]
-            logger.debug(
-                "Chunk: Feature OIDs {} to {}".format(chunk[0], chunk[-1]))
+            LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
             # ArcPy where clauses cannot use 'between'.
             chunk_where_clause = (
                 "{field} >= {from_oid} and {field} <= {to_oid}".format(
@@ -1059,7 +1057,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     join_operation = join_operation, join_type = 'keep_all',
                     match_option = match_option)
             except arcpy.ExecuteError:
-                logger.exception("ArcPy execution.")
+                LOG.exception("ArcPy execution.")
                 raise
             # Push overlay (or replacement) value from temp to update field.
             # Apply replacement value if necessary.
@@ -1120,8 +1118,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         while oids:
             chunk = oids[:chunk_size]
             oids = oids[chunk_size:]
-            logger.debug(
-                "Chunk: Feature OIDs {} to {}".format(chunk[0], chunk[-1]))
+            LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
             # ArcPy where clauses cannot use 'between'.
             chunk_where_clause = (
                 "{field} >= {from_oid} and {field} <= {to_oid}".format(
@@ -1140,7 +1137,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     out_feature_class = temp_output_path,
                     join_attributes = 'all', gaps = False)
             except arcpy.ExecuteError:
-                logger.exception("ArcPy execution.")
+                LOG.exception("ArcPy execution.")
                 raise
             # Push union (or replacement) value from temp to update field.
             # Apply replacement value if necessary.
@@ -1231,7 +1228,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 in_table = dataset_view_name, field = field_name,
                 expression = expression, expression_type = 'python_9.3')
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name, log_level = None)
         helpers.log_line('end', logline, log_level)
@@ -1415,7 +1412,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 # Would prefer geodesic, but that forces XY values to lon-lat.
                 method ='planar')
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name, log_level = None)
         # Remove near rows not matching chosen rank.
@@ -1548,7 +1545,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 join_operation = join_operation, join_type = 'keep_common',
                 match_option = match_option)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name, log_level = None)
         self.delete_dataset(temp_overlay_path, log_level = None)
@@ -1757,7 +1754,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 #polygon_trim = True, poly_trim_value = ring_width,
                 hierarchy = 'no_hierarchy')
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         try:
             arcpy.na.AddLocations(
@@ -1769,14 +1766,14 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 snap_to_position_along_network = 'no_snap',
                 exclude_restricted_elements = True)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         try:
             arcpy.na.Solve(
                 in_network_analysis_layer = "service_area",
                 ignore_invalids = True, terminate_on_solve_error = True)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.copy_dataset('service_area/Polygons', output_path,
                           log_level = None)
@@ -1829,7 +1826,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 in_features = dataset_view_name,
                 out_feature_class = output_path, neighbor_option = topological)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name)
         if topological:
@@ -1884,7 +1881,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 spatial_reference = (
                     arcpy.SpatialReference(spatial_reference_id)))
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         self.copy_dataset(dataset_view_name, output_path, dataset_where_sql)
         self.delete_dataset(dataset_view_name)
@@ -1914,7 +1911,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 ##cluster_tolerance,
                 attributes = True)
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         helpers.log_line('end', logline, log_level)
         return output_path
@@ -2033,7 +2030,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 angle = include_angle, closest = only_closest,
                 method = 'geodesic')
         except arcpy.ExecuteError:
-            logger.exception("ArcPy execution.")
+            LOG.exception("ArcPy execution.")
             raise
         near_field_names = ['in_fid', 'near_fid']
         if include_distance:
