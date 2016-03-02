@@ -15,20 +15,9 @@ import uuid
 import arcpy
 import decorator
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+import helpers
 
-
-# Decorators.
-
-def log_function(function):
-    """Decorator to log details of an function or method when called."""
-    @functools.wraps(function)
-    def wrapper(function, *args, **kwargs):
-        """Function wrapper for decorator."""
-        logger.debug("@log_function - %s(*args=%s, **kwargs=%s)",
-                     function, args, kwargs)
-        return function(*args, **kwargs)
-    return decorator.decorator(wrapper)(function)
+logger = logging.getLogger(__name__)
 
 
 # Classes (ETL).
@@ -60,18 +49,18 @@ class ArcETL(object):
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
         logline = "Extract {}.".format(extract_path)
-        log_line('start', logline)
+        helpers.log_line('start', logline)
         # Extract to a new dataset.
         self.transform_path = self.workspace.copy_dataset(
             extract_path, unique_temp_dataset_path('extract'),
             extract_where_sql, schema_only, log_level=None)
-        log_line('end', logline)
+        helpers.log_line('end', logline)
         return self.transform_path
 
     def load(self, load_path, load_where_sql=None, preserve_features=False):
         """Load features from transform workspace to the load-dataset."""
         logline = "Load {}.".format(load_path)
-        log_line('start', logline)
+        helpers.log_line('start', logline)
         if self.workspace.is_valid_dataset(load_path):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
@@ -85,7 +74,7 @@ class ArcETL(object):
             # Load to a new dataset.
             self.workspace.copy_dataset(self.transform_path, load_path,
                                         load_where_sql, log_level=None)
-        log_line('end', logline)
+        helpers.log_line('end', logline)
         return load_path
 
     def make_asssertion(self, assertion_name, **kwargs):
@@ -123,7 +112,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
 
     # General execution methods.
 
-    @log_function
+    @helpers.log_function
     def execute_sql_statement(self, statement, path_to_database=None,
                               log_level='info'):
         """Runs a SQL statement via SDE's SQL execution interface.
@@ -131,7 +120,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         This only works if path resolves to an actual SQL database.
         """
         logline = "Execute SQL statement."
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         conn = arcpy.ArcSDESQLExecute(
             path_to_database if path_to_database else self.path)
         try:
@@ -140,12 +129,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             logger.exception("Incorrect SQL syntax.")
             raise
         del conn  # Yeah, what can you do?
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return result
 
     # Metadata/property methods.
 
-    @log_function
+    @helpers.log_function
     def dataset_metadata(self, dataset_path):
         """Return dictionary of dataset's metadata."""
         metadata = {}
@@ -184,7 +173,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 arc_description.shapeFieldName.lower())
         return metadata
 
-    @log_function
+    @helpers.log_function
     def feature_count(self, dataset_path, dataset_where_sql=None):
         """Return the number of features in a dataset."""
         with arcpy.da.SearchCursor(
@@ -192,7 +181,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             where_clause = dataset_where_sql) as cursor:
             return len([None for row in cursor])
 
-    @log_function
+    @helpers.log_function
     def field_metadata(self, dataset_path, field_name):
         """Return dictionary of field's info."""
         try:
@@ -207,7 +196,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 "Field {} not present on {}".format(field_name, dataset_path)
                 )
 
-    @log_function
+    @helpers.log_function
     def is_valid_dataset(self, dataset_path):
         """Check whether a dataset exists/is valid."""
         if dataset_path and arcpy.Exists(dataset_path):
@@ -215,7 +204,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         else:
             return False
 
-    @log_function
+    @helpers.log_function
     def workspace_dataset_names(self, workspace_path=None, wildcard=None,
                                 include_feature_classes=True,
                                 include_rasters=True, include_tables=True,
@@ -246,12 +235,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
 
     # Workspace management methods.
 
-    @log_function
+    @helpers.log_function
     def compress_geodatabase(self, geodatabase_path=None,
                              disconnect_users=False, log_level='info'):
         """Compress geodatabase."""
         logline = "Compress {}.".format(geodatabase_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         if not geodatabase_path:
             geodatabase_path = self.path
         arc_description = arcpy.Describe(geodatabase_path)
@@ -283,15 +272,15 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         if disconnect_users:
             arcpy.AcceptConnections(sde_workspace = geodatabase_path,
                                     accept_connections = True)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return geodatabase_path
 
-    @log_function
+    @helpers.log_function
     def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None,
                      schema_only=False, overwrite=False, log_level='info'):
         """Copy dataset."""
         logline = "Copy {} to {}.".format(dataset_path, output_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_metadata = self.dataset_metadata(dataset_path)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path,
@@ -316,16 +305,16 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             logger.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
-    @log_function
+    @helpers.log_function
     def create_dataset(self, dataset_path, field_metadata=[],
                        geometry_type=None, spatial_reference_id=None,
                        log_level='info'):
         """Create new dataset."""
         logline = "Create dataset {}.".format(dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         _create_kwargs = {'out_path': os.path.dirname(dataset_path),
                           'out_name': os.path.basename(dataset_path)}
         if geometry_type:
@@ -349,16 +338,16 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     dataset_path, field['name'], field['type'],
                     field.get('length'), field.get('precision'),
                     field.get('scale'), log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def create_dataset_view(self, view_name, dataset_path,
                             dataset_where_sql=None, force_nonspatial=False,
                             log_level='info'):
         """Create new feature layer/table view."""
         logline = "Create dataset view of {}.".format(dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_metadata = self.dataset_metadata(dataset_path)
         _create_kwargs = {'where_clause': dataset_where_sql,
                           'workspace': self.path}
@@ -378,16 +367,16 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return view_name
 
-    @log_function
+    @helpers.log_function
     def create_file_geodatabase(self, geodatabase_path,
                                 xml_workspace_path=None,
                                 include_xml_data=False, log_level='info'):
         """Create new file geodatabase."""
         logline = "Create file geodatabase at {}.".format(geodatabase_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         if os.path.exists(geodatabase_path):
             logger.warning("Geodatabase already exists.")
             return geodatabase_path
@@ -410,17 +399,17 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             except arcpy.ExecuteError:
                 logger.exception("ArcPy execution.")
                 raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return geodatabase_path
 
-    @log_function
+    @helpers.log_function
     def create_geodatabase_xml_backup(self, geodatabase_path, output_path,
                                       include_data=False,
                                       include_metadata=True, log_level='info'):
         """Create backup of geodatabase as XML workspace document."""
         logline = "Create backup for {} in {}.".format(geodatabase_path,
                                                        output_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         try:
             arcpy.management.ExportXMLWorkspaceDocument(
                 in_data = geodatabase_path, out_file = output_path,
@@ -429,29 +418,29 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
-    @log_function
+    @helpers.log_function
     def delete_dataset(self, dataset_path, log_level='info'):
         """Delete dataset."""
         logline = "Delete {}.".format(dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         try:
             arcpy.management.Delete(dataset_path)
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def set_dataset_privileges(self, dataset_path, user_name, allow_view=None,
                                allow_edit=None, log_level='info'):
         """Set privileges for dataset in enterprise geodatabase."""
         logline = "Set privileges for {} on {}.".format(user_name,
                                                         dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         PRIVILEGE_MAP = {True: 'grant', False: 'revoke', None: 'as_is'}
         try:
             arcpy.management.ChangePrivileges(
@@ -461,19 +450,19 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
     # Schema alteration methods.
 
-    @log_function
+    @helpers.log_function
     def add_field(self, dataset_path, field_name, field_type,
                   field_length=None, field_precision=None, field_scale=None,
                   field_is_nullable=True, field_is_required=False,
                   log_level='info'):
         """Add field to dataset."""
         logline = "Add field {}.{}.".format(dataset_path, field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         TYPE_CONVERSION_MAP = {'string': 'text', 'integer': 'long'}
         field_type = TYPE_CONVERSION_MAP.get(field_type, field_type)
         if field_type.lower() == 'text' and field_length is None:
@@ -488,15 +477,15 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def add_fields_from_metadata_list(self, dataset_path, metadata_list,
                                       log_level='info'):
         """Add fields to dataset from a list of metadata dictionaries."""
         logline = "Add fields to {} from a metadata list.".format(dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         for field_metadata in metadata_list:
             _add_kwargs = {'dataset_path': dataset_path, 'log_level': None}
             for attribute in ['name', 'type', 'length', 'precision', 'scale',
@@ -511,15 +500,15 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 raise
             if log_level:
                 getattr(logger, log_level)("Added {}.".format(field_name))
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return [field_metadata['name'] for field_metadata in metadata_list]
 
-    @log_function
+    @helpers.log_function
     def add_index(self, dataset_path, field_names, index_name=None,
                   is_unique=False, is_ascending=False, log_level='info'):
         """Add index to dataset fields."""
         logline = "Add index for {}.{}.".format(dataset_path, field_names)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         field_types = {
             field['type'].lower() for field
             in self.dataset_metadata(dataset_path)['fields']
@@ -541,31 +530,31 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def delete_field(self, dataset_path, field_name, log_level='info'):
         """Delete field from dataset."""
         logline = "Delete field {}.".format(field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         try:
             arcpy.management.DeleteField(in_table = dataset_path,
                                          drop_field = field_name)
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def duplicate_field(self, dataset_path, field_name, new_field_name,
                         duplicate_values=False, dataset_where_sql=None,
                         log_level='info'):
         """Create new field as a duplicate of another."""
         logline = "Duplicate {}.{} as {}.".format(dataset_path, field_name,
                                                   new_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         new_field_metadata = self.field_metadata(dataset_path, field_name)
         new_field_metadata['name'] = new_field_name
         # Cannot add OID-type field, so push to a long-type.
@@ -579,16 +568,16 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 function = lambda x: x, field_as_first_arg = False,
                 arg_field_names = [field_name],
                 dataset_where_sql = dataset_where_sql, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return new_field_name
 
-    @log_function
+    @helpers.log_function
     def join_field(self, dataset_path, join_dataset_path, join_field_name,
                    on_field_name, on_join_field_name, log_level='info'):
         """Add field and its values from join-dataset."""
         logline = "Join field {} from {}.".format(join_field_name,
                                                   join_dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         try:
             arcpy.management.JoinField(
                 dataset_path, in_field = on_field_name,
@@ -597,28 +586,28 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return join_field_name
 
-    @log_function
+    @helpers.log_function
     def rename_field(self, dataset_path, field_name, new_field_name,
                      log_level='info'):
         """Rename field."""
         logline = "Rename field {}.{} to {}.".format(dataset_path, field_name,
                                                      new_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         try:
             arcpy.management.AlterField(dataset_path,
                                         field_name, new_field_name)
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return new_field_name
 
     # Feature alteration methods.
 
-    @log_function
+    @helpers.log_function
     def adjust_features_for_shapefile(
         self, dataset_path, datetime_null_replacement=datetime.date.min,
         integer_null_replacement=0, numeric_null_replacement=0.0,
@@ -632,8 +621,8 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Adjust features in {} for shapefile output.".format(
             dataset_path)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         TYPE_FUNCTION_MAP = {
             # Blob omitted: Not a valid shapefile type.
             'date': (lambda x: datetime_null_replacement if x is None
@@ -655,19 +644,19 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     dataset_path, field['name'],
                     function = TYPE_FUNCTION_MAP[field['type'].lower()],
                     log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def clip_features(self, dataset_path, clip_dataset_path,
                       dataset_where_sql=None, clip_where_sql=None,
                       log_level='info'):
         """Clip feature geometry where overlaps clip dataset geometry."""
         logline = "Clip {} where geometry overlaps {}.".format(
             dataset_path, clip_dataset_path)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
@@ -690,18 +679,18 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         self.insert_features_from_path(dataset_path, temp_output_path,
                                        log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def delete_features(self, dataset_path, dataset_where_sql=None,
                         log_level='info'):
         """Delete select features."""
         logline = "Delete features from {} where {}.".format(dataset_path,
                                                              dataset_where_sql)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
@@ -724,19 +713,19 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 "{} unsupported dataset type.".format(dataset_path))
         _delete(**_delete_kwargs)
         self.delete_dataset(dataset_view_name, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def dissolve_features(self, dataset_path, dissolve_field_names,
                           multipart=True, unsplit_lines=False,
                           dataset_where_sql=None, log_level='info'):
         """Merge features that share values in given fields."""
         logline = "Dissolve features in {} on {}.".format(dataset_path,
                                                           dissolve_field_names)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Set the environment tolerance, so we can be sure the in_memory
         # datasets respect it. 0.003280839895013 is the default for all
         # datasets in our geodatabases.
@@ -761,19 +750,19 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         self.insert_features_from_path(dataset_path, temp_output_path,
                                        log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def erase_features(self, dataset_path, erase_dataset_path,
                        dataset_where_sql=None, erase_where_sql=None,
                        log_level='info'):
         """Erase feature geometry where overlaps erase dataset geometry."""
         logline = "Erase {} where geometry overlaps {}.".format(
             dataset_path, erase_dataset_path)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
@@ -796,19 +785,19 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         self.insert_features_from_path(dataset_path, temp_output_path,
                                        log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def keep_features_by_location(self, dataset_path, location_dataset_path,
                                   dataset_where_sql=None,
                                   location_where_sql=None, log_level='info'):
         """Keep features where geometry overlaps location feature geometry."""
         logline = "Keep {} where geometry overlaps {}.".format(
             dataset_path, location_dataset_path)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path,
             dataset_where_sql, log_level = None)
@@ -830,11 +819,11 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         self.delete_dataset(location_dataset_view_name, log_level = None)
         self.delete_features(dataset_view_name, log_level = None)
         self.delete_dataset(dataset_view_name, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def identity_features(self, dataset_path, field_name,
                           identity_dataset_path, identity_field_name,
                           replacement_value=None, dataset_where_sql=None,
@@ -851,8 +840,8 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Identity features with {}.{}.".format(identity_dataset_path,
                                                          identity_field_name)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Create a temporary copy of the overlay dataset.
         temp_overlay_path = self.copy_dataset(
             identity_dataset_path, unique_temp_dataset_path('temp_overlay'),
@@ -920,37 +909,37 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                                            log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
         self.delete_dataset(temp_overlay_path, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def insert_features_from_iterables(self, dataset_path,
                                        insert_dataset_iterables, field_names,
                                        log_level='info'):
         """Insert features from a collection of iterables."""
         logline = "Insert features into {} from iterables.".format(
             dataset_path)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Create generator if insert_dataset_iterables is a generator function.
         if inspect.isgeneratorfunction(insert_dataset_iterables):
             insert_dataset_iterables = insert_dataset_iterables()
         with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
             for row in insert_dataset_iterables:
                 cursor.insertRow(row)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def insert_features_from_path(self, dataset_path, insert_dataset_path,
                                   insert_where_sql=None, log_level='info'):
         """Insert features from a dataset referred to by a system path."""
         logline = "Insert features into {} from {}.".format(
             dataset_path, insert_dataset_path)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Create field maps.
         # Added because ArcGIS Pro's no-test append is case-sensitive (verified
         # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
@@ -989,11 +978,11 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             logger.exception("ArcPy execution.")
             raise
         self.delete_dataset(insert_dataset_view_name, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def overlay_features(self, dataset_path, field_name, overlay_dataset_path,
                          overlay_field_name, replacement_value=None,
                          overlay_most_coincident=False,
@@ -1017,8 +1006,8 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Overlay features with {}.{}.".format(overlay_dataset_path,
                                                         overlay_field_name)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Check flags & set details for spatial join call.
         if overlay_most_coincident:
             raise NotImplementedError(
@@ -1095,11 +1084,11 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                                            log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
         self.delete_dataset(temp_overlay_path, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def union_features(self, dataset_path, field_name, union_dataset_path,
                        union_field_name, replacement_value=None,
                        dataset_where_sql=None, chunk_size=4096,
@@ -1110,8 +1099,8 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Union features with {}.{}.".format(union_dataset_path,
                                                       union_field_name)
-        log_line('start', logline, log_level)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('start', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
         # Create a temporary copy of the overlay dataset.
         temp_overlay_path = self.copy_dataset(
             union_dataset_path, unique_temp_dataset_path('temp_overlay'),
@@ -1178,11 +1167,11 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                                            log_level = None)
             self.delete_dataset(temp_output_path, log_level = None)
         self.delete_dataset(temp_overlay_path, log_level = None)
-        log_line('feature_count', self.feature_count(dataset_path), log_level)
-        log_line('end', logline, log_level)
+        helpers.log_line('feature_count', self.feature_count(dataset_path), log_level)
+        helpers.log_line('end', logline, log_level)
         return dataset_path
 
-    @log_function
+    @helpers.log_function
     def update_field_by_coded_value_domain(self, dataset_path, field_name,
                                            code_field_name, domain_name,
                                            domain_workspace_path=None,
@@ -1191,7 +1180,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """Update field values using a coded-values domain."""
         logline = "Update field {} using domain {} referenced in {}.".format(
             field_name, domain_name, code_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         code_description_map = next(
             domain for domain in arcpy.da.ListDomains(
                 domain_workspace_path if domain_workspace_path else self.path)
@@ -1200,10 +1189,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             dataset_path, field_name, function = code_description_map.get,
             field_as_first_arg = False, arg_field_names = [code_field_name],
             dataset_where_sql = dataset_where_sql, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_constructor_method(self, dataset_path, field_name,
                                            constructor, method_name,
                                            field_as_first_arg=True,
@@ -1218,22 +1207,22 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         logline = ("Update field {} using method {}"
                    "from the object constructed by {}").format(
             field_name, method_name, constructor.__name__)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         function = getattr(constructor(), method_name)
         self.update_field_by_function(
             dataset_path, field_name, function, field_as_first_arg,
             arg_field_names, kwarg_field_names, dataset_where_sql,
             log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_expression(self, dataset_path, field_name, expression,
                                    dataset_where_sql=None, log_level='info'):
         """Update field values using a (single) code-expression."""
         logline = "Update field {} using expression <{}>.".format(
             field_name, expression)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
@@ -1245,10 +1234,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             logger.exception("ArcPy execution.")
             raise
         self.delete_dataset(dataset_view_name, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_feature_matching(self, dataset_path, field_name,
                                          identifier_field_names,
                                          update_value_type, flag_value=None,
@@ -1259,7 +1248,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
         raise NotImplementedError
 
-    @log_function
+    @helpers.log_function
     def update_field_by_function(self, dataset_path, field_name, function,
                                  field_as_first_arg=True, arg_field_names=[],
                                  kwarg_field_names=[], dataset_where_sql=None,
@@ -1275,7 +1264,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Update field {} using function {}.".format(
             field_name, function.__name__)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         cursor_field_names = (
             [field_name] + list(arg_field_names) + list(kwarg_field_names))
         with arcpy.da.UpdateCursor(in_table = dataset_path,
@@ -1290,10 +1279,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 new_value = function(*args, **kwargs)
                 if row[0] != new_value:
                     cursor.updateRow([new_value] + list(row[1:]))
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_geometry(self, dataset_path, field_name,
                                  geometry_property_cascade, update_units=None,
                                  spatial_reference_id=None,
@@ -1306,7 +1295,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         logline = ("Update field {} values"
                    " using geometry property cascade {}.").format(
             field_name, geometry_property_cascade)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         if update_units:
             raise NotImplementedError("update_units not yet implemented.")
         # Common property representations converted to fit our property map.
@@ -1349,10 +1338,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                             new_value = getattr(new_value, sub_property)
                 if new_value != field_value:
                     cursor.updateRow((new_value, geometry))
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_joined_value(self, dataset_path, field_name,
                                      join_dataset_path, join_field_name,
                                      on_field_pairs, dataset_where_sql=None,
@@ -1360,7 +1349,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """Update field values by referencing a joinable field."""
         logline = "Update field {} with joined values from {}.{}>.".format(
             field_name, join_dataset_path,  join_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         # Build join-reference.
         with arcpy.da.SearchCursor(
             in_table = join_dataset_path,
@@ -1377,10 +1366,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 new_value = join_value.get(tuple(row[1:]))
                 if row[0] != new_value:
                     cursor.updateRow([new_value] + list(row[1:]))
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_near_feature(self, dataset_path, field_name,
                                      near_dataset_path, near_field_name,
                                      replacement_value=None,
@@ -1398,7 +1387,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Update field {} using near-values {}.{}.".format(
             field_name, near_dataset_path,  near_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         # Create a temporary copy of near dataset.
         temp_near_path = self.copy_dataset(
             near_dataset_path, unique_temp_dataset_path('temp_near'),
@@ -1500,10 +1489,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 dataset_where_sql = dataset_where_sql, log_level = None
                 )
         self.delete_dataset(temp_output_path, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_overlay(self, dataset_path, field_name,
                                 overlay_dataset_path, overlay_field_name,
                                 replacement_value=None,
@@ -1526,7 +1515,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = "Update field {} using overlay values {}.{}.".format(
             field_name, overlay_dataset_path,  overlay_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         # Check flags & set details for spatial join call.
         if overlay_most_coincident:
             raise NotImplementedError(
@@ -1588,15 +1577,15 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                  'target_fid')],
             dataset_where_sql = dataset_where_sql, log_level = None)
         self.delete_dataset(temp_output_path, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_field_by_unique_id(self, dataset_path, field_name,
                                   dataset_where_sql=None, log_level='info'):
         """Update field values by assigning a unique ID."""
         logline = "Update field {} using unique IDs.".format(field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         field_metadata = self.field_metadata(dataset_path, field_name)
         field_type_map = {
             'double': float, 'single': float,
@@ -1611,10 +1600,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             where_clause = dataset_where_sql) as cursor:
             for row in cursor:
                 cursor.updateRow([next(unique_id_pool)])
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return field_name
 
-    @log_function
+    @helpers.log_function
     def update_fields_by_geometry_node_ids(self, dataset_path,
                                            from_id_field_name,
                                            to_id_field_name,
@@ -1626,7 +1615,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         logline = (
             "Update node ID fields {} & {} based on feature geometry.").format(
             from_id_field_name, to_id_field_name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         # Get next available node ID.
         node_ids = set()
         with arcpy.da.SearchCursor(
@@ -1719,12 +1708,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                 if any([old_fnode_id != new_fnode_id,
                         old_tnode_id != new_tnode_id]):
                     cursor.updateRow([oid, new_fnode_id, new_tnode_id])
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return from_id_field_name, to_id_field_name
 
     # Analysis methods.
 
-    @log_function
+    @helpers.log_function
     def generate_facility_service_rings(self, dataset_path, output_path,
                                         network_path, cost_attribute,
                                         ring_width, max_distance,
@@ -1738,7 +1727,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """Create facility service ring features using a network dataset."""
         logline = "Generate service rings for facilities in {}".format(
             dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         # Get Network Analyst license.
         if arcpy.CheckOutExtension('Network') != 'CheckedOut':
             raise RuntimeError("Unable to check out Network Analyst license.")
@@ -1807,12 +1796,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             field_as_first_arg = False, arg_field_names = ['Name'],
             log_level = None)
         self.delete_dataset(dataset_view_name, log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
     # Conversion/extraction methods.
 
-    @log_function
+    @helpers.log_function
     def convert_polygons_to_lines(self, dataset_path, output_path,
                                   topological=False, id_field_name=None,
                                   dataset_where_sql=None, log_level='info'):
@@ -1831,7 +1820,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         """
         logline = (
             "Convert polygon features in {} to lines.".format(dataset_path))
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
@@ -1873,10 +1862,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                                   log_level = None)
         else:
             self.delete_field(output_path, 'ORIG_FID', log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
-    @log_function
+    @helpers.log_function
     def convert_table_to_spatial_dataset(self, dataset_path, output_path,
                                          x_field_name, y_field_name,
                                          z_field_name=None,
@@ -1885,7 +1874,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                                          log_level='info'):
         """Convert nonspatial coordinate table to a new spatial dataset."""
         logline = "Convert {} to spatial dataset.".format(dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_view_name = unique_name('dataset_view')
         try:
             arcpy.management.MakeXYEventLayer(
@@ -1899,10 +1888,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             raise
         self.copy_dataset(dataset_view_name, output_path, dataset_where_sql)
         self.delete_dataset(dataset_view_name)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
-    @log_function
+    @helpers.log_function
     def planarize_features(self, dataset_path, output_path,
                            dataset_where_sql=None, log_level='info'):
         """Convert feature geometry to lines - planarizing them.
@@ -1914,7 +1903,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         can be useful to break line geometry features at them.
         """
         logline = "Planarize features in {}.".format(dataset_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_view_name = self.create_dataset_view(
             unique_name('dataset_view'), dataset_path, dataset_where_sql,
             log_level = None)
@@ -1927,16 +1916,16 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         except arcpy.ExecuteError:
             logger.exception("ArcPy execution.")
             raise
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
-    @log_function
+    @helpers.log_function
     def project(self, dataset_path, output_path, spatial_reference_id,
                 dataset_where_sql=None, log_level='info'):
         """Project dataset features to a new dataset."""
         logline = "Project {} to {}.".format(
             dataset_path, arcpy.SpatialReference(spatial_reference_id).name)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         dataset_metadata = self.dataset_metadata(dataset_path)
         # Project tool cannot output to an in-memory workspace (will throw
         # error 000944). Not a bug. Esri's Project documentation (as of v10.4)
@@ -1952,10 +1941,10 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             log_level = None)
         self.copy_dataset(dataset_path, output_path, dataset_where_sql,
                           log_level = None)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
-    @log_function
+    @helpers.log_function
     def write_rows_to_csvfile(self, rows, output_path, field_names,
                               header=False, file_mode='wb', log_level='info'):
         """Write collected of rows to a CSV-file.
@@ -1963,7 +1952,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         The rows can be represented by either a dictionary or iterable.
         """
         logline = "Write rows iterable to CSV-file {}".format(output_path)
-        log_line('start', logline, log_level)
+        helpers.log_line('start', logline, log_level)
         with open(output_path, file_mode) as csvfile:
             for index, row in enumerate(rows):
                 if index == 0:
@@ -1979,12 +1968,12 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                         raise TypeError(
                             "Row objects must be dictionaries or sequences.")
                 writer.writerow(row)
-        log_line('end', logline, log_level)
+        helpers.log_line('end', logline, log_level)
         return output_path
 
     # Generators.
 
-    @log_function
+    @helpers.log_function
     def field_values(self, dataset_path, field_names,
                      spatial_reference_id=None, dataset_where_sql=None):
         """Generator for tuples of feature field values."""
@@ -1996,7 +1985,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             for values in cursor:
                 yield values
 
-    @log_function
+    @helpers.log_function
     def oid_field_value(self, dataset_path, field_name,
                         spatial_reference_id=None, dataset_where_sql=None):
         """Generator for tuples of (OID, field_value)."""
@@ -2005,7 +1994,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             dataset_where_sql):
             yield (oid, value)
 
-    @log_function
+    @helpers.log_function
     def oid_geometry(self, dataset_path, spatial_reference_id=None,
                      dataset_where_sql=None):
         """Generator for tuples of (OID, geometry)."""
@@ -2013,7 +2002,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             dataset_path, 'shape@', spatial_reference_id, dataset_where_sql):
             yield (oid, value)
 
-    @log_function
+    @helpers.log_function
     def xref_near_features(self, dataset_path, dataset_id_field_name,
                            xref_path, xref_id_field_name,
                            max_near_distance=None, only_closest=False,
@@ -2082,7 +2071,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
 
     # Mappings.
 
-    @log_function
+    @helpers.log_function
     def oid_field_value_map(self, dataset_path, field_name,
                             spatial_reference_id=None, dataset_where_sql=None):
         """Return dictionary mapping of field value for the feature OID."""
@@ -2091,7 +2080,7 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     dataset_path, field_name, spatial_reference_id,
                     dataset_where_sql)}
 
-    @log_function
+    @helpers.log_function
     def oid_geometry_map(self, dataset_path, spatial_reference_id=None,
                          dataset_where_sql=None):
         """Return dictionary mapping of geometry for the feature OID."""
@@ -2183,21 +2172,6 @@ class ToolExample(object):
 
 
 # Functions & generators.
-
-def log_line(line_type, line, level='info'):
-    """Log a line in formatted as expected for the type."""
-    if not level:
-        return
-    if line_type == 'start':
-        getattr(logger, level)("Start: {}".format(line))
-    elif line_type == 'end':
-        getattr(logger, level)("End: {}.".format(line.split()[0]))
-    elif line_type == 'feature_count':
-        getattr(logger, level)("Feature count: {}.".format(line))
-    else:
-        raise ValueError("Invalid line_type: {}".format(line_type))
-    return
-
 
 def parameter_from_attributes(attribute_map):
     """Create ArcPy parameter object using an attribute mapping.
