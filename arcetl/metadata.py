@@ -2,7 +2,7 @@
 """Metadata objects."""
 import logging
 
-from etl import ArcETL, ArcWorkspace
+import etl
 
 
 LOG = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class ETLMetadata(object):
         self.name = etl_name
         self.operations = []
         self.workspace_path = workspace_path
-        self.etl = ArcETL(ArcWorkspace(self.workspace_path))
+        self.etl = etl.ArcETL(etl.ArcWorkspace(self.workspace_path))
 
     def add_assertion(self, operation_name, **kwargs):
         """Add assertion check to the operations list."""
@@ -69,15 +69,15 @@ class JobMetadata(object):
     def __init__(self, job_name, workspace_path=None):
         self.name = job_name
         self.workspace_path = workspace_path
-        self.etls = []
+        self.etl_metadata_list = []
 
-    def add_etl(self, *etls):
+    def add_etl(self, *etl_metadata):
         """Add ETL metadata to the ETL list."""
-        self.etls.extend(list(etls))
+        self.etl_metadata_list.extend(list(etl_metadata))
 
     def run(self):
         """Perform actions to complete job."""
-        for etl in self.etls:
-            if not etl.workspace_path:
-                etl.workspace_path = self.workspace_path
-            etl.run()
+        for etl_metadata in self.etl_metadata_list:
+            if not etl_metadata.workspace_path:
+                etl_metadata.workspace_path = self.workspace_path
+            etl_metadata.run()
