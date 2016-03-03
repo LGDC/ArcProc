@@ -11,7 +11,7 @@ import uuid
 import arcpy
 
 from . import helpers
-from . import operators
+from . import workspace
 
 
 LOG = logging.getLogger(__name__)
@@ -108,9 +108,9 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         LOG.info("Initialized ArcWorkspace instance.")
         # Replacement functions.
         # Workspace management.
-        self.copy_dataset = operators.workspace.copy_dataset
-        self.create_dataset_view = operators.workspace.create_dataset_view
-        self.delete_dataset = operators.workspace.delete_dataset
+        self.copy_dataset = workspace.copy_dataset
+        self.create_dataset_view = workspace.create_dataset_view
+        self.delete_dataset = workspace.delete_dataset
 
     # General execution methods.
 

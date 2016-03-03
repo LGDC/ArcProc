@@ -1,9 +1,10 @@
 # -*- coding=utf-8 -*-
-"""Objects for dataset schema operations."""
+"""Objects for dataset feature operations."""
 import logging
 
 import arcpy
 
+from . import dataset
 from .. import helpers
 from .. import properties
 

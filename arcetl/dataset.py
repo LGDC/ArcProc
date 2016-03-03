@@ -1,19 +1,14 @@
 # -*- coding=utf-8 -*-
-"""Property functions."""
-import collections
-import csv
-import datetime
-import inspect
+"""Objects for dataset schema operations."""
 import logging
-import os
-import uuid
 
 import arcpy
 
-from . import helpers
+from .. import helpers
 
 
 LOG = logging.getLogger(__name__)
+FIELD_TYPE_AS_ARC_TYPE_MAP = {'string': 'text', 'integer': 'long'}
 
 
 @helpers.log_function
@@ -34,6 +29,28 @@ def _arc_field_object_as_metadata(field_object):
         #'is_editable': getattr(field_object, 'editable'),
         #'is_nullable': getattr(field_object, 'isNullable'),
     }
+
+
+@helpers.log_function
+def add_field(dataset_path, field_name, field_type, field_length=None,
+              field_precision=None, field_scale=None, field_is_nullable=True,
+              field_is_required=False, log_level='info'):
+    """Add field to dataset."""
+    logline = "Add field {}.{}.".format(dataset_path, field_name)
+    helpers.log_line('start', logline, log_level)
+    field_type = FIELD_TYPE_AS_ARC_TYPE_MAP.get(
+        field_type, field_type)
+    if field_type.lower() == 'text' and field_length is None:
+        field_length = 64
+    try:
+        arcpy.management.AddField(
+            dataset_path, field_name, field_type, field_length,
+            field_precision, field_scale, field_is_nullable, field_is_required)
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    helpers.log_line('end', logline, log_level)
+    return field_name
 
 
 @helpers.log_function
@@ -58,34 +75,3 @@ def dataset_metadata(dataset_path):
             if hasattr(description, 'spatialReference') else None),
         'geometry_field_name': getattr(description, 'shapeFieldName', None),
     }
-
-
-@helpers.log_function
-def feature_count(dataset_path, dataset_where_sql=None):
-    """Return number of features in dataset."""
-    with arcpy.da.SearchCursor(in_table=dataset_path, field_names=['oid@'],
-                               where_clause=dataset_where_sql) as cursor:
-        return len([None for row in cursor])
-
-
-@helpers.log_function
-def field_metadata(dataset_path, field_name):
-    """Return dictionary of field metadata.
-
-    Field name is case-insensitive.
-    """
-    try:
-        return _arc_field_object_as_metadata(
-            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0])
-    except IndexError:
-        raise AttributeError(
-            "Field {} not present on {}".format(field_name, dataset_path))
-
-
-@helpers.log_function
-def is_valid_dataset(dataset_path):
-    """Check whether dataset exists/is valid."""
-    if dataset_path and arcpy.Exists(dataset_path):
-        return dataset_metadata(dataset_path)['is_table']
-    else:
-        return False
