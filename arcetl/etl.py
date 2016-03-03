@@ -1,8 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Library of etl objects & functions.
-
-This module file alone is a ready-to-go template for an ArcGIS Python toolbox.
-"""
+"""Library of etl objects & functions."""
 import collections
 import csv
 import datetime
@@ -14,6 +11,7 @@ import uuid
 import arcpy
 
 import helpers
+from . import operators
 
 
 LOG = logging.getLogger(__name__)
@@ -108,6 +106,11 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         # Otherwise, avoid implied paths.
         arcpy.env.workspace = self.path
         LOG.info("Initialized ArcWorkspace instance.")
+        # Replacement functions.
+        # Workspace management.
+        self.copy_dataset = operators.workspace.copy_dataset
+        self.create_dataset_view = operators.workspace.create_dataset_view
+        self.delete_dataset = operators.workspace.delete_dataset
 
     # General execution methods.
 
@@ -275,39 +278,6 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
         return geodatabase_path
 
     @helpers.log_function
-    def copy_dataset(self, dataset_path, output_path, dataset_where_sql=None,
-                     schema_only=False, overwrite=False, log_level='info'):
-        """Copy dataset."""
-        logline = "Copy {} to {}.".format(dataset_path, output_path)
-        helpers.log_line('start', logline, log_level)
-        dataset_metadata = self.dataset_metadata(dataset_path)
-        dataset_view_name = self.create_dataset_view(
-            helpers.unique_name('dataset_view'), dataset_path,
-            dataset_where_sql = "0=1" if schema_only else dataset_where_sql,
-            log_level = None)
-        if dataset_metadata['is_spatial']:
-            _copy = arcpy.management.CopyFeatures
-            _copy_kwargs = {'in_features': dataset_view_name,
-                            'out_feature_class': output_path}
-        elif  dataset_metadata['is_table']:
-            _copy = arcpy.management.CopyRows
-            _copy_kwargs = {'in_rows': dataset_view_name,
-                            'out_table': output_path}
-        else:
-            raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path))
-        if overwrite and self.is_valid_dataset(output_path):
-            self.delete_dataset(output_path, log_level = None)
-        try:
-            _copy(**_copy_kwargs)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
-        self.delete_dataset(dataset_view_name, log_level = None)
-        helpers.log_line('end', logline, log_level)
-        return output_path
-
-    @helpers.log_function
     def create_dataset(self, dataset_path, field_metadata=[],
                        geometry_type=None, spatial_reference_id=None,
                        log_level='info'):
@@ -339,35 +309,6 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
                     field.get('scale'), log_level = None)
         helpers.log_line('end', logline, log_level)
         return dataset_path
-
-    @helpers.log_function
-    def create_dataset_view(self, view_name, dataset_path,
-                            dataset_where_sql=None, force_nonspatial=False,
-                            log_level='info'):
-        """Create new feature layer/table view."""
-        logline = "Create dataset view of {}.".format(dataset_path)
-        helpers.log_line('start', logline, log_level)
-        dataset_metadata = self.dataset_metadata(dataset_path)
-        _create_kwargs = {'where_clause': dataset_where_sql,
-                          'workspace': self.path}
-        if dataset_metadata['is_spatial'] and not force_nonspatial:
-            _create = arcpy.management.MakeFeatureLayer
-            _create_kwargs['in_features'] = dataset_path
-            _create_kwargs['out_layer'] = view_name
-        elif dataset_metadata['is_table']:
-            _create = arcpy.management.MakeTableView
-            _create_kwargs['in_table'] = dataset_path
-            _create_kwargs['out_view'] = view_name
-        else:
-            raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path))
-        try:
-            _create(**_create_kwargs)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
-        helpers.log_line('end', logline, log_level)
-        return view_name
 
     @helpers.log_function
     def create_file_geodatabase(self, geodatabase_path,
@@ -419,19 +360,6 @@ class ArcWorkspace(object):  # pylint: disable=too-many-public-methods
             raise
         helpers.log_line('end', logline, log_level)
         return output_path
-
-    @helpers.log_function
-    def delete_dataset(self, dataset_path, log_level='info'):
-        """Delete dataset."""
-        logline = "Delete {}.".format(dataset_path)
-        helpers.log_line('start', logline, log_level)
-        try:
-            arcpy.management.Delete(dataset_path)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
-        helpers.log_line('end', logline, log_level)
-        return dataset_path
 
     @helpers.log_function
     def set_dataset_privileges(self, dataset_path, user_name, allow_view=None,

@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Metadata objects."""
+"""ETL metadata objects."""
 import logging
 
 import etl
