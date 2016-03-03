@@ -10,7 +10,7 @@ import uuid
 
 import arcpy
 
-import helpers
+from . import helpers
 from . import operators
 
 

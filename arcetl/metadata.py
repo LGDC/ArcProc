@@ -2,7 +2,7 @@
 """ETL metadata objects."""
 import logging
 
-import etl
+from . import etl
 
 
 LOG = logging.getLogger(__name__)
