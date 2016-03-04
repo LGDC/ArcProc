@@ -32,12 +32,36 @@ def log_line(line_type, line, level='info'):
         getattr(LOG, level)("End: {}.".format(line.split()[0]))
     elif line_type == 'feature_count':
         getattr(LOG, level)("Feature count: {}.".format(line))
+    elif line_type == 'misc':
+        getattr(LOG, level)(line)
     else:
         raise ValueError("Invalid line_type: {}".format(line_type))
     return
 
 
-def unique_ids(data_type=uuid.UUID, string_length=4):
+def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
+                                 fourths=0):
+    """Convert sexagesimal-parsed angles to a decimal."""
+    if degrees is None:
+        return None
+    # The degrees must be absolute or it won't sum right with subdivisions.
+    absolute_decimal = abs(float(degrees))
+    try:
+        sign_multiplier = abs(float(degrees))/float(degrees)
+    except ZeroDivisionError:
+        sign_multiplier = 1
+    if minutes:
+        absolute_decimal += float(minutes)/60
+    if seconds:
+        absolute_decimal += float(seconds)/3600
+    if thirds:
+        absolute_decimal += float(thirds)/216000
+    if fourths:
+        absolute_decimal += float(fourths)/12960000
+    return absolute_decimal * sign_multiplier
+
+
+def unique_ids(data_type=uuid.UUID, string_length=None):
     """Generator for unique IDs."""
     if data_type in (float, int):
         unique_id = data_type()
@@ -48,6 +72,9 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
         while True:
             yield uuid.uuid4()
     elif data_type in [str]:
+        # Default if missing.
+        if not string_length:
+            string_length = 4
         used_ids = set()
         while True:
             unique_id = str(uuid.uuid4())[:string_length]
