@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Objects for dataset schema operations."""
+"""Data property objects."""
 import logging
 
 import arcpy

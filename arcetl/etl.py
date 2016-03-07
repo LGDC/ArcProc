@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Library of etl objects & functions."""
+"""ETL objects."""
 import inspect
 import logging
 

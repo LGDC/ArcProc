@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Objects for processing operations."""
+"""Processing operation objects."""
 import collections
 import csv
 import datetime
