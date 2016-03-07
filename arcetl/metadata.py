@@ -3,7 +3,7 @@
 import logging
 
 from . import etl
-
+from . import operations
 
 LOG = logging.getLogger(__name__)
 
@@ -11,11 +11,10 @@ LOG = logging.getLogger(__name__)
 class ETLMetadata(object):
     """Metadata for an extract, transform, & load (ETL) procedure."""
 
-    def __init__(self, etl_name, workspace_path=None):
+    def __init__(self, etl_name):
         self.name = etl_name
         self.operations = []
-        self.workspace_path = workspace_path
-        self.etl = etl.ArcETL(etl.ArcWorkspace(self.workspace_path))
+        self.etl = etl.ArcETL()
 
     def add_assertion(self, operation_name, **kwargs):
         """Add assertion check to the operations list."""
@@ -40,8 +39,7 @@ class ETLMetadata(object):
 
         Unlike transformation, generic operations must define all arguments.
         """
-        self.operations.append(
-            (getattr(self.etl.workspace, operation_name), kwargs))
+        self.operations.append((getattr(operations, operation_name), kwargs))
 
     def add_transformation(self, operation_name, **kwargs):
         """Add transformation to the the operations list."""
@@ -66,9 +64,8 @@ class ETLMetadata(object):
 class JobMetadata(object):
     """Metadata for a job (collection of ETLs & other procedures)."""
 
-    def __init__(self, job_name, workspace_path=None):
+    def __init__(self, job_name):
         self.name = job_name
-        self.workspace_path = workspace_path
         self.etl_metadata_list = []
 
     def add_etl(self, *etl_metadata):
@@ -78,6 +75,4 @@ class JobMetadata(object):
     def run(self):
         """Perform actions to complete job."""
         for etl_metadata in self.etl_metadata_list:
-            if not etl_metadata.workspace_path:
-                etl_metadata.workspace_path = self.workspace_path
             etl_metadata.run()
