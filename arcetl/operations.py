@@ -788,7 +788,7 @@ def update_field_by_constructor_method(dataset_path, field_name, constructor,
                                        log_level='info'):
     """Update field values by passing them to a constructed object method.
 
-    wraps ArcWorkspace.update_field_by_function.
+    wraps update_field_by_function.
     """
     _description = (
         "Update field {} using method {} from the object constructed by {}"
@@ -1160,8 +1160,8 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
         "Update node ID fields {} & {} based on feature geometry."
         ).format(from_id_field_name, to_id_field_name)
     log_line('start', _description, log_level)
-    used_ids = set(field_values(dataset_path, [from_id_field_name])
-                   + field_values(dataset_path, [from_id_field_name]))
+    used_ids = set(tuple(field_values(dataset_path, [from_id_field_name]))
+                   + tuple(field_values(dataset_path, [to_id_field_name])))
     _field_metadata = field_metadata(dataset_path, from_id_field_name)
     # Generator for open node IDs.
     open_node_ids = (_id for _id in unique_ids(_field_metadata['type'],
