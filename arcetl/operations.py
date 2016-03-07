@@ -1164,9 +1164,11 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
                    + tuple(field_values(dataset_path, [to_id_field_name])))
     _field_metadata = field_metadata(dataset_path, from_id_field_name)
     # Generator for open node IDs.
-    open_node_ids = (_id for _id in unique_ids(_field_metadata['type'],
-                                               _field_metadata['length'])
-                     if _id not in used_ids)
+    open_node_ids = (
+        _id for _id
+        in unique_ids(FIELD_TYPE_AS_PYTHON[_field_metadata['type']],
+                      _field_metadata['length'])
+        if _id not in used_ids)
     # Build node XY mapping.
     with arcpy.da.SearchCursor(
         in_table=dataset_path,
