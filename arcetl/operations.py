@@ -531,7 +531,8 @@ def insert_features_from_iterables(dataset_path, insert_dataset_iterables,
 
 @log_function
 def insert_features_from_path(dataset_path, insert_dataset_path,
-                              insert_where_sql=None, log_level='info'):
+                              field_names=None, insert_where_sql=None,
+                              log_level='info'):
     """Insert features from a dataset referred to by a system path."""
     _description = "Insert features into {} from {}.".format(
         dataset_path, insert_dataset_path)
@@ -543,21 +544,24 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
     # Append tool does not auto-map to the same field name if naming
     # convention differs.
     _dataset_metadata = dataset_metadata(dataset_path)
-    dataset_field_names = [field['name'].lower()
-                           for field in _dataset_metadata['fields']]
+    if field_names:
+        _field_names = [name.lower() for name in field_names]
+    else:
+        _field_names = [field['name'].lower()
+                        for field in _dataset_metadata['fields']]
     insert_dataset_metadata = dataset_metadata(insert_dataset_path)
-    insert_dataset_field_names = [field['name'].lower() for field
-                                  in insert_dataset_metadata['fields']]
+    insert_field_names = [field['name'].lower() for field
+                          in insert_dataset_metadata['fields']]
     # Append takes care of geometry & OIDs independent of the field maps.
     for field_name_type in ('geometry_field_name', 'oid_field_name'):
         if _dataset_metadata.get(field_name_type):
-            dataset_field_names.remove(
+            _field_names.remove(
                 _dataset_metadata[field_name_type].lower())
-            insert_dataset_field_names.remove(
+            insert_field_names.remove(
                 insert_dataset_metadata[field_name_type].lower())
     field_maps = arcpy.FieldMappings()
-    for field_name in dataset_field_names:
-        if field_name in insert_dataset_field_names:
+    for field_name in _field_names:
+        if field_name in insert_field_names:
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
