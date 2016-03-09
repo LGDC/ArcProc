@@ -6,6 +6,7 @@ import datetime
 import inspect
 import logging
 import os
+import tempfile
 import uuid
 
 import arcpy
@@ -1569,6 +1570,35 @@ def xref_near_features(dataset_path, dataset_id_field_name,
 
 
 # Workspace.
+
+@log_function
+def build_network(network_path, log_level='info'):
+    """Build network (dataset or geometric)."""
+    _description = "Build network {}.".format(network_path)
+    log_line('start', _description, log_level)
+    network_type = arcpy.Describe(network_path).dataType
+    if network_type == 'GeometricNetwork':
+        _build = arcpy.management.RebuildGeometricNetwork
+        _build_kwargs = {'geometric_network': network_path,
+                         # Geometric network build requires logfile output.
+                         'out_log': os.path.join(tempfile.gettempdir(), 'log')}
+    elif network_type == 'NetworkDataset':
+        toggle_arc_extension('Network', toggle_on=True)
+        _build = arcpy.na.BuildNetwork
+        _build_kwargs = {'in_network_dataset': network_path}
+    else:
+        raise ValueError("{} not a valid network type.".format(network_path))
+    try:
+        _build(**_build_kwargs)
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    toggle_arc_extension('Network', toggle_off=True)
+    if 'out_log' in _build_kwargs:
+        os.remove(_build_kwargs['out_log'])
+    log_line('end', _description, log_level)
+    return network_path
+
 
 @log_function
 def compress_geodatabase(geodatabase_path, disconnect_users=False,
