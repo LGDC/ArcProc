@@ -11,7 +11,8 @@ import uuid
 import arcpy
 
 from .helpers import (
-    log_function, log_line, unique_ids, unique_name, unique_temp_dataset_path,
+    log_function, log_line, toggle_arc_extension, unique_ids, unique_name,
+    unique_temp_dataset_path,
     )
 from .properties import (
     dataset_metadata, feature_count, field_metadata, field_values,
@@ -1353,9 +1354,7 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
     _description = "Generate service rings for facilities in {}".format(
         dataset_path)
     log_line('start', _description, log_level)
-    # Get Network Analyst license.
-    if arcpy.CheckOutExtension('Network') != 'CheckedOut':
-        raise RuntimeError("Unable to check out Network Analyst license.")
+    toggle_arc_extension('Network', toggle_on=True)
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path, dataset_where_sql,
         log_level=None)
@@ -1400,6 +1399,7 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
+    toggle_arc_extension('Network', toggle_off=True)
     copy_dataset('service_area/Polygons', output_path, log_level=None)
     id_field_metadata = field_metadata(dataset_path, id_field_name)
     add_fields_from_metadata_list(output_path, [id_field_metadata],

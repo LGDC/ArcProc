@@ -5,6 +5,7 @@ import logging
 import os
 import uuid
 
+import arcpy
 import decorator
 
 
@@ -59,6 +60,15 @@ def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
     if fourths:
         absolute_decimal += float(fourths)/12960000
     return absolute_decimal * sign_multiplier
+
+
+def toggle_arc_extension(extension_code, toggle_on=True, toggle_off=False):
+    """Toggle extension on or off for use in ArcPy."""
+    if toggle_on:
+        status = arcpy.CheckOutExtension(extension_code)
+    if toggle_off:
+        status = arcpy.CheckInExtension(extension_code)
+    return status in ('CheckedIn', 'CheckedOut')
 
 
 def unique_ids(data_type=uuid.UUID, string_length=None):
