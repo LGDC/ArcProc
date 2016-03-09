@@ -297,23 +297,27 @@ def delete_features(dataset_path, dataset_where_sql=None, log_level='info'):
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path,
         dataset_where_sql, log_level=None)
-    _dataset_metadata = dataset_metadata(dataset_path)
-    # Can use (faster) truncate when:
-    # (1) Database-type; (2) not in-memory; (3) no sub-selection.
-    if all([dataset_where_sql is None,
-            _dataset_metadata['data_type'] in ['FeatureClass', 'Table'],
-            _dataset_metadata['workspace_path'] != 'in_memory']):
-        _delete = arcpy.management.TruncateTable
-        _delete_kwargs = {'in_table': dataset_view_name}
-    elif _dataset_metadata['is_spatial']:
-        _delete = arcpy.management.DeleteFeatures
-        _delete_kwargs = {'in_features': dataset_view_name}
-    elif _dataset_metadata['is_table']:
-        _delete = arcpy.management.DeleteRows
-        _delete_kwargs = {'in_rows': dataset_view_name}
-    else:
-        raise ValueError("{} unsupported dataset type.".format(dataset_path))
-    _delete(**_delete_kwargs)
+    # Can use (faster) truncate when no sub-selection
+    run_truncate = dataset_where_sql is None
+    if run_truncate:
+        try:
+            arcpy.management.TruncateTable(in_table=dataset_view_name)
+        except arcpy.ExecuteError:
+            # ERROR 001260: Operation not supported on table {table name}.
+            # ERROR 001395: Operation not supported on a feature class in a
+            # controller dataset.
+            if arcpy.GetReturnCode(2) in (1260, 1395):
+                LOG.debug("TruncateTable not supported, will try DeleteRows.")
+                run_truncate = False
+            else:
+                LOG.exception("ArcPy execution.")
+                raise
+    if not run_truncate:
+        try:
+            arcpy.management.DeleteRows(in_rows=dataset_view_name)
+        except:
+            LOG.exception("ArcPy execution.")
+            raise
     delete_dataset(dataset_view_name, log_level=None)
     log_line('feature_count', feature_count(dataset_path), log_level)
     log_line('end', _description, log_level)
