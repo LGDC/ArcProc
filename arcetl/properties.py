@@ -10,7 +10,6 @@ from .helpers import log_function
 LOG = logging.getLogger(__name__)
 
 
-@log_function
 def _arc_field_object_as_metadata(field_object):
     """Return dictionary of field metadata from an ArcPy field object."""
     return {
@@ -30,7 +29,6 @@ def _arc_field_object_as_metadata(field_object):
         }
 
 
-@log_function
 def dataset_metadata(dataset_path):
     """Return dictionary of dataset metadata."""
     description = arcpy.Describe(dataset_path)
@@ -54,7 +52,6 @@ def dataset_metadata(dataset_path):
     }
 
 
-@log_function
 def feature_count(dataset_path, dataset_where_sql=None):
     """Return number of features in dataset."""
     with arcpy.da.SearchCursor(in_table=dataset_path, field_names=['oid@'],
@@ -62,7 +59,6 @@ def feature_count(dataset_path, dataset_where_sql=None):
         return len([None for row in cursor])
 
 
-@log_function
 def field_metadata(dataset_path, field_name):
     """Return dictionary of field metadata.
 
@@ -76,7 +72,6 @@ def field_metadata(dataset_path, field_name):
             "Field {} not present on {}".format(field_name, dataset_path))
 
 
-@log_function
 def field_values(dataset_path, field_names, dataset_where_sql=None,
                  spatial_reference_id=None):
     """Generator for tuples of feature field values."""
@@ -88,14 +83,12 @@ def field_values(dataset_path, field_names, dataset_where_sql=None,
             yield values
 
 
-@log_function
 def is_valid_dataset(dataset_path):
     """Check whether dataset exists/is valid."""
     return (dataset_path is not None and arcpy.Exists(dataset_path)
             and dataset_metadata(dataset_path)['is_table'])
 
 
-@log_function
 def oid_field_value(dataset_path, field_name, dataset_where_sql=None,
                     spatial_reference_id=None):
     """Generator for tuples of (OID, field_value)."""
@@ -104,7 +97,6 @@ def oid_field_value(dataset_path, field_name, dataset_where_sql=None,
         yield (oid, value)
 
 
-@log_function
 def oid_field_value_map(dataset_path, field_name, dataset_where_sql=None,
                         spatial_reference_id=None):
     """Return dictionary mapping of field value for the feature OID."""
@@ -113,7 +105,6 @@ def oid_field_value_map(dataset_path, field_name, dataset_where_sql=None,
                                spatial_reference_id)}
 
 
-@log_function
 def oid_geometry(dataset_path, dataset_where_sql=None,
                  spatial_reference_id=None):
     """Generator for tuples of (OID, geometry)."""
@@ -122,7 +113,6 @@ def oid_geometry(dataset_path, dataset_where_sql=None,
         yield (oid, value)
 
 
-@log_function
 def oid_geometry_map(dataset_path, dataset_where_sql=None,
                      spatial_reference_id=None):
     """Return dictionary mapping of geometry for the feature OID."""
@@ -130,7 +120,6 @@ def oid_geometry_map(dataset_path, dataset_where_sql=None,
                                spatial_reference_id)
 
 
-@log_function
 def workspace_dataset_names(workspace_path, wildcard=None,
                             include_feature_classes=True,
                             include_rasters=True, include_tables=True,
