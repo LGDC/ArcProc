@@ -303,11 +303,20 @@ def delete_features(dataset_path, dataset_where_sql=None, log_level='info'):
         try:
             arcpy.management.TruncateTable(in_table=dataset_view_name)
         except arcpy.ExecuteError:
-            # ERROR 001260: Operation not supported on table {table name}.
-            # ERROR 001395: Operation not supported on a feature class in a
-            # controller dataset.
-            if arcpy.GetReturnCode(2) in (1260, 1395):
-                LOG.debug("TruncateTable not supported, will try DeleteRows.")
+            truncate_type_error_codes = (
+                # "Only supports Geodatabase tables and feature classes."
+                'ERROR 000187',
+                # "Operation not supported on table {table name}."
+                'ERROR 001260',
+                # Operation not supported on a feature class in a controller
+                # dataset.
+                'ERROR 001395',
+                )
+            # Avoid arcpy.GetReturnCode(); error code position inconsistent.
+            # Search messages for 'ERROR ######' instead.
+            if any(code in arcpy.GetMessages()
+                   for code in truncate_type_error_codes):
+                LOG.debug("Truncate unsupported; will try deleting rows.")
                 run_truncate = False
             else:
                 LOG.exception("ArcPy execution.")
