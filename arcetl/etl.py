@@ -38,6 +38,10 @@ class ArcETL(object):
         """Extract features to transform workspace."""
         _description = "Extract {}.".format(extract_path)
         log_line('start', _description)
+        # Remove previously-extant transform dataset.
+        if all([self.transform_path,
+                properties.is_valid_dataset(self.transform_path)]):
+            operations.delete_dataset(self.transform_path, log_level=None)
         # Extract to a new dataset.
         self.transform_path = operations.copy_dataset(
             extract_path, unique_temp_dataset_path('extract'),
