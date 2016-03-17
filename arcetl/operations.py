@@ -526,6 +526,23 @@ def identity_features(dataset_path, field_name,
 
 
 @log_function
+def insert_features_from_dicts(dataset_path, insert_features,
+                               field_names, log_level='info'):
+    """Insert features from a collection of dictionaries."""
+    _description = "Insert features into {} from dictionaries.".format(
+        dataset_path)
+    log_line('start', _description, log_level)
+    log_line('feature_count', feature_count(dataset_path), log_level)
+    if inspect.isgeneratorfunction(insert_features):
+        insert_features = insert_features()
+    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+        for _feature in insert_features:
+            cursor.insertRow(_feature[name] for name in field_names)
+    log_line('feature_count', feature_count(dataset_path), log_level)
+    log_line('end', _description, log_level)
+    return dataset_path
+
+
 @log_function
 def insert_features_from_iterables(dataset_path, insert_features,
                                    field_names, log_level='info'):
