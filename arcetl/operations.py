@@ -1506,6 +1506,38 @@ def project(dataset_path, output_path, dataset_where_sql=None,
 
 
 @log_function
+def sort_features(dataset_path, output_path, sort_field_names,
+                  reversed_field_names=None, dataset_where_sql=None,
+                  log_level='info'):
+    """Sort features into a new dataset.
+
+    reversed_field_names are fields in sort_field_names that should have
+    their sort order reversed.
+    """
+    _description = "Sort features in {} to {}.".format(
+        dataset_path, output_path)
+    log_line('start', _description, log_level)
+    if reversed_field_names is None:
+        reversed_field_names = []
+    dataset_view_name = create_dataset_view(
+        unique_name('dataset_view'), dataset_path, dataset_where_sql,
+        log_level=None)
+    try:
+        arcpy.management.Sort(
+            in_dataset=dataset_view_name, out_dataset=output_path,
+            sort_field=[
+                (name, 'descending') if name in  reversed_field_names
+                else (name, 'ascending') for name in sort_field_names],
+            spatial_sort_method='UR')
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    delete_dataset(dataset_view_name, log_level=None)
+    log_line('end', _description, log_level)
+    return output_path
+
+
+@log_function
 def write_rows_to_csvfile(rows, output_path, field_names, header=False,
                           file_mode='wb', log_level='info'):
     """Write collected of rows to a CSV-file.
