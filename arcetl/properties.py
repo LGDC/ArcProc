@@ -4,12 +4,11 @@ import logging
 
 import arcpy
 
-from .helpers import log_function
-
 
 LOG = logging.getLogger(__name__)
 
 
+##TODO: Move to helpers.py.
 def _arc_field_object_as_metadata(field_object):
     """Return dictionary of field metadata from an ArcPy field object."""
     return {
@@ -49,7 +48,7 @@ def dataset_metadata(dataset_path):
             getattr(description, 'spatialReference').factoryCode
             if hasattr(description, 'spatialReference') else None),
         'geometry_field_name': getattr(description, 'shapeFieldName', None),
-    }
+        }
 
 
 def feature_count(dataset_path, dataset_where_sql=None):

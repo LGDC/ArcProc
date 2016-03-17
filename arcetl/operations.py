@@ -1476,6 +1476,7 @@ def planarize_features(dataset_path, output_path, dataset_where_sql=None,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
+    delete_dataset(dataset_view_name, log_level=None)
     log_line('end', _description, log_level)
     return output_path
 
