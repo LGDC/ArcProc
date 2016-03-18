@@ -14,9 +14,10 @@ LOG = logging.getLogger(__name__)
 class ArcETL(object):
     """Manages a single Arc-style ETL process."""
 
-    def __init__(self):
+    def __init__(self, name=None):
+        self.name = name if name else 'unnamed ETL'
         self.transform_path = None
-        LOG.info("Initialized ArcETL instance.")
+        LOG.info("Initialized ArcETL instance for %s.", self.name)
 
     def __enter__(self):
         return self
@@ -26,7 +27,7 @@ class ArcETL(object):
 
     def close(self):
         """Clean up instance."""
-        LOG.info("Closing ArcETL instance.")
+        LOG.info("Closing ArcETL instance for %s.", self.name)
         # Clear the transform dataset.
         if all([self.transform_path,
                 properties.is_valid_dataset(self.transform_path)]):
