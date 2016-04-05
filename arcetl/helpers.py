@@ -15,12 +15,12 @@ LOG = logging.getLogger(__name__)
 def log_function(function):
     """Decorator to log details of an function or method when called."""
     @functools.wraps(function)
-    def wrapper(function, *args, **kwargs):
+    def _wrapper(function, *args, **kwargs):
         """Function wrapper for decorator."""
         LOG.debug("@log_function - %s(*args=%s, **kwargs=%s)",
                   function, args, kwargs)
         return function(*args, **kwargs)
-    return decorator.decorator(wrapper)(function)
+    return decorator.decorator(_wrapper)(function)
 
 
 def log_line(line_type, line, level='info'):
@@ -33,10 +33,8 @@ def log_line(line_type, line, level='info'):
         getattr(LOG, level)("End: {}.".format(line.split()[0]))
     elif line_type == 'feature_count':
         getattr(LOG, level)("Feature count: {}.".format(line))
-    elif line_type == 'misc':
-        getattr(LOG, level)(line)
     else:
-        raise ValueError("Invalid line_type: {}".format(line_type))
+        getattr(LOG, level)(line)
     return
 
 

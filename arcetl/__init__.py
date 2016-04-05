@@ -5,7 +5,6 @@ from .helpers import (
     sexagesimal_angle_to_decimal, unique_ids, unique_name,
     unique_temp_dataset_path,
     )
-from .metadata import ETLMetadata, JobMetadata
 from .operations import (
     add_field, add_fields_from_metadata_list, add_index,
     adjust_features_for_shapefile, clip_features, compress_geodatabase,

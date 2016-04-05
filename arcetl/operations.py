@@ -25,8 +25,7 @@ FIELD_TYPE_AS_PYTHON = {
     'double': float, 'single': float,
     'integer': int, 'long': int, 'short': int, 'smallinteger': int,
     'guid': uuid.UUID,
-    'string': str, 'text': str,
-    }
+    'string': str, 'text': str}
 GEOMETRY_PROPERTY_AS_ARC = {
     'area': ['area'],
     'centroid': ['centroid'],
@@ -537,7 +536,7 @@ def insert_features_from_dicts(dataset_path, insert_features,
         insert_features = insert_features()
     with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
         for _feature in insert_features:
-            cursor.insertRow(_feature[name] for name in field_names)
+            cursor.insertRow([_feature[name] for name in field_names])
     log_line('feature_count', feature_count(dataset_path), log_level)
     log_line('end', _description, log_level)
     return dataset_path
@@ -1211,7 +1210,7 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
         field_names=['oid@', from_id_field_name, to_id_field_name, 'shape@']
         ) as cursor:
         node_xy_map = {}
-        # {node_xy: {'node_id': {id}, 'f_oids': set(), 't_oids': set()},}
+        # {node_xy: {'node_id': {id}, 'f_oids': set(), 't_oids': set()}}
         for oid, fnode_id, tnode_id, geometry in cursor:
             fnode_xy = (geometry.firstPoint.X, geometry.firstPoint.Y)
             tnode_xy = (geometry.lastPoint.X, geometry.lastPoint.Y)
@@ -1235,7 +1234,7 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
                 node_xy_map[node_xy][oid_set_key].add(oid)
     # Pivot node_xy_map into a node ID map.
     node_id_map = {}
-    # {node_id: {'node_xy': tuple(), 'feature_count': int()},}
+    # {node_id: {'node_xy': tuple(), 'feature_count': int()}}
     for new_xy in node_xy_map.keys():
         new_node_id = node_xy_map[new_xy]['node_id']
         new_feature_count = len(
@@ -1260,7 +1259,7 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
                                     'feature_count': new_feature_count}
     # Build a feature-node mapping from node_xy_map.
     feature_nodes = {}
-    # {feature_oid: {'fnode': {id}, 'tnode': {id}},}
+    # {feature_oid: {'fnode': {id}, 'tnode': {id}}}
     for node_xy in node_xy_map:
         node_id = node_xy_map[node_xy]['node_id']
         # If feature object ID is missing in feature_nodes: add.
