@@ -7,8 +7,9 @@ from .helpers import (
     )
 from .operations import (
     add_field, add_fields_from_metadata_list, add_index,
-    adjust_features_for_shapefile, clip_features, compress_geodatabase,
-    convert_polygons_to_lines, convert_table_to_spatial_dataset, copy_dataset,
+    adjust_features_for_shapefile, build_network, clip_features,
+    compress_geodatabase, convert_polygons_to_lines,
+    convert_table_to_spatial_dataset, copy_dataset,
     create_dataset, create_dataset_view, create_file_geodatabase,
     create_geodatabase_xml_backup, delete_dataset, delete_features,
     delete_field, dissolve_features, duplicate_field, erase_features,

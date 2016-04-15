@@ -253,25 +253,38 @@ def adjust_features_for_shapefile(dataset_path,
 
 
 @log_function
-def clip_features(dataset_path, clip_dataset_path, dataset_where_sql=None,
-                  clip_where_sql=None, log_level='info'):
-    """Clip feature geometry where overlapping clip-geometry."""
+def clip_features(dataset_path, clip_dataset_path, **kwargs):
+    """Clip feature geometry where overlapping clip-geometry.
+    
+    Args:
+        dataset_path (str): Path of dataset to clip.
+        clip_dataset_path (str): Path of dataset defining clip area.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        clip_where_sql (str): SQL where-clause for clip dataset subselection.
+        tolerance (float): Tolerance level (in dataset's units) to clip at.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    kwargs.setdefault('log_level', 'info')
     _description = "Clip {} where geometry overlaps {}.".format(
         dataset_path, clip_dataset_path)
-    log_line('start', _description, log_level)
-    log_line('feature_count', feature_count(dataset_path), log_level)
+    log_line('start', _description, kwargs['log_level'])
+    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path,
-        dataset_where_sql, log_level=None)
+        kwargs.get('dataset_where_sql'), log_level=None)
     clip_dataset_view_name = create_dataset_view(
         unique_name('clip_dataset_view'), clip_dataset_path,
-        clip_where_sql, log_level=None)
+        kwargs.get('clip_where_sql'), log_level=None)
     temp_output_path = unique_temp_dataset_path('temp_output')
     try:
         arcpy.analysis.Clip(
             in_features=dataset_view_name,
             clip_features=clip_dataset_view_name,
-            out_feature_class=temp_output_path)
+            out_feature_class=temp_output_path,
+            cluster_tolerance=kwargs.get('tolerance'))
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
@@ -281,8 +294,8 @@ def clip_features(dataset_path, clip_dataset_path, dataset_where_sql=None,
     delete_dataset(dataset_view_name, log_level=None)
     insert_features_from_path(dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), log_level)
-    log_line('end', _description, log_level)
+    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
 
