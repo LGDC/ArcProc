@@ -658,7 +658,8 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     # Sorting is important, allows views with ID range instead of list.
     oids = sorted(
         oid for (oid,)
-        in field_values(dataset_path, ['oid@'], kwargs['dataset_where_sql']))
+        in field_values(dataset_path, ['oid@'],
+                        dataset_where_sql=kwargs['dataset_where_sql']))
     while oids:
         # Get subset OIDs & remove them from full set.
         chunk = oids[:kwargs['chunk_size']]
@@ -916,7 +917,8 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
     # Sorting is important, allows views with ID range instead of list.
     oids = sorted(
         oid for (oid,)
-        in field_values(dataset_path, ['oid@'], kwargs['dataset_where_sql']))
+        in field_values(dataset_path, ['oid@'],
+                        dataset_where_sql=kwargs['dataset_where_sql']))
     while oids:
         chunk = oids[:kwargs['chunk_size']]
         oids = oids[kwargs['chunk_size']:]
@@ -1008,7 +1010,8 @@ def union_features(dataset_path, field_name, union_dataset_path,
     # Sorting is important, allows views with ID range instead of list.
     oids = sorted(
         oid for (oid,)
-        in field_values(dataset_path, ['oid@'], kwargs['dataset_where_sql']))
+        in field_values(dataset_path, ['oid@'],
+                        dataset_where_sql=kwargs['dataset_where_sql']))
     while oids:
         chunk = oids[:kwargs['chunk_size']]
         oids = oids[kwargs['chunk_size']:]
@@ -2199,8 +2202,8 @@ def xref_near_features(dataset_path, dataset_id_field_name,
             (kwargs['include_coordinates'], 'near_y')]:
         if flag:
             near_field_names.append(field_name)
-    dataset_oid_id_map = oid_field_value_map(dataset_view_name,
-                                             dataset_id_field_name)
+    dataset_oid_id_map = oid_field_value_map(
+        dataset_view_name, dataset_id_field_name)
     xref_oid_id_map = oid_field_value_map(xref_path, xref_id_field_name)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
