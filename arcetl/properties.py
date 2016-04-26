@@ -104,12 +104,14 @@ def field_values(dataset_path, field_names, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql', None)
     kwargs.setdefault('spatial_reference_id', None)
+    kwargs['spatial_reference'] = (
+        arcpy.SpatialReference(kwargs['spatial_reference_id'])
+        if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         dataset_path, field_names, kwargs['dataset_where_sql'],
-        spatial_reference=(
-            arcpy.SpatialReference(kwargs['spatial_reference_id']))) as cursor:
+        spatial_reference=kwargs['spatial_reference']) as cursor:
         for values in cursor:
             yield values
 

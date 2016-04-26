@@ -1126,8 +1126,8 @@ def update_field_by_instance_method(dataset_path, field_name, instance_class,
         str.
     """
     for kwarg_default in [
-            ('arg_field_names', None), ('dataset_where_sql', None),
-            ('field_as_first_arg', True), ('kwarg_field_names', None),
+            ('arg_field_names', []), ('dataset_where_sql', None),
+            ('field_as_first_arg', True), ('kwarg_field_names', []),
             ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     _description = "Update field {} using instance method {}().{}.".format(
@@ -1300,10 +1300,10 @@ def update_field_by_geometry(dataset_path, field_name,
     _description = (
         "Update field {} values using geometry property cascade {}."
         ).format(field_name, geometry_property_cascade)
-    log_line('start', _description, kwargs['log_level'])
     kwargs['spatial_reference'] = (
         arcpy.SpatialReference(kwargs['spatial_reference_id'])
         if kwargs.get('spatial_reference_id') else None)
+    log_line('start', _description, kwargs['log_level'])
     #pylint: disable=no-member
     with arcpy.da.UpdateCursor(
         #pylint: enable=no-member
@@ -1845,6 +1845,9 @@ def convert_table_to_spatial_dataset(dataset_path, output_path, x_field_name,
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('spatial_reference_id', 4326)]:
         kwargs.setdefault(*kwarg_default)
+    kwargs['spatial_reference'] = (
+        arcpy.SpatialReference(kwargs['spatial_reference_id'])
+        if kwargs.get('spatial_reference_id') else None)
     _description = "Convert {} to spatial dataset.".format(dataset_path)
     log_line('start', _description, kwargs['log_level'])
     dataset_view_name = unique_name('dataset_view')
@@ -1853,8 +1856,7 @@ def convert_table_to_spatial_dataset(dataset_path, output_path, x_field_name,
             table=dataset_path, out_layer=dataset_view_name,
             in_x_field=x_field_name, in_y_field=y_field_name,
             in_z_field=z_field_name,
-            spatial_reference=(
-                arcpy.SpatialReference(kwargs['spatial_reference_id'])))
+            spatial_reference=kwargs['spatial_reference'])
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
@@ -2032,9 +2034,11 @@ def project(dataset_path, output_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('spatial_reference_id', 4326)]:
         kwargs.setdefault(*kwarg_default)
+    kwargs['spatial_reference'] = (
+        arcpy.SpatialReference(kwargs['spatial_reference_id'])
+        if kwargs.get('spatial_reference_id') else None)
     _description = "Project {} to {}.".format(
-        dataset_path,
-        arcpy.SpatialReference(kwargs['spatial_reference_id']).name)
+        dataset_path, kwargs['spatial_reference'].name)
     log_line('start', _description, kwargs['log_level'])
     _dataset_metadata = dataset_metadata(dataset_path)
     # Project tool cannot output to an in-memory workspace (will throw
@@ -2304,7 +2308,7 @@ def compress_geodatabase(geodatabase_path, **kwargs):
     else:
         raise ValueError(
             "{} not a valid geodatabase type.".format(workspace_type))
-    if disconnect_users:
+    if kwargs['disconnect_users']:
         arcpy.AcceptConnections(sde_workspace=geodatabase_path,
                                 accept_connections=False)
         arcpy.DisconnectUser(sde_workspace=geodatabase_path, users='all')
@@ -2313,7 +2317,7 @@ def compress_geodatabase(geodatabase_path, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    if disconnect_users:
+    if kwargs['disconnect_users']:
         arcpy.AcceptConnections(sde_workspace=geodatabase_path,
                                 accept_connections=True)
     log_line('end', _description, kwargs['log_level'])

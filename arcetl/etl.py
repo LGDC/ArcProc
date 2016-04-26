@@ -45,8 +45,10 @@ class ArcETL(object):
             operations.delete_dataset(self.transform_path, log_level=None)
         # Extract to a new dataset.
         self.transform_path = operations.copy_dataset(
-            extract_path, unique_temp_dataset_path('extract'),
-            extract_where_sql, schema_only, log_level=None)
+            dataset_path=extract_path,
+            output_path=unique_temp_dataset_path('extract'),
+            dataset_where_sql=extract_where_sql, schema_only=schema_only,
+            log_level=None)
         log_line('end', _description)
         return self.transform_path
 
@@ -58,14 +60,16 @@ class ArcETL(object):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
-                operations.delete_features(dataset_path=load_path,
-                                           log_level=None)
+                operations.delete_features(load_path, log_level=None)
             operations.insert_features_from_path(
-                load_path, self.transform_path, load_where_sql, log_level=None)
+                dataset_path=load_path,
+                insert_dataset_path=self.transform_path,
+                insert_where_sql=load_where_sql, log_level=None)
         else:
             # Load to a new dataset.
-            operations.copy_dataset(self.transform_path, load_path,
-                                    load_where_sql, log_level=None)
+            operations.copy_dataset(
+                self.transform_path, load_path,
+                dataset_where_sql=load_where_sql, log_level=None)
         log_line('end', _description)
         return load_path
 
