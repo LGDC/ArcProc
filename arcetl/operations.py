@@ -2123,7 +2123,7 @@ def compress_geodatabase(geodatabase_path, **kwargs):
         _compress_kwargs = {'in_data': geodatabase_path}
         # Local databases cannot disconnect users (connections managed
         # by file access).
-        disconnect_users = False
+        kwargs['disconnect_users'] = False
     elif workspace_type == 'RemoteDatabase':
         _compress = arcpy.management.Compress
         _compress_kwargs = {'in_workspace': geodatabase_path}
