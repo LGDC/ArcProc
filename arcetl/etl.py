@@ -3,6 +3,7 @@
 import inspect
 import logging
 
+from . import features
 from . import operations
 from . import properties
 from .helpers import log_line, unique_temp_dataset_path
@@ -61,7 +62,7 @@ class ArcETL(object):
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
                 operations.delete_features(load_path, log_level=None)
-            operations.insert_features_from_path(
+            features.insert_features_from_path(
                 dataset_path=load_path,
                 insert_dataset_path=self.transform_path,
                 insert_where_sql=load_where_sql, log_level=None)

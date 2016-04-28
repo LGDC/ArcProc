@@ -2,8 +2,6 @@
 """Processing operation objects."""
 import collections
 import csv
-import datetime
-import inspect
 import logging
 import os
 import tempfile
@@ -11,14 +9,12 @@ import uuid
 
 import arcpy
 
-from .helpers import (
-    log_function, log_line, toggle_arc_extension, unique_ids, unique_name,
-    unique_temp_dataset_path,
-    )
-from .properties import (
-    dataset_metadata, feature_count, field_metadata, field_values,
-    is_valid_dataset, oid_field_value_map
-    )
+from . import features
+from .helpers import (log_function, log_line, toggle_arc_extension, unique_ids,
+                      unique_name, unique_temp_dataset_path,)
+from .properties import (dataset_metadata, field_metadata, field_values,
+                         is_valid_dataset, oid_field_value_map)
+
 
 FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
 FIELD_TYPE_AS_PYTHON = {
@@ -300,68 +296,6 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
 # Features/attributes.
 
 @log_function
-def adjust_features_for_shapefile(dataset_path, **kwargs):
-    """Adjust features to meet shapefile requirements.
-
-    Adjustments currently made:
-    * Convert datetime values to date or time based on
-    preserve_time_not_date flag.
-    * Convert nulls to replacement value.
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        datetime_null_replacement (datetime.date): Replacement value for nulls
-            in datetime fields.
-        integer_null_replacement (int): Replacement value for nulls in integer
-            fields.
-        numeric_null_replacement (float): Replacement value for nulls in
-            numeric fields.
-        string_null_replacement (str): Replacement value for nulls in string
-            fields.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [
-            ('datetime_null_replacement', datetime.date.min),
-            ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
-            ('string_null_replacement', ''), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    _description = "Adjust features in {} for shapefile output.".format(
-        dataset_path)
-    log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    type_function_map = {
-        # Invalid shapefile field types: 'blob', 'raster'.
-        # Shapefiles can only store dates, not times.
-        'date': (lambda x: kwargs['datetime_null_replacement']
-                 if x is None else x.date()),
-        'double': (lambda x: kwargs['numeric_null_replacement']
-                   if x is None else x),
-        #'geometry',  # Passed-through: Shapefile loader handles this.
-        #'guid': Not valid shapefile type.
-        'integer': (lambda x: kwargs['integer_null_replacement']
-                    if x is None else x),
-        #'oid',  # Passed-through: Shapefile loader handles this.
-        'single': (lambda x: kwargs['numeric_null_replacement']
-                   if x is None else x),
-        'smallinteger': (lambda x: kwargs['integer_null_replacement']
-                         if x is None else x),
-        'string': (lambda x: kwargs['string_null_replacement']
-                   if x is None else x),
-        }
-    for field in dataset_metadata(dataset_path)['fields']:
-        if field['type'].lower() in type_function_map:
-            update_field_by_function(
-                dataset_path, field['name'],
-                function=type_function_map[field['type'].lower()],
-                log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    log_line('end', _description, kwargs['log_level'])
-    return dataset_path
-
-
-@log_function
 def clip_features(dataset_path, clip_dataset_path, **kwargs):
     """Clip feature geometry where overlapping clip-geometry.
 
@@ -382,7 +316,8 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
     _description = "Clip {} where geometry overlaps {}.".format(
         dataset_path, clip_dataset_path)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
@@ -403,9 +338,11 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
     # Load back into the dataset.
     delete_features(dataset_view_name, log_level=None)
     delete_dataset(dataset_view_name, log_level=None)
-    insert_features_from_path(dataset_path, temp_output_path, log_level=None)
+    features.insert_features_from_path(
+        dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -426,7 +363,8 @@ def delete_features(dataset_path, **kwargs):
     kwargs.setdefault('log_level', 'info')
     _description = "Delete features from {}.".format(dataset_path)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
@@ -461,7 +399,8 @@ def delete_features(dataset_path, **kwargs):
             LOG.exception("ArcPy execution.")
             raise
     delete_dataset(dataset_view_name, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -489,7 +428,8 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     _description = "Dissolve features in {} on {}.".format(
         dataset_path, dissolve_field_names)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     # Set the environment tolerance, so we can be sure the in_memory
     # datasets respect it. 0.003280839895013 is the default for all
     # datasets in our geodatabases.
@@ -511,9 +451,11 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     delete_features(dataset_view_name, log_level=None)
     delete_dataset(dataset_view_name, log_level=None)
     # Copy the dissolved features (in the temp) to the dataset.
-    insert_features_from_path(dataset_path, temp_output_path, log_level=None)
+    features.insert_features_from_path(
+        dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -538,7 +480,8 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
     _description = "Erase {} where geometry overlaps {}.".format(
         dataset_path, erase_dataset_path)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
@@ -558,9 +501,11 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
     # Load back into the dataset.
     delete_features(dataset_view_name, log_level=None)
     delete_dataset(dataset_view_name, log_level=None)
-    insert_features_from_path(dataset_path, temp_output_path, log_level=None)
+    features.insert_features_from_path(
+        dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -586,7 +531,8 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     _description = "Keep {} where geometry overlaps {}.".format(
         dataset_path, location_dataset_path)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     dataset_view_name = create_dataset_view(
         unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
@@ -607,7 +553,8 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     delete_dataset(location_dataset_view_name, log_level=None)
     delete_features(dataset_view_name, log_level=None)
     delete_dataset(dataset_view_name, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -644,7 +591,8 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     _description = "Identity features with {}.{}.".format(
         identity_dataset_path, identity_field_name)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = copy_dataset(
         identity_dataset_path, unique_temp_dataset_path('temp_overlay'),
@@ -707,143 +655,12 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         # Replace original chunk features with identity features.
         delete_features(chunk_view_name, log_level=None)
         delete_dataset(chunk_view_name, log_level=None)
-        insert_features_from_path(dataset_path, temp_output_path,
-                                  log_level=None)
+        features.insert_features_from_path(
+            dataset_path, temp_output_path, log_level=None)
         delete_dataset(temp_output_path, log_level=None)
     delete_dataset(temp_overlay_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    log_line('end', _description, kwargs['log_level'])
-    return dataset_path
-
-
-@log_function
-def insert_features_from_dicts(dataset_path, insert_features, field_names,
-                               **kwargs):
-    """Insert features from a collection of dictionaries.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        insert_features (iter): Iterable containing dictionaries representing
-            features.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('log_level', 'info')
-    _description = "Insert features into {} from dictionaries.".format(
-        dataset_path)
-    log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    if inspect.isgeneratorfunction(insert_features):
-        insert_features = insert_features()
-    #pylint: disable=no-member
-    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-    #pylint: enable=no-member
-        for _feature in insert_features:
-            cursor.insertRow([_feature[name] for name in field_names])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    log_line('end', _description, kwargs['log_level'])
-    return dataset_path
-
-
-@log_function
-def insert_features_from_iterables(dataset_path, insert_features, field_names,
-                                   **kwargs):
-    """Insert features from a collection of iterables.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        insert_features (iter): Iterable containing iterables representing
-            features.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('log_level', 'info')
-    _description = "Insert features into {} from iterables.".format(
-        dataset_path)
-    log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    if inspect.isgeneratorfunction(insert_features):
-        insert_features = insert_features()
-    #pylint: disable=no-member
-    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-    #pylint: enable=no-member
-        for row in insert_features:
-            cursor.insertRow(row)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    log_line('end', _description, kwargs['log_level'])
-    return dataset_path
-
-
-@log_function
-def insert_features_from_path(dataset_path, insert_dataset_path,
-                              field_names=None, **kwargs):
-    """Insert features from a dataset referred to by a system path.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        insert_dataset_path (str): Path of insert-dataset.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        insert_where_sql (str): SQL where-clause for insert-dataset
-            subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('insert_where_sql', None)
-    kwargs.setdefault('log_level', 'info')
-    _description = "Insert features into {} from {}.".format(
-        dataset_path, insert_dataset_path)
-    log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
-    # Create field maps.
-    # Added because ArcGIS Pro's no-test append is case-sensitive (verified
-    # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
-    # Append tool does not auto-map to the same field name if naming
-    # convention differs.
-    _dataset_metadata = dataset_metadata(dataset_path)
-    if field_names:
-        _field_names = [name.lower() for name in field_names]
-    else:
-        _field_names = [field['name'].lower()
-                        for field in _dataset_metadata['fields']]
-    insert_dataset_metadata = dataset_metadata(insert_dataset_path)
-    insert_field_names = [field['name'].lower() for field
-                          in insert_dataset_metadata['fields']]
-    # Append takes care of geometry & OIDs independent of the field maps.
-    for field_name_type in ('geometry_field_name', 'oid_field_name'):
-        if _dataset_metadata.get(field_name_type):
-            _field_names.remove(
-                _dataset_metadata[field_name_type].lower())
-            insert_field_names.remove(
-                insert_dataset_metadata[field_name_type].lower())
-    field_maps = arcpy.FieldMappings()
-    for field_name in _field_names:
-        if field_name in insert_field_names:
-            field_map = arcpy.FieldMap()
-            field_map.addInputField(insert_dataset_path, field_name)
-            field_maps.addFieldMap(field_map)
-    insert_dataset_view_name = create_dataset_view(
-        unique_name('insert_dataset_view'), insert_dataset_path,
-        dataset_where_sql=kwargs['insert_where_sql'],
-        # Insert view must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not _dataset_metadata['is_spatial']),
-        log_level=None)
-    try:
-        arcpy.management.Append(
-            inputs=insert_dataset_view_name, target=dataset_path,
-            schema_type='no_test', field_mapping=field_maps)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    delete_dataset(insert_dataset_view_name, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -891,7 +708,8 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
     _description = "Overlay features with {}.{}.".format(
         overlay_dataset_path, overlay_field_name)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     # Check flags & set details for spatial join call.
     if kwargs['overlay_most_coincident']:
         raise NotImplementedError(
@@ -962,11 +780,12 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         # Replace original chunk features with overlay features.
         delete_features(chunk_view_name, log_level=None)
         delete_dataset(chunk_view_name, log_level=None)
-        insert_features_from_path(
+        features.insert_features_from_path(
             dataset_path, temp_output_path, log_level=None)
         delete_dataset(temp_output_path, log_level=None)
     delete_dataset(temp_overlay_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -997,7 +816,8 @@ def union_features(dataset_path, field_name, union_dataset_path,
     _description = "Union features with {}.{}.".format(
         union_dataset_path, union_field_name)
     log_line('start', _description, kwargs['log_level'])
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = copy_dataset(
         union_dataset_path, unique_temp_dataset_path('temp_overlay'),
@@ -1057,11 +877,12 @@ def union_features(dataset_path, field_name, union_dataset_path,
         # Replace original chunk features with union features.
         delete_features(chunk_view_name, log_level=None)
         delete_dataset(chunk_view_name, log_level=None)
-        insert_features_from_path(dataset_path, temp_output_path,
-                                  log_level=None)
+        features.insert_features_from_path(
+            dataset_path, temp_output_path, log_level=None)
         delete_dataset(temp_output_path, log_level=None)
     delete_dataset(temp_overlay_path, log_level=None)
-    log_line('feature_count', feature_count(dataset_path), kwargs['log_level'])
+    log_line('feature_count', features.feature_count(dataset_path),
+             kwargs['log_level'])
     log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -2070,9 +1891,10 @@ def sort_features(dataset_path, output_path, sort_field_names, **kwargs):
     Args:
         dataset_path (str): Path of dataset.
         output_path (str): Path of output dataset.
+        sort_field_names (iter): Iterable of field names to sort on, in order.
     Kwargs:
         reversed_field_names (iter): Iterable of field names (present in
-            sort_field_names) to sort in reverse-order.
+            sort_field_names) to sort values in reverse-order.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
