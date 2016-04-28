@@ -2148,7 +2148,7 @@ def compress_geodatabase(geodatabase_path, **kwargs):
 
 @log_function
 def copy_dataset(dataset_path, output_path, **kwargs):
-    """Copy dataset.
+    """Copy features into a new dataset.
 
     Args:
         dataset_path (str): Path of dataset.
@@ -2156,13 +2156,18 @@ def copy_dataset(dataset_path, output_path, **kwargs):
     Kwargs:
         schema_only (bool): Flag to copy only the schema, omitting the data.
         overwrite (bool): Flag to overwrite an existing dataset at the path.
+        sort_field_names (iter): Iterable of field names to sort on, in order.
+        sort_reversed_field_names (iter): Iterable of field names (present in
+            sort_field_names) to sort values in reverse-order.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
-                          ('overwrite', False), ('schema_only', False)]:
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('log_level', 'info'),
+            ('overwrite', False), ('schema_only', False),
+            ('sort_field_names', []), ('sort_reversed_field_names', [])]:
         kwargs.setdefault(*kwarg_default)
     _description = "Copy {} to {}.".format(dataset_path, output_path)
     log_line('start', _description, kwargs['log_level'])
@@ -2172,7 +2177,18 @@ def copy_dataset(dataset_path, output_path, **kwargs):
             "0=1" if kwargs['schema_only'] else kwargs['dataset_where_sql']),
         log_level=None)
     _dataset_metadata = dataset_metadata(dataset_path)
-    if _dataset_metadata['is_spatial']:
+    if kwargs['sort_field_names']:
+        _copy = arcpy.management.Sort
+        ##, , sort_field, {spatial_sort_method}
+        _copy_kwargs = {
+            'in_dataset': dataset_view_name, 'out_dataset': output_path,
+            'sort_field': [
+                (name, 'descending')
+                if name in kwargs['sort_reversed_field_names']
+                else (name, 'ascending')
+                for name in kwargs['sort_field_names']],
+            'spatial_sort_method': 'UR'}
+    elif _dataset_metadata['is_spatial']:
         _copy = arcpy.management.CopyFeatures
         _copy_kwargs = {'in_features': dataset_view_name,
                         'out_feature_class': output_path}
