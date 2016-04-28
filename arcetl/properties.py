@@ -4,28 +4,9 @@ import logging
 
 import arcpy
 
+from . import arcobj
 
 LOG = logging.getLogger(__name__)
-
-
-##TODO: Move to helpers.py.
-def _arc_field_object_as_metadata(field_object):
-    """Return dictionary of field metadata from an ArcPy field object."""
-    return {
-        'name': getattr(field_object, 'name'),
-        'alias_name': getattr(field_object, 'aliasName'),
-        'base_name': getattr(field_object, 'baseName'),
-        'type': getattr(field_object, 'type').lower(),
-        'length': getattr(field_object, 'length'),
-        'precision': getattr(field_object, 'precision'),
-        'scale': getattr(field_object, 'scale'),
-        # Leaving out certain field properties which aren't
-        # necessary for ETL and are often problematic.
-        #'default_value': getattr(field_object, 'defaultValue'),
-        #'is_required': getattr(field_object, 'required'),
-        #'is_editable': getattr(field_object, 'editable'),
-        #'is_nullable': getattr(field_object, 'isNullable'),
-        }
 
 
 def dataset_metadata(dataset_path):
@@ -46,7 +27,7 @@ def dataset_metadata(dataset_path):
         'oid_field_name': getattr(description, 'OIDFieldName', None),
         'field_names': [field.name for field
                         in getattr(description, 'fields', [])],
-        'fields': [_arc_field_object_as_metadata(field) for field
+        'fields': [arcobj.field_as_metadata(field) for field
                    in getattr(description, 'fields', [])],
         'is_spatial': hasattr(description, 'shapeType'),
         'geometry_type': getattr(description, 'shapeType', None),
@@ -63,7 +44,7 @@ def field_metadata(dataset_path, field_name):
     Field name is case-insensitive.
     """
     try:
-        return _arc_field_object_as_metadata(
+        return arcobj.field_as_metadata(
             arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0])
     except IndexError:
         raise AttributeError(
