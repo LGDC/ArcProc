@@ -51,7 +51,8 @@ def field_metadata(dataset_path, field_name):
             "Field {} not present on {}".format(field_name, dataset_path))
 
 
-def field_values(dataset_path, field_names, **kwargs):
+##TODO: Rename features_as_tuples, or features_as_iters with iter_type kwarg.
+def field_values(dataset_path, field_names=None, **kwargs):
     """Generator for tuples of feature field values.
 
     Args:
@@ -65,17 +66,17 @@ def field_values(dataset_path, field_names, **kwargs):
         tuple.
     """
     kwargs.setdefault('dataset_where_sql', None)
-    kwargs.setdefault('spatial_reference_id', None)
     kwargs['spatial_reference'] = (
         arcpy.SpatialReference(kwargs['spatial_reference_id'])
         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
-        dataset_path, field_names, kwargs['dataset_where_sql'],
+        dataset_path, field_names if field_names else '*',
+        where_clause=kwargs['dataset_where_sql'],
         spatial_reference=kwargs['spatial_reference']) as cursor:
-        for values in cursor:
-            yield values
+        for feature in cursor:
+            yield feature
 
 
 def is_valid_dataset(dataset_path):
