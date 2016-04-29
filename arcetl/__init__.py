@@ -1,5 +1,7 @@
 # -*- coding=utf-8 -*-
 """ETL framework library based on ArcGIS/ArcPy."""
+#pylint: disable=unused-import
+from .attributes import *
 from .etl import ArcETL
 from .helpers import (
     sexagesimal_angle_to_decimal, unique_ids, unique_name,
