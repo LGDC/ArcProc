@@ -5,7 +5,6 @@ import csv
 import logging
 import os
 import tempfile
-import uuid
 
 import arcpy
 
@@ -17,11 +16,6 @@ from .properties import (dataset_metadata, field_metadata, field_values,
 
 
 FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
-FIELD_TYPE_AS_PYTHON = {
-    'double': float, 'single': float,
-    'integer': int, 'long': int, 'short': int, 'smallinteger': int,
-    'guid': uuid.UUID,
-    'string': str, 'text': str}
 GEOMETRY_PROPERTY_AS_ARC = {
     'area': ['area'],
     'centroid': ['centroid'],
