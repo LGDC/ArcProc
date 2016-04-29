@@ -30,6 +30,195 @@ GEOMETRY_PROPERTY_AS_ARC = {
 LOG = logging.getLogger(__name__)
 
 
+##TODO: TEMPORARY LOCAL COPIES TO AVOID CYCLICAL IMPORT##
+
+def feature_count(dataset_path, **kwargs):
+    """Return number of features in dataset.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+    Returns:
+        int.
+    """
+    kwargs.setdefault('dataset_where_sql', None)
+    #pylint: disable=no-member
+    with arcpy.da.SearchCursor(
+        #pylint: enable=no-member
+        in_table=dataset_path, field_names=['oid@'],
+        where_clause=kwargs['dataset_where_sql']) as cursor:
+        return len([None for _ in cursor])
+
+@helpers.log_function
+def insert_features_from_path(dataset_path, insert_dataset_path,
+                              field_names=None, **kwargs):
+    """Insert features from a dataset referred to by a system path.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        insert_dataset_path (str): Path of insert-dataset.
+        field_names (iter): Iterable of field names to insert.
+    Kwargs:
+        insert_where_sql (str): SQL where-clause for insert-dataset
+            subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    kwargs.setdefault('insert_where_sql', None)
+    kwargs.setdefault('log_level', 'info')
+    _description = "Insert features into {} from {}.".format(
+        dataset_path, insert_dataset_path)
+    helpers.log_line('start', _description, kwargs['log_level'])
+    helpers.log_line(
+        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    meta = {'dataset': properties.dataset_metadata(dataset_path),
+            'insert_dataset': properties.dataset_metadata(insert_dataset_path)}
+    # Create field maps.
+    # Added because ArcGIS Pro's no-test append is case-sensitive (verified
+    # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
+    # Append tool does not auto-map to the same field name if naming
+    # convention differs.
+    if field_names:
+        _field_names = [name.lower() for name in field_names]
+    else:
+        _field_names = [field['name'].lower()
+                        for field in meta['dataset']['fields']]
+    insert_field_names = [
+        field['name'].lower() for field in meta['insert_dataset']['fields']]
+    # Append takes care of geometry & OIDs independent of the field maps.
+    for field_name_type in ('geometry_field_name', 'oid_field_name'):
+        if meta['dataset'].get(field_name_type):
+            _field_names.remove(meta['dataset'][field_name_type].lower())
+            insert_field_names.remove(
+                meta['insert_dataset'][field_name_type].lower())
+    field_maps = arcpy.FieldMappings()
+    for field_name in _field_names:
+        if field_name in insert_field_names:
+            field_map = arcpy.FieldMap()
+            field_map.addInputField(insert_dataset_path, field_name)
+            field_maps.addFieldMap(field_map)
+    insert_dataset_view_name = create_dataset_view(
+        helpers.unique_name('insert_dataset_view'), insert_dataset_path,
+        dataset_where_sql=kwargs['insert_where_sql'],
+        # Insert view must be nonspatial to append to nonspatial table.
+        force_nonspatial=(not meta['dataset']['is_spatial']), log_level=None)
+    try:
+        arcpy.management.Append(
+            inputs=insert_dataset_view_name, target=dataset_path,
+            schema_type='no_test', field_mapping=field_maps)
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    delete_dataset(insert_dataset_view_name, log_level=None)
+    helpers.log_line(
+        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('end', _description, kwargs['log_level'])
+    return dataset_path
+
+@helpers.log_function
+def update_field_by_function(dataset_path, field_name, function, **kwargs):
+    """Update field values by passing them to a function.
+
+    field_as_first_arg flag indicates that the function will consume the
+    field's value as the first argument.
+    arg_field_names indicate fields whose values will be positional
+    arguments passed to the function.
+    kwarg_field_names indicate fields who values will be passed as keyword
+    arguments (field name as key).
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+        function (types.FunctionType): Function to get values from.
+    Kwargs:
+        field_as_first_arg (bool): Flag indicating the field value will be the
+            first argument for the method.
+        arg_field_names (iter): Iterable of field names whose values will be
+            the method arguments (not including the primary field).
+        kwarg_field_names (iter): Iterable of field names whose names & values
+            will be the method keyword arguments.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [
+            ('arg_field_names', []), ('dataset_where_sql', None),
+            ('field_as_first_arg', True), ('kwarg_field_names', []),
+            ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {
+        'description': "Update field {} using function {}.".format(
+            field_name, function.__name__)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    #pylint: disable=no-member
+    with arcpy.da.UpdateCursor(
+        #pylint: enable=no-member
+        in_table=dataset_path,
+        field_names=([field_name] + list(kwargs['arg_field_names'])
+                     + list(kwargs['kwarg_field_names'])),
+        where_clause=kwargs['dataset_where_sql']) as cursor:
+        for row in cursor:
+            args = row[1:(len(kwargs['arg_field_names']) + 1)]
+            if kwargs['field_as_first_arg']:
+                args.insert(0, row[0])
+            _kwargs = dict(zip(kwargs['kwarg_field_names'],
+                               row[(len(kwargs['arg_field_names']) + 1):]))
+            new_value = function(*args, **_kwargs)
+            if row[0] != new_value:
+                cursor.updateRow([new_value] + list(row[1:]))
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return field_name
+
+@helpers.log_function
+def update_field_by_joined_value(dataset_path, field_name, join_dataset_path,
+                                 join_field_name, on_field_pairs,
+                                 **kwargs):
+    """Update field values by referencing a joinable field.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+        join_dataset_path (str): Path of join-dataset.
+        join_field_name (str): Name of join-field.
+        on_field_pairs (iter): Iterable of field name pairs to determine join.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {
+        'description':
+            "Update field {} with joined values from {}.{}>.".format(
+                field_name, join_dataset_path, join_field_name)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    # Build join-reference.
+    join_value_map = {
+        tuple(row[1:]): row[0]
+        for row in properties.field_values(
+            join_dataset_path,
+            field_names=[join_field_name] + [p[1] for p in on_field_pairs])}
+    #pylint: disable=no-member
+    with arcpy.da.UpdateCursor(
+        #pylint: enable=no-member
+        in_table=dataset_path,
+        field_names=[field_name] + [p[0] for p in on_field_pairs],
+        where_clause=kwargs.get('dataset_where_sql')) as cursor:
+        for row in cursor:
+            new_value = join_value_map.get(tuple(row[1:]))
+            if row[0] != new_value:
+                cursor.updateRow([new_value] + list(row[1:]))
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return field_name
+
+##TODO: TEMPORARY LOCAL COPIES TO AVOID CYCLICAL IMPORT##
+
+
 # Schema.
 
 @helpers.log_function
