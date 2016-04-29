@@ -4,14 +4,13 @@ import logging
 import uuid
 
 
-LOG = logging.getLogger(__name__)
-
-
+FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
 FIELD_TYPE_AS_PYTHON = {
     'double': float, 'single': float,
     'integer': int, 'long': int, 'short': int, 'smallinteger': int,
     'guid': uuid.UUID,
     'string': str, 'text': str}
+LOG = logging.getLogger(__name__)
 
 
 def domain_as_metadata(domain_object):

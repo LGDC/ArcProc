@@ -8,40 +8,106 @@ import tempfile
 
 import arcpy
 
-from . import helpers, properties
+from . import arcobj, helpers, properties
 
 
-FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
-GEOMETRY_PROPERTY_AS_ARC = {
-    'area': ['area'],
-    'centroid': ['centroid'],
-    'extent': ['extent'],
-    'length': ['length'],
-    'x-coordinate': ['X'], 'x': ['X'],
-    'x-maximum': ['extent', 'XMax'], 'xmax': ['extent', 'XMax'],
-    'x-minimum': ['extent', 'XMin'], 'xmin': ['extent', 'XMin'],
-    'y-coordinate': ['Y'], 'y': ['Y'],
-    'y-maximum': ['extent', 'YMax'], 'ymax': ['extent', 'YMax'],
-    'y-minimum': ['extent', 'YMin'], 'ymin': ['extent', 'YMin'],
-    'z-coordinate': ['Z'], 'z': ['Z'],
-    'z-maximum': ['extent', 'ZMax'], 'zmax': ['extent', 'ZMax'],
-    'z-minimum': ['extent', 'ZMin'], 'zmin': ['extent', 'ZMin'],
-    }
 LOG = logging.getLogger(__name__)
 
 
 ##TODO: TEMPORARY LOCAL COPIES TO AVOID CYCLICAL IMPORT##
 
-def feature_count(dataset_path, **kwargs):
-    """Return number of features in dataset.
+@helpers.log_function
+def add_field(dataset_path, field_name, field_type, **kwargs):
+    """."""
+    for kwarg_default in [
+            ('field_is_nullable', True), ('field_is_required', False),
+            ('field_length', 64), ('field_precision', None),
+            ('field_scale', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {'description': "Add field {}.{}.".format(dataset_path, field_name)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    try:
+        arcpy.management.AddField(
+            in_table=dataset_path, field_name=field_name,
+            field_type=arcobj.FIELD_TYPE_AS_ARC.get(
+                field_type.lower(), field_type),
+            field_length=kwargs['field_length'],
+            field_precision=kwargs['field_precision'],
+            field_scale=kwargs['field_scale'],
+            field_is_nullable=kwargs['field_is_nullable'],
+            field_is_required=kwargs['field_is_required'])
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return field_name
 
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-    Returns:
-        int.
-    """
+@helpers.log_function
+def add_fields_from_metadata_list(dataset_path, metadata_list, **kwargs):
+    """."""
+    kwargs.setdefault('log_level', 'info')
+    meta = {
+        'description': "Add fields to {} from a metadata list.".format(
+            dataset_path)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    meta['field_keywords'] = ['name', 'type', 'length', 'precision', 'scale',
+                              'is_nullable', 'is_required']
+    for metadata in metadata_list:
+        try:
+            field_name = add_field(
+                dataset_path, log_level=None,
+                **{'field_{}'.format(kw): metadata[kw]
+                   for kw in meta['field_keywords'] if kw in metadata})
+        except arcpy.ExecuteError:
+            LOG.exception("ArcPy execution.")
+            raise
+        helpers.log_line(
+            'misc', "Added {}.".format(field_name), kwargs['log_level'])
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return [metadata['name'] for metadata in metadata_list]
+
+@helpers.log_function
+def delete_field(dataset_path, field_name, **kwargs):
+    """."""
+    kwargs.setdefault('log_level', 'info')
+    meta = {'description': "Delete field {}.".format(field_name)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    try:
+        arcpy.management.DeleteField(
+            in_table=dataset_path, drop_field=field_name)
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return field_name
+
+@helpers.log_function
+def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
+    """."""
+    for kwarg_default in [('dataset_where_sql', None),
+                          ('duplicate_values', False), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {
+        'description': "Duplicate {}.{} as {}.".format(
+            dataset_path, field_name, new_field_name)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    meta['field'] = properties.field_metadata(dataset_path, field_name)
+    meta['field']['name'] = new_field_name
+    # Cannot add OID-type field, so push to a long-type.
+    if meta['field']['type'].lower() == 'oid':
+        meta['field']['type'] = 'long'
+    add_fields_from_metadata_list(
+        dataset_path, [meta['field']], log_level=None)
+    if kwargs['duplicate_values']:
+        update_field_by_function(
+            dataset_path, meta['field']['name'], function=(lambda x: x),
+            field_as_first_arg=False, arg_field_names=[field_name],
+            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return new_field_name
+
+def feature_count(dataset_path, **kwargs):
+    """."""
     kwargs.setdefault('dataset_where_sql', None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
@@ -53,19 +119,7 @@ def feature_count(dataset_path, **kwargs):
 @helpers.log_function
 def insert_features_from_path(dataset_path, insert_dataset_path,
                               field_names=None, **kwargs):
-    """Insert features from a dataset referred to by a system path.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        insert_dataset_path (str): Path of insert-dataset.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        insert_where_sql (str): SQL where-clause for insert-dataset
-            subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
+    """."""
     kwargs.setdefault('insert_where_sql', None)
     kwargs.setdefault('log_level', 'info')
     _description = "Insert features into {} from {}.".format(
@@ -119,31 +173,7 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
 
 @helpers.log_function
 def update_field_by_function(dataset_path, field_name, function, **kwargs):
-    """Update field values by passing them to a function.
-
-    field_as_first_arg flag indicates that the function will consume the
-    field's value as the first argument.
-    arg_field_names indicate fields whose values will be positional
-    arguments passed to the function.
-    kwarg_field_names indicate fields who values will be passed as keyword
-    arguments (field name as key).
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        function (types.FunctionType): Function to get values from.
-    Kwargs:
-        field_as_first_arg (bool): Flag indicating the field value will be the
-            first argument for the method.
-        arg_field_names (iter): Iterable of field names whose values will be
-            the method arguments (not including the primary field).
-        kwarg_field_names (iter): Iterable of field names whose names & values
-            will be the method keyword arguments.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
+    """."""
     for kwarg_default in [
             ('arg_field_names', []), ('dataset_where_sql', None),
             ('field_as_first_arg', True), ('kwarg_field_names', []),
@@ -176,20 +206,7 @@ def update_field_by_function(dataset_path, field_name, function, **kwargs):
 def update_field_by_joined_value(dataset_path, field_name, join_dataset_path,
                                  join_field_name, on_field_pairs,
                                  **kwargs):
-    """Update field values by referencing a joinable field.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        join_dataset_path (str): Path of join-dataset.
-        join_field_name (str): Name of join-field.
-        on_field_pairs (iter): Iterable of field name pairs to determine join.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
+    """."""
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     meta = {
@@ -217,260 +234,6 @@ def update_field_by_joined_value(dataset_path, field_name, join_dataset_path,
     return field_name
 
 ##TODO: TEMPORARY LOCAL COPIES TO AVOID CYCLICAL IMPORT##
-
-
-# Schema.
-
-@helpers.log_function
-def add_field(dataset_path, field_name, field_type, **kwargs):
-    """Add field to dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        field_type (str): Type of field.
-    Kwargs:
-        field_length (int): Length of field.
-        field_precision (int): Precision of field.
-        field_scale (int): Scale of field.
-        field_is_nullable (bool): Flag indicating if field will be nullable.
-        field_is_required (bool): Flag indicating if field will be required.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [
-            ('field_is_nullable', True), ('field_is_required', False),
-            ('field_length', 64), ('field_precision', None),
-            ('field_scale', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    _description = "Add field {}.{}.".format(dataset_path, field_name)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    _add_kwargs = {
-        'in_table': dataset_path, 'field_name': field_name,
-        'field_type': FIELD_TYPE_AS_ARC.get(
-            field_type.lower(), field_type.lower()),
-        'field_length': kwargs['field_length'],
-        'field_precision': kwargs['field_precision'],
-        'field_scale': kwargs['field_scale'],
-        'field_is_nullable': kwargs['field_is_nullable'],
-        'field_is_required': kwargs['field_is_required'],
-        }
-    try:
-        arcpy.management.AddField(**_add_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return field_name
-
-
-@helpers.log_function
-def add_fields_from_metadata_list(dataset_path, metadata_list, **kwargs):
-    """Add fields to dataset from list of metadata dictionaries.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        metadata_list (iter): Iterable of field metadata.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        list.
-    """
-    kwargs.setdefault('log_level', 'info')
-    _description = "Add fields to {} from a metadata list.".format(
-        dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    for _field_metadata in metadata_list:
-        _add_kwargs = {'dataset_path': dataset_path, 'log_level': None}
-        for attribute in ['name', 'type', 'length', 'precision', 'scale',
-                          'is_nullable', 'is_required']:
-            if attribute in _field_metadata:
-                _add_kwargs['field_{}'.format(attribute)] = (
-                    _field_metadata[attribute])
-        try:
-            field_name = add_field(**_add_kwargs)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
-        helpers.log_line(
-            'misc', "Added {}.".format(field_name), kwargs['log_level'])
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return [_field_metadata['name'] for _field_metadata in metadata_list]
-
-
-@helpers.log_function
-def add_index(dataset_path, field_names, **kwargs):
-    """Add index to dataset fields.
-
-    Index names can only be applied to non-spatial indexes for geodatabase
-    feature classes and tables. There is a limited length allowed from index
-    names, which will be truncated to without warning.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_names (iter): Iterable of field names.
-    Kwargs:
-        index_name (str): Optional name for index.
-        is_ascending (bool): Flag indicating index built in ascending order.
-        is_unique (bool): Flag indicating index built with unique constraint.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [
-            ('index_name', '_'.join(['ndx'] + field_names)),
-            ('is_ascending', False), ('is_unique', False),
-            ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    _description = "Add index for {}.{}.".format(dataset_path, field_names)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    index_field_types = {
-        field['type'].lower()
-        for field in properties.dataset_metadata(dataset_path)['fields']
-        if field['name'].lower() in (name.lower() for name in field_names)}
-    if 'geometry' in index_field_types:
-        if len(field_names) != 1:
-            raise RuntimeError("Cannot create a composite spatial index.")
-        _add = arcpy.management.AddSpatialIndex
-        _add_kwargs = {'in_features': dataset_path}
-    else:
-        _add = arcpy.management.AddIndex
-        _add_kwargs = {
-            'in_table': dataset_path, 'fields': field_names,
-            'index_name': kwargs['index_name'],
-            'unique': kwargs['is_unique'], 'ascending': kwargs['is_ascending'],
-            }
-    try:
-        _add(**_add_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return dataset_path
-
-
-@helpers.log_function
-def delete_field(dataset_path, field_name, **kwargs):
-    """Delete field from dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('log_level', 'info')
-    _description = "Delete field {}.".format(field_name)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    try:
-        arcpy.management.DeleteField(in_table=dataset_path,
-                                     drop_field=field_name)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return field_name
-
-
-@helpers.log_function
-def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
-    """Create new field as a duplicate of another.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        new_field_name (str): Field name to call duplicate.
-    Kwargs:
-        duplicate_values (bool): Flag to indicate duplicating values.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [('dataset_where_sql', None),
-                          ('duplicate_values', False), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    _description = "Duplicate {}.{} as {}.".format(
-        dataset_path, field_name, new_field_name)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    _field_metadata = properties.field_metadata(dataset_path, field_name)
-    _field_metadata['name'] = new_field_name
-    # Cannot add OID-type field, so push to a long-type.
-    if _field_metadata['type'].lower() == 'oid':
-        _field_metadata['type'] = 'long'
-    add_fields_from_metadata_list(dataset_path, [_field_metadata],
-                                  log_level=None)
-    if kwargs['duplicate_values']:
-        update_field_by_function(
-            dataset_path, _field_metadata['name'],
-            function=(lambda x: x), field_as_first_arg=False,
-            arg_field_names=[field_name],
-            dataset_where_sql=kwargs['dataset_where_sql'],
-            log_level=None)
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return new_field_name
-
-
-@helpers.log_function
-def join_field(dataset_path, join_dataset_path, join_field_name,
-               on_field_name, on_join_field_name, **kwargs):
-    """Add field and its values from join-dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        join_dataset_path (str): Path of dataset to join field from.
-        join_field_name (str): Name of field to join.
-        on_field_name (str): Name of field to join the dataset on.
-        on_join_field_name (str): Name of field to join the join-dataset on.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('log_level', 'info')
-    _description = "Join field {} from {}.".format(
-        join_field_name, join_dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    try:
-        arcpy.management.JoinField(
-            in_data=dataset_path, in_field=on_field_name,
-            join_table=join_dataset_path, join_field=on_join_field_name,
-            fields=join_field_name)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return join_field_name
-
-
-@helpers.log_function
-def rename_field(dataset_path, field_name, new_field_name, **kwargs):
-    """Rename field.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        new_field_name (str): Field name to change to.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('log_level', 'info')
-    _description = "Rename field {}.{} to {}.".format(
-        dataset_path, field_name, new_field_name)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    try:
-        arcpy.management.AlterField(in_table=dataset_path, field=field_name,
-                                    new_field_name=new_field_name)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return new_field_name
 
 
 # Features/attributes.
@@ -906,7 +669,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         overlay_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
         log_level=None)
     # Avoid field name collisions with neutral holding field.
-    temp_overlay_field_name = duplicate_field(
+    temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, overlay_field_name,
         new_field_name=helpers.unique_name(overlay_field_name),
         duplicate_values=True, log_level=None)
@@ -1139,7 +902,8 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
                     join_field_name=kwargs['id_field_name'],
                     on_field_pairs=[(side_oid_field_name, oid_field_name)],
                     log_level=None)
-            delete_field(output_path, side_oid_field_name, log_level=None)
+            delete_field(
+                output_path, side_oid_field_name, log_level=None)
     else:
         delete_field(output_path, 'ORIG_FID', log_level=None)
     helpers.log_line('end', _description, kwargs['log_level'])
@@ -1279,8 +1043,8 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
     if kwargs['id_field_name']:
         id_field_metadata = properties.field_metadata(
             dataset_path, kwargs['id_field_name'])
-        add_fields_from_metadata_list(output_path, [id_field_metadata],
-                                      log_level=None)
+        add_fields_from_metadata_list(
+            output_path, [id_field_metadata], log_level=None)
         type_id_function_map = {
             'short': (lambda x: int(x.split(' : ')[0]) if x else None),
             'long': (lambda x: int(x.split(' : ')[0]) if x else None),

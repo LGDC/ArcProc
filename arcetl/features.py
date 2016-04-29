@@ -6,7 +6,7 @@ import logging
 
 import arcpy
 
-from . import attributes, helpers, operations, properties
+from . import fields, helpers, operations, properties
 
 
 LOG = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
         }
     for field in properties.dataset_metadata(dataset_path)['fields']:
         if field['type'].lower() in type_function_map:
-            attributes.update_field_by_function(
+            fields.update_field_by_function(
                 dataset_path, field['name'],
                 function=type_function_map[field['type'].lower()],
                 log_level=None)
