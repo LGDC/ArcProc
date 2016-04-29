@@ -5,8 +5,8 @@ import logging
 import os
 import uuid
 
-import arcpy
 import decorator
+import arcpy
 
 
 LOG = logging.getLogger(__name__)

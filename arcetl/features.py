@@ -1,14 +1,12 @@
 # -*- coding=utf-8 -*-
-"""Processing operation objects."""
+"""Module objects for feature reference & manipulation."""
 import datetime
 import inspect
 import logging
 
 import arcpy
 
-from . import helpers
-from . import operations
-from . import properties
+from . import attributes, helpers, operations, properties
 
 
 LOG = logging.getLogger(__name__)
@@ -68,7 +66,7 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
         }
     for field in properties.dataset_metadata(dataset_path)['fields']:
         if field['type'].lower() in type_function_map:
-            operations.update_field_by_function(
+            attributes.update_field_by_function(
                 dataset_path, field['name'],
                 function=type_function_map[field['type'].lower()],
                 log_level=None)
@@ -232,4 +230,3 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
-
