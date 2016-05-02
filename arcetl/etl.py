@@ -4,9 +4,10 @@ import inspect
 import logging
 
 from . import features
+from . import helpers
 from . import operations
 from . import properties
-from .helpers import log_line, unique_temp_dataset_path
+from . import temp_ops
 
 
 LOG = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class ArcETL(object):
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
         _description = "Extract {}.".format(extract_path)
-        log_line('start', _description)
+        helpers.log_line('start', _description)
         # Remove previously-extant transform dataset.
         if all([self.transform_path,
                 properties.is_valid_dataset(self.transform_path)]):
@@ -47,16 +48,16 @@ class ArcETL(object):
         # Extract to a new dataset.
         self.transform_path = operations.copy_dataset(
             dataset_path=extract_path,
-            output_path=unique_temp_dataset_path('extract'),
+            output_path=helpers.unique_temp_dataset_path('extract'),
             dataset_where_sql=extract_where_sql, schema_only=schema_only,
             log_level=None)
-        log_line('end', _description)
+        helpers.log_line('end', _description)
         return self.transform_path
 
     def load(self, load_path, load_where_sql=None, preserve_features=False):
         """Load features from transform workspace to the load-dataset."""
         _description = "Load {}.".format(load_path)
-        log_line('start', _description)
+        helpers.log_line('start', _description)
         if properties.is_valid_dataset(load_path):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
@@ -71,7 +72,7 @@ class ArcETL(object):
             operations.copy_dataset(
                 self.transform_path, load_path,
                 dataset_where_sql=load_where_sql, log_level=None)
-        log_line('end', _description)
+        helpers.log_line('end', _description)
         return load_path
 
     def make_asssertion(self, assertion_name, **kwargs):
@@ -80,13 +81,14 @@ class ArcETL(object):
 
     def transform(self, transform_name, **kwargs):
         """Run transform operation as defined in the workspace."""
-        transform = getattr(operations, transform_name)
+        transform = getattr(temp_ops, transform_name)
         # Unless otherwise stated, dataset path is self.transform path.
         if 'dataset_path' not in kwargs:
             kwargs['dataset_path'] = self.transform_path
         # Add output_path to kwargs if needed.
         if 'output_path' in inspect.getargspec(transform).args:
-            kwargs['output_path'] = unique_temp_dataset_path(transform_name)
+            kwargs['output_path'] = (
+                helpers.unique_temp_dataset_path(transform_name))
         result = transform(**kwargs)
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
