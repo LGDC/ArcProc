@@ -129,10 +129,9 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
     return dataset_path
 
 
-##TODO: Rename insert_features_from_iters.
 @helpers.log_function
-def insert_features_from_iterables(dataset_path, insert_features, field_names,
-                                   **kwargs):
+def insert_features_from_iters(dataset_path, insert_features, field_names,
+                               **kwargs):
     """Insert features from a collection of iterables.
 
     Args:
