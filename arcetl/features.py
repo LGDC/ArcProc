@@ -40,12 +40,11 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
             ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
             ('string_null_replacement', ''), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    _description = "Adjust features in {} for shapefile output.".format(
-        dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    type_function_map = {
+    meta = {'description': (
+        "Adjust features in {} for shapefile output.".format(dataset_path))}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    meta['dataset'] = properties.dataset_metadata(dataset_path)
+    meta['type_function_map'] = {
         # Invalid shapefile field types: 'blob', 'raster'.
         # Shapefiles can only store dates, not times.
         'date': (lambda x: kwargs['datetime_null_replacement']
@@ -62,14 +61,17 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
         'smallinteger': (lambda x: kwargs['integer_null_replacement']
                          if x is None else x),
         'string': (lambda x: kwargs['string_null_replacement']
-                   if x is None else x),
-        }
-    for field in properties.dataset_metadata(dataset_path)['fields']:
-        if field['type'].lower() in type_function_map:
+                   if x is None else x)}
+    for field in meta['dataset']['fields']:
+        if field['type'].lower() in meta['type_function_map']:
             fields.update_field_by_function(
                 dataset_path, field['name'],
-                function=type_function_map[field['type'].lower()],
+                function=meta['type_function_map'][field['type'].lower()],
                 log_level=None)
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return dataset_path
+
+
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
@@ -111,21 +113,21 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
         str.
     """
     kwargs.setdefault('log_level', 'info')
-    _description = "Insert features into {} from dictionaries.".format(
-        dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
+    meta = {'description': (
+        "Insert features into {} from dictionaries.".format(dataset_path))}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     #pylint: disable=no-member
     with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-    #pylint: enable=no-member
-        for _feature in insert_features:
-            cursor.insertRow([_feature[name] for name in field_names])
+        #pylint: enable=no-member
+        for feature in insert_features:
+            cursor.insertRow([feature[name] for name in field_names])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    helpers.log_line('end', _description, kwargs['log_level'])
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
 
 
@@ -145,21 +147,21 @@ def insert_features_from_iters(dataset_path, insert_features, field_names,
         str.
     """
     kwargs.setdefault('log_level', 'info')
-    _description = "Insert features into {} from iterables.".format(
-        dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
+    meta = {'description': (
+        "Insert features into {} from iterables.".format(dataset_path))}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     #pylint: disable=no-member
     with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-    #pylint: enable=no-member
+        #pylint: enable=no-member
         for row in insert_features:
             cursor.insertRow(row)
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    helpers.log_line('end', _description, kwargs['log_level'])
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
 
 
@@ -179,53 +181,55 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
     Returns:
         str.
     """
-    kwargs.setdefault('insert_where_sql', None)
-    kwargs.setdefault('log_level', 'info')
-    _description = "Insert features into {} from {}.".format(
-        dataset_path, insert_dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
+    for kwarg_default in [('insert_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {
+        'description': "Insert features into {} from {}.".format(
+            dataset_path, insert_dataset_path)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    meta = {'dataset': properties.dataset_metadata(dataset_path),
-            'insert_dataset': properties.dataset_metadata(insert_dataset_path)}
+    meta['dataset'] = properties.dataset_metadata(dataset_path),
+    meta['insert_dataset'] = properties.dataset_metadata(insert_dataset_path)
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
     # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
     # Append tool does not auto-map to the same field name if naming
     # convention differs.
     if field_names:
-        _field_names = [name.lower() for name in field_names]
+        meta['field_names'] = [name.lower() for name in field_names]
     else:
-        _field_names = [field['name'].lower()
-                        for field in meta['dataset']['fields']]
-    insert_field_names = [
+        meta['field_names'] = [
+            field['name'].lower() for field in meta['dataset']['fields']]
+    meta['insert_field_names'] = [
         field['name'].lower() for field in meta['insert_dataset']['fields']]
     # Append takes care of geometry & OIDs independent of the field maps.
     for field_name_type in ('geometry_field_name', 'oid_field_name'):
         if meta['dataset'].get(field_name_type):
-            _field_names.remove(meta['dataset'][field_name_type].lower())
-            insert_field_names.remove(
+            meta['field_names'].remove(
+                meta['dataset'][field_name_type].lower())
+            meta['insert_field_names'].remove(
                 meta['insert_dataset'][field_name_type].lower())
-    field_maps = arcpy.FieldMappings()
-    for field_name in _field_names:
-        if field_name in insert_field_names:
+    meta['field_maps'] = arcpy.FieldMappings()
+    for field_name in meta['field_names']:
+        if field_name in meta['insert_field_names']:
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
-            field_maps.addFieldMap(field_map)
-    insert_dataset_view_name = operations.create_dataset_view(
+            meta['field_maps'].addFieldMap(field_map)
+    meta['insert_dataset_view_name'] = arcwrap.create_dataset_view(
         helpers.unique_name('insert_dataset_view'), insert_dataset_path,
         dataset_where_sql=kwargs['insert_where_sql'],
         # Insert view must be nonspatial to append to nonspatial table.
         force_nonspatial=(not meta['dataset']['is_spatial']), log_level=None)
     try:
         arcpy.management.Append(
-            inputs=insert_dataset_view_name, target=dataset_path,
-            schema_type='no_test', field_mapping=field_maps)
+            inputs=meta['insert_dataset_view_name'], target=dataset_path,
+            schema_type='no_test', field_mapping=meta['field_maps'])
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    operations.delete_dataset(insert_dataset_view_name, log_level=None)
+    arcpy.management.Delete(meta['insert_dataset_view_name'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    helpers.log_line('end', _description, kwargs['log_level'])
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
