@@ -17,25 +17,7 @@ def dataset_metadata(dataset_path):
     Returns:
         dict.
     """
-    description = arcpy.Describe(dataset_path)
-    return {
-        'name': getattr(description, 'name'),
-        'path': getattr(description, 'catalogPath'),
-        'data_type': getattr(description, 'dataType'),
-        'workspace_path': getattr(description, 'path'),
-        'is_table': hasattr(description, 'hasOID'),
-        'oid_field_name': getattr(description, 'OIDFieldName', None),
-        'field_names': [field.name for field
-                        in getattr(description, 'fields', [])],
-        'fields': [arcobj.field_as_metadata(field) for field
-                   in getattr(description, 'fields', [])],
-        'is_spatial': hasattr(description, 'shapeType'),
-        'geometry_type': getattr(description, 'shapeType', None),
-        'spatial_reference_id': (
-            getattr(description, 'spatialReference').factoryCode
-            if hasattr(description, 'spatialReference') else None),
-        'geometry_field_name': getattr(description, 'shapeFieldName', None),
-        }
+    return arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
 
 
 def field_metadata(dataset_path, field_name):

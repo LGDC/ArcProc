@@ -13,6 +13,29 @@ FIELD_TYPE_AS_PYTHON = {
 LOG = logging.getLogger(__name__)
 
 
+def dataset_as_metadata(describe_object):
+    """Return dictionary of dataset metadata from an ArcPy Describe object."""
+    return {
+        'name': getattr(describe_object, 'name'),
+        'path': getattr(describe_object, 'catalogPath'),
+        'data_type': getattr(describe_object, 'dataType'),
+        'workspace_path': getattr(describe_object, 'path'),
+        'is_table': hasattr(describe_object, 'hasOID'),
+        'oid_field_name': getattr(describe_object, 'OIDFieldName', None),
+        'field_names': [field.name for field
+                        in getattr(describe_object, 'fields', [])],
+        'fields': [field_as_metadata(field) for field
+                   in getattr(describe_object, 'fields', [])],
+        'is_spatial': hasattr(describe_object, 'shapeType'),
+        'geometry_type': getattr(describe_object, 'shapeType', None),
+        'spatial_reference_id': (
+            getattr(describe_object, 'spatialReference').factoryCode
+            if hasattr(describe_object, 'spatialReference') else None),
+        'geometry_field_name': getattr(
+            describe_object, 'shapeFieldName', None),
+        }
+
+
 def domain_as_metadata(domain_object):
     """Return dictionary of domain metadata from an ArcPy domain object."""
     return {
