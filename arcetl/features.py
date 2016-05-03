@@ -72,10 +72,31 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
     return dataset_path
 
 
+@helpers.log_function
+def delete_features(dataset_path, **kwargs):
+    """Delete select features.
+
+    Wraps arcwrap.delete_features.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {'description': "Delete features from {}.".format(dataset_path)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return dataset_path
+    result = arcwrap.delete_features(dataset_path, **kwargs)
+    helpers.log_line(
+        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return result
 
 
 def feature_count(dataset_path, **kwargs):

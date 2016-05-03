@@ -62,7 +62,7 @@ class ArcETL(object):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
-                operations.delete_features(load_path, log_level=None)
+                features.delete_features(load_path, log_level=None)
             features.insert_features_from_path(
                 dataset_path=load_path,
                 insert_dataset_path=self.transform_path,

@@ -259,12 +259,12 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
     _description = "Clip {} where geometry overlaps {}.".format(
         dataset_path, clip_dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    clip_dataset_view_name = create_dataset_view(
+    clip_dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('clip_dataset_view'), clip_dataset_path,
         dataset_where_sql=kwargs['clip_where_sql'], log_level=None)
     temp_output_path = helpers.unique_temp_dataset_path('temp_output')
@@ -279,70 +279,12 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
         raise
     delete_dataset(clip_dataset_view_name, log_level=None)
     # Load back into the dataset.
-    delete_features(dataset_view_name, log_level=None)
+    arcwrap.delete_features(dataset_view_name)
     delete_dataset(dataset_view_name, log_level=None)
     insert_features_from_path(dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return dataset_path
-
-
-@helpers.log_function
-def delete_features(dataset_path, **kwargs):
-    """Delete select features.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    kwargs.setdefault('dataset_where_sql', None)
-    kwargs.setdefault('log_level', 'info')
-    _description = "Delete features from {}.".format(dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
-        helpers.unique_name('dataset_view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    # Can use (faster) truncate when no sub-selection
-    run_truncate = kwargs.get('dataset_where_sql') is None
-    if run_truncate:
-        try:
-            arcpy.management.TruncateTable(in_table=dataset_view_name)
-        except arcpy.ExecuteError:
-            truncate_type_error_codes = (
-                # "Only supports Geodatabase tables and feature classes."
-                'ERROR 000187',
-                # "Operation not supported on table {table name}."
-                'ERROR 001260',
-                # Operation not supported on a feature class in a controller
-                # dataset.
-                'ERROR 001395',
-                )
-            # Avoid arcpy.GetReturnCode(); error code position inconsistent.
-            # Search messages for 'ERROR ######' instead.
-            if any(code in arcpy.GetMessages()
-                   for code in truncate_type_error_codes):
-                LOG.debug("Truncate unsupported; will try deleting rows.")
-                run_truncate = False
-            else:
-                LOG.exception("ArcPy execution.")
-                raise
-    if not run_truncate:
-        try:
-            arcpy.management.DeleteRows(in_rows=dataset_view_name)
-        except:
-            LOG.exception("ArcPy execution.")
-            raise
-    delete_dataset(dataset_view_name, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -370,8 +312,8 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     _description = "Dissolve features in {} on {}.".format(
         dataset_path, dissolve_field_names)
     helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     # Set the environment tolerance, so we can be sure the in_memory
     # datasets respect it. 0.003280839895013 is the default for all
     # datasets in our geodatabases.
@@ -395,8 +337,8 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     # Copy the dissolved features (in the temp) to the dataset.
     insert_features_from_path(dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -445,7 +387,7 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
     insert_features_from_path(dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
     helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+        'feature_count', features.feature_count(dataset_path), kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -493,8 +435,8 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     delete_dataset(location_dataset_view_name, log_level=None)
     arcwrap.delete_features(dataset_view_name)
     delete_dataset(dataset_view_name, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -531,8 +473,8 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     _description = "Identity features with {}.{}.".format(
         identity_dataset_path, identity_field_name)
     helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = copy_dataset(
         identity_dataset_path,
@@ -601,8 +543,8 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             dataset_path, temp_output_path, log_level=None)
         delete_dataset(temp_output_path, log_level=None)
     delete_dataset(temp_overlay_path, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -650,8 +592,8 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
     _description = "Overlay features with {}.{}.".format(
         overlay_dataset_path, overlay_field_name)
     helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     # Check flags & set details for spatial join call.
     if kwargs['overlay_most_coincident']:
         raise NotImplementedError(
@@ -728,8 +670,8 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             dataset_path, temp_output_path, log_level=None)
         delete_dataset(temp_output_path, log_level=None)
     delete_dataset(temp_overlay_path, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
@@ -760,8 +702,8 @@ def union_features(dataset_path, field_name, union_dataset_path,
     _description = "Union features with {}.{}.".format(
         union_dataset_path, union_field_name)
     helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = copy_dataset(
         union_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
@@ -827,8 +769,8 @@ def union_features(dataset_path, field_name, union_dataset_path,
             dataset_path, temp_output_path, log_level=None)
         delete_dataset(temp_output_path, log_level=None)
     delete_dataset(temp_overlay_path, log_level=None)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
 
