@@ -669,7 +669,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         overlay_dataset_path, helpers.unique_temp_dataset_path('temp_overlay'),
         log_level=None)
     # Avoid field name collisions with neutral holding field.
-    temp_overlay_field_name = dataset.duplicate_field(
+    temp_overlay_field_name = duplicate_field(
         temp_overlay_path, overlay_field_name,
         new_field_name=helpers.unique_name(overlay_field_name),
         duplicate_values=True, log_level=None)

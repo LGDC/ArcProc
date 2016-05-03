@@ -118,7 +118,7 @@ def add_index(dataset_path, field_names, **kwargs):
         in properties.dataset_metadata(dataset_path)['fields']
         if field['name'].lower() in (name.lower() for name in field_names)}
     if 'geometry' in meta['index_types']:
-        if len(field_names) <= 1:
+        if len(field_names) > 1:
             raise RuntimeError("Cannot create a composite spatial index.")
         meta['function'] = arcpy.management.AddSpatialIndex
         meta['function_kwargs'] = {'in_features': dataset_path}
