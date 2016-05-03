@@ -6,7 +6,7 @@ import logging
 
 import arcpy
 
-from . import fields, helpers, operations, properties
+from . import arcwrap, fields, helpers, properties
 
 
 LOG = logging.getLogger(__name__)

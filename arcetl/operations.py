@@ -8,7 +8,7 @@ import tempfile
 
 import arcpy
 
-from . import arcobj, helpers, properties
+from . import arcwrap, features, fields, helpers, properties
 
 
 LOG = logging.getLogger(__name__)
@@ -376,7 +376,7 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     # datasets respect it. 0.003280839895013 is the default for all
     # datasets in our geodatabases.
     arcpy.env.XYTolerance = 0.003280839895013
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     temp_output_path = helpers.unique_temp_dataset_path('temp_output')
@@ -390,7 +390,7 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
         LOG.exception("ArcPy execution.")
         raise
     # Delete undissolved features that are now dissolved (in the temp).
-    delete_features(dataset_view_name, log_level=None)
+    arcwrap.delete_features(dataset_view_name)
     delete_dataset(dataset_view_name, log_level=None)
     # Copy the dissolved features (in the temp) to the dataset.
     insert_features_from_path(dataset_path, temp_output_path, log_level=None)
@@ -422,11 +422,11 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         dataset_path, erase_dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
     helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
+        'feature_count', features.feature_count(dataset_path), kwargs['log_level'])
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    erase_dataset_view_name = create_dataset_view(
+    erase_dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('erase_dataset_view'), erase_dataset_path,
         dataset_where_sql=kwargs['erase_where_sql'], log_level=None)
     temp_output_path = helpers.unique_temp_dataset_path('temp_output')
@@ -440,7 +440,7 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         raise
     delete_dataset(erase_dataset_view_name, log_level=None)
     # Load back into the dataset.
-    delete_features(dataset_view_name, log_level=None)
+    arcwrap.delete_features(dataset_view_name)
     delete_dataset(dataset_view_name, log_level=None)
     insert_features_from_path(dataset_path, temp_output_path, log_level=None)
     delete_dataset(temp_output_path, log_level=None)
@@ -471,12 +471,12 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     _description = "Keep {} where geometry overlaps {}.".format(
         dataset_path, location_dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
+    helpers.log_line('feature_count', features.feature_count(dataset_path),
+                     kwargs['log_level'])
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    location_dataset_view_name = create_dataset_view(
+    location_dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('location_dataset_view'), location_dataset_path,
         dataset_where_sql=kwargs['location_where_sql'], log_level=None)
     try:
@@ -491,7 +491,7 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
         LOG.exception("ArcPy execution.")
         raise
     delete_dataset(location_dataset_view_name, log_level=None)
-    delete_features(dataset_view_name, log_level=None)
+    arcwrap.delete_features(dataset_view_name)
     delete_dataset(dataset_view_name, log_level=None)
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
@@ -563,7 +563,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         if kwargs['dataset_where_sql']:
             chunk_where_sql += " and ({})".format(
                 kwargs['dataset_where_sql'])
-        chunk_view_name = create_dataset_view(
+        chunk_view_name = arcwrap.create_dataset_view(
             helpers.unique_name('chunk_view'), dataset_path,
             dataset_where_sql=chunk_where_sql, log_level=None)
         # Create temporary dataset with the identity values.
@@ -595,7 +595,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
                 field_as_first_arg=False,
                 arg_field_names=[temp_overlay_field_name], log_level=None)
         # Replace original chunk features with identity features.
-        delete_features(chunk_view_name, log_level=None)
+        arcwrap.delete_features(chunk_view_name)
         delete_dataset(chunk_view_name, log_level=None)
         insert_features_from_path(
             dataset_path, temp_output_path, log_level=None)
@@ -693,7 +693,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         if kwargs['dataset_where_sql']:
             chunk_where_sql += " and ({})".format(
                 kwargs['dataset_where_sql'])
-        chunk_view_name = create_dataset_view(
+        chunk_view_name = arcwrap.create_dataset_view(
             helpers.unique_name('chunk_view'), dataset_path,
             dataset_where_sql=chunk_where_sql, log_level=None)
         # Create the temp output of the overlay.
@@ -722,7 +722,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
                 field_as_first_arg=False,
                 arg_field_names=[temp_overlay_field_name], log_level=None)
         # Replace original chunk features with overlay features.
-        delete_features(chunk_view_name, log_level=None)
+        arcwrap.delete_features(chunk_view_name)
         delete_dataset(chunk_view_name, log_level=None)
         insert_features_from_path(
             dataset_path, temp_output_path, log_level=None)
@@ -790,7 +790,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
         if kwargs['dataset_where_sql']:
             chunk_where_sql += " and ({})".format(
                 kwargs['dataset_where_sql'])
-        chunk_view_name = create_dataset_view(
+        chunk_view_name = arcwrap.create_dataset_view(
             helpers.unique_name('chunk_view'), dataset_path,
             dataset_where_sql=chunk_where_sql, log_level=None)
         # Create the temp output of the union.
@@ -821,7 +821,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
                 field_as_first_arg=False,
                 arg_field_names=[temp_overlay_field_name], log_level=None)
         # Replace original chunk features with union features.
-        delete_features(chunk_view_name, log_level=None)
+        arcwrap.delete_features(chunk_view_name)
         delete_dataset(chunk_view_name, log_level=None)
         insert_features_from_path(
             dataset_path, temp_output_path, log_level=None)
@@ -868,7 +868,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
     _description = "Convert polygon features in {} to lines.".format(
         dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     try:
@@ -993,7 +993,7 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
         dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
     helpers.toggle_arc_extension('Network', toggle_on=True)
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     try:
@@ -1083,7 +1083,7 @@ def planarize_features(dataset_path, output_path, **kwargs):
     kwargs.setdefault('log_level', 'info')
     _description = "Planarize features in {}.".format(dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     try:
@@ -1170,7 +1170,7 @@ def sort_features(dataset_path, output_path, sort_field_names, **kwargs):
     _description = "Sort features in {} to {}.".format(
         dataset_path, output_path)
     helpers.log_line('start', _description, kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     try:
@@ -1268,7 +1268,7 @@ def xref_near_features(dataset_path, dataset_id_field_name,
             ('include_rank', False), ('max_near_distance', None),
             ('only_closest', False)]:
         kwargs.setdefault(*kwarg_default)
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     temp_near_path = helpers.unique_temp_dataset_path('temp_near')
@@ -1415,6 +1415,8 @@ def compress_geodatabase(geodatabase_path, **kwargs):
 def copy_dataset(dataset_path, output_path, **kwargs):
     """Copy features into a new dataset.
 
+    Wraps arcwrap.copy_dataset.
+
     Args:
         dataset_path (str): Path of dataset.
         output_path (str): Path of output dataset.
@@ -1434,45 +1436,11 @@ def copy_dataset(dataset_path, output_path, **kwargs):
             ('overwrite', False), ('schema_only', False),
             ('sort_field_names', []), ('sort_reversed_field_names', [])]:
         kwargs.setdefault(*kwarg_default)
-    _description = "Copy {} to {}.".format(dataset_path, output_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    dataset_view_name = create_dataset_view(
-        helpers.unique_name('dataset_view'), dataset_path,
-        dataset_where_sql=(
-            "0=1" if kwargs['schema_only'] else kwargs['dataset_where_sql']),
-        log_level=None)
-    _dataset_metadata = properties.dataset_metadata(dataset_path)
-    if kwargs['sort_field_names']:
-        _copy = arcpy.management.Sort
-        ##, , sort_field, {spatial_sort_method}
-        _copy_kwargs = {
-            'in_dataset': dataset_view_name, 'out_dataset': output_path,
-            'sort_field': [
-                (name, 'descending')
-                if name in kwargs['sort_reversed_field_names']
-                else (name, 'ascending')
-                for name in kwargs['sort_field_names']],
-            'spatial_sort_method': 'UR'}
-    elif _dataset_metadata['is_spatial']:
-        _copy = arcpy.management.CopyFeatures
-        _copy_kwargs = {'in_features': dataset_view_name,
-                        'out_feature_class': output_path}
-    elif _dataset_metadata['is_table']:
-        _copy = arcpy.management.CopyRows
-        _copy_kwargs = {'in_rows': dataset_view_name,
-                        'out_table': output_path}
-    else:
-        raise ValueError("{} unsupported dataset type.".format(dataset_path))
-    if kwargs['overwrite'] and properties.is_valid_dataset(output_path):
-        delete_dataset(output_path, log_level=None)
-    try:
-        _copy(**_copy_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    delete_dataset(dataset_view_name, log_level=None)
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return output_path
+    meta = {'description': "Copy {} to {}.".format(dataset_path, output_path)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    result = arcwrap.copy_dataset(dataset_path, output_path, **kwargs)
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return result
 
 
 @helpers.log_function
@@ -1515,47 +1483,6 @@ def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
             add_field(log_level=None, **_metadata)
     helpers.log_line('end', _description, kwargs['log_level'])
     return dataset_path
-
-
-@helpers.log_function
-def create_dataset_view(view_name, dataset_path, **kwargs):
-    """Create new view of dataset.
-
-    Args:
-        view_name (str): Name of view to create.
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        force_nonspatial (bool): Flag ensure view is nonspatial.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [('dataset_where_sql', None),
-                          ('force_nonspatial', False), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    _description = "Create dataset view of {}.".format(dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    _dataset_metadata = properties.dataset_metadata(dataset_path)
-    _create_kwargs = {'where_clause': kwargs['dataset_where_sql'],
-                      'workspace': _dataset_metadata['workspace_path']}
-    if _dataset_metadata['is_spatial'] and not kwargs['force_nonspatial']:
-        _create = arcpy.management.MakeFeatureLayer
-        _create_kwargs['in_features'] = dataset_path
-        _create_kwargs['out_layer'] = view_name
-    elif _dataset_metadata['is_table']:
-        _create = arcpy.management.MakeTableView
-        _create_kwargs['in_table'] = dataset_path
-        _create_kwargs['out_view'] = view_name
-    else:
-        raise ValueError("{} unsupported dataset type.".format(dataset_path))
-    try:
-        _create(**_create_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return view_name
 
 
 @helpers.log_function
@@ -1640,6 +1567,8 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
 def delete_dataset(dataset_path, **kwargs):
     """Delete dataset.
 
+    Wraps arcwrap.delete_dataset.
+
     Args:
         dataset_path (str): Path of dataset.
     Kwargs:
@@ -1648,15 +1577,11 @@ def delete_dataset(dataset_path, **kwargs):
         str.
     """
     kwargs.setdefault('log_level', 'info')
-    _description = "Delete {}.".format(dataset_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    try:
-        arcpy.management.Delete(dataset_path)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return dataset_path
+    meta = {'description': "Delete {}.".format(dataset_path)}
+    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    result = arcwrap.delete_dataset(dataset_path)
+    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    return result
 
 
 @helpers.log_function

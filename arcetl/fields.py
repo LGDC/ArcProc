@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from . import arcobj, helpers, operations, properties
+from . import arcobj, arcwrap, helpers, properties
 
 
 LOG = logging.getLogger(__name__)
@@ -320,7 +320,7 @@ def update_field_by_expression(dataset_path, field_name, expression, **kwargs):
         'description': "Update field {} using the expression <{}>.".format(
             field_name, expression)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    meta['dataset_view_name'] = operations.create_dataset_view(
+    meta['dataset_view_name'] = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     try:
@@ -330,7 +330,7 @@ def update_field_by_expression(dataset_path, field_name, expression, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    operations.delete_dataset(meta['dataset_view_name'], log_level=None)
+    arcwrap.delete_dataset(meta['dataset_view_name'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return field_name
 
@@ -633,16 +633,15 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     meta['dataset'] = properties.dataset_metadata(dataset_path)
     # Create a temporary copy of near dataset.
     meta['temp_near_dataset'] = properties.dataset_metadata(
-        operations.copy_dataset(
-            near_dataset_path, helpers.unique_temp_dataset_path('temp_near'),
-            log_level=None))
+        arcwrap.copy_dataset(
+            near_dataset_path, helpers.unique_temp_dataset_path('temp_near')))
     # Avoid field name collisions with neutral holding field.
     meta['temp_near_field_name'] = duplicate_field(
         meta['temp_near_dataset']['path'], near_field_name,
         new_field_name=helpers.unique_name(near_field_name),
         duplicate_values=True, log_level=None)
     # Create the temp output of the near features.
-    meta['dataset_view_name'] = operations.create_dataset_view(
+    meta['dataset_view_name'] = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     meta['temp_output_path'] = helpers.unique_temp_dataset_path('temp_out')
@@ -661,12 +660,11 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    operations.delete_dataset(meta['dataset_view_name'], log_level=None)
+    arcwrap.delete_dataset(meta['dataset_view_name'])
     # Remove near rows not matching chosen rank.
-    operations.delete_features(
+    arcwrap.delete_features(
         dataset_path=meta['temp_output_path'],
-        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank']),
-        log_level=None)
+        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank']))
     # Join ID values to the near output & rename facility_geofeature_id.
     join_field(
         dataset_path=meta['temp_output_path'],
@@ -674,8 +672,7 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
         join_field_name=meta['temp_near_field_name'], on_field_name='near_fid',
         on_join_field_name=meta['temp_near_dataset']['oid_field_name'],
         log_level=None)
-    operations.delete_dataset(
-        meta['temp_near_dataset']['path'], log_level=None)
+    arcwrap.delete_dataset(meta['temp_near_dataset']['path'])
     # Add update field to output.
     add_fields_from_metadata_list(
         dataset_path=meta['temp_output_path'],
@@ -705,7 +702,7 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
             join_dataset_path=meta['temp_output_path'],
             on_field_pairs=[(meta['dataset']['oid_field_name'], 'in_fid')],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    operations.delete_dataset(meta['temp_output_path'], log_level=None)
+    arcwrap.delete_dataset(meta['temp_output_path'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return field_name
 
@@ -757,26 +754,25 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         raise NotImplementedError(
             "overlay_most_coincident not yet implemented.")
     elif kwargs['overlay_central_coincident']:
-        _join_kwargs = {'join_operation': 'join_one_to_many',
-                        'join_type': 'keep_all',
-                        'match_option': 'have_their_center_in'}
+        join_kwargs = {'join_operation': 'join_one_to_many',
+                       'join_type': 'keep_all',
+                       'match_option': 'have_their_center_in'}
     else:
-        _join_kwargs = {'join_operation': 'join_one_to_many',
-                        'join_type': 'keep_all',
-                        'match_option': 'intersect'}
+        join_kwargs = {'join_operation': 'join_one_to_many',
+                       'join_type': 'keep_all',
+                       'match_option': 'intersect'}
     meta['dataset'] = properties.dataset_metadata(dataset_path)
     # Create temporary copy of overlay dataset.
-    meta['temp_overlay_path'] = operations.copy_dataset(
+    meta['temp_overlay_path'] = arcwrap.copy_dataset(
         dataset_path=overlay_dataset_path,
-        output_path=helpers.unique_temp_dataset_path('temp_overlay'),
-        log_level=None)
+        output_path=helpers.unique_temp_dataset_path('temp_overlay'))
     # Avoid field name collisions with neutral holding field.
     meta['temp_overlay_field_name'] = duplicate_field(
         meta['temp_overlay_path'], overlay_field_name,
         new_field_name=helpers.unique_name(overlay_field_name),
         duplicate_values=True, log_level=None)
     # Create temp output of the overlay.
-    meta['dataset_view_name'] = operations.create_dataset_view(
+    meta['dataset_view_name'] = arcwrap.create_dataset_view(
         helpers.unique_name('dataset_view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     meta['temp_output_path'] = helpers.unique_temp_dataset_path('temp_output')
@@ -784,12 +780,12 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         arcpy.analysis.SpatialJoin(
             target_features=meta['dataset_view_name'],
             join_features=meta['temp_overlay_path'],
-            out_feature_class=meta['temp_output_path'], **_join_kwargs)
+            out_feature_class=meta['temp_output_path'], **join_kwargs)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    operations.delete_dataset(meta['dataset_view_name'], log_level=None)
-    operations.delete_dataset(meta['temp_overlay_path'], log_level=None)
+    arcwrap.delete_dataset(meta['dataset_view_name'])
+    arcwrap.delete_dataset(meta['temp_overlay_path'])
     # Push overlay (or replacement) value from temp to update field.
     if kwargs['replacement_value'] is not None:
         update_function = lambda x: kwargs['replacement_value'] if x else None
@@ -805,7 +801,7 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         join_dataset_path=meta['temp_output_path'], join_field_name=field_name,
         on_field_pairs=[(meta['dataset']['oid_field_name'], 'target_fid')],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    operations.delete_dataset(meta['temp_output_path'], log_level=None)
+    arcwrap.delete_dataset(meta['temp_output_path'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return field_name
 
