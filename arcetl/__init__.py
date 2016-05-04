@@ -13,5 +13,7 @@ from .helpers import (
     )
 from .operations import *
 from .properties import *
+from .values import *
+
 
 __version__ = '1.0'

@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from . import arcobj, arcwrap, helpers, properties
+from . import arcobj, arcwrap, helpers, properties, values
 
 
 LOG = logging.getLogger(__name__)
@@ -566,7 +566,7 @@ def update_field_by_joined_value(dataset_path, field_name, join_dataset_path,
     # Build join-reference.
     join_value_map = {
         tuple(feature[1:]): feature[0]
-        for feature in properties.features_as_iters(
+        for feature in values.features_as_iters(
             join_dataset_path,
             field_names=[join_field_name] + [p[1] for p in on_field_pairs])}
     #pylint: disable=no-member
@@ -858,8 +858,8 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
         'field': properties.field_metadata(dataset_path, from_id_field_name)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     used_ids = set(
-        properties.features_as_iters(dataset_path, [from_id_field_name])
-        + properties.features_as_iters(dataset_path, [to_id_field_name]))
+        values.features_as_iters(dataset_path, [from_id_field_name])
+        + values.features_as_iters(dataset_path, [to_id_field_name]))
     # Generator for open node IDs.
     open_node_ids = (
         i for i in helpers.unique_ids(
@@ -867,7 +867,7 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
             meta['field']['length'])
         if i not in used_ids)
     # Build node XY mapping.
-    oid_fid_tid_geoms = properties.features_as_iters(
+    oid_fid_tid_geoms = values.features_as_iters(
         dataset_path,
         field_names=['oid@', from_id_field_name, to_id_field_name, 'shape@'])
     node_xy_map = {}
