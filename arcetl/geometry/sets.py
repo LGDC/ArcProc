@@ -229,7 +229,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     # Get an iterable of all object IDs in the dataset.
     # Sorting is important, allows views with ID range instead of list.
     oids = sorted(
-        oid for oid, in properties.field_values(
+        oid for oid, in properties.features_as_iters(
             dataset_path, field_names=['oid@'],
             dataset_where_sql=kwargs['dataset_where_sql']))
     while oids:
@@ -401,7 +401,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
     # Sorting is important, allows views with ID range instead of list.
     oids = sorted(
         oid for (oid,)
-        in properties.field_values(
+        in properties.features_as_iters(
             dataset_path, ['oid@'],
             dataset_where_sql=kwargs['dataset_where_sql']))
     while oids:
@@ -495,7 +495,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
     # Sorting is important, allows views with ID range instead of list.
     oids = sorted(
         oid for (oid,)
-        in properties.field_values(
+        in properties.features_as_iters(
             dataset_path, ['oid@'],
             dataset_where_sql=kwargs['dataset_where_sql']))
     while oids:

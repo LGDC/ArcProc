@@ -33,32 +33,34 @@ def field_metadata(dataset_path, field_name):
             "Field {} not present on {}".format(field_name, dataset_path))
 
 
-##TODO: Rename features_as_tuples, or features_as_iters with iter_type kwarg.
-def field_values(dataset_path, field_names=None, **kwargs):
-    """Generator for tuples of feature field values.
+def features_as_iters(dataset_path, field_names=None, **kwargs):
+    """Generator for iterables of feature attributes.
 
     Args:
         dataset_path (str): Path of dataset.
         field_names (iter): Iterable of field names.
     Kwargs:
+        iter_type (object): Python iterable type to yield.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         spatial_reference_id (int): EPSG code indicating the spatial reference
             output geometry will be in.
     Yields:
         tuple.
     """
-    kwargs.setdefault('dataset_where_sql', None)
-    kwargs['spatial_reference'] = (
+    for kwarg_default in [('dataset_where_sql', None), ('iter_type', tuple),
+                          ('spatial_reference_id', None)]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {'spatial_reference': (
         arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)
+        if kwargs.get('spatial_reference_id') else None)}
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
-        dataset_path, field_names if field_names else '*',
+        in_table=dataset_path, field_names=field_names if field_names else '*',
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=kwargs['spatial_reference']) as cursor:
+        spatial_reference=meta['spatial_reference']) as cursor:
         for feature in cursor:
-            yield feature
+            yield kwargs['iter_type'](feature)
 
 
 def is_valid_dataset(dataset_path):
@@ -82,7 +84,7 @@ def oid_field_value(dataset_path, field_name, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql', None)
     kwargs.setdefault('spatial_reference_id', None)
-    for oid, value in field_values(
+    for oid, value in features_as_iters(
             dataset_path, ['oid@', field_name],
             dataset_where_sql=kwargs['dataset_where_sql'],
             spatial_reference_id=kwargs['spatial_reference_id']):
