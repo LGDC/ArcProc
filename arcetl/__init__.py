@@ -2,6 +2,9 @@
 """ETL framework library based on ArcGIS/ArcPy."""
 #pylint: disable=unused-import
 from .etl import ArcETL
+from .geometry.constructs import *
+from .geometry.sets import *
+from .geometry.transformations import *
 from .features import *
 from .fields import *
 from .helpers import (

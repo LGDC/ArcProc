@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Module objects for feature reference & manipulation."""
+"""Feature operations."""
 import datetime
 import inspect
 import logging
@@ -40,28 +40,29 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
             ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
             ('string_null_replacement', ''), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'description': (
-        "Adjust features in {} for shapefile output.".format(dataset_path))}
+    meta = {
+        'description': "Adjust features in {} for shapefile output.".format(
+            dataset_path),
+        'dataset': properties.dataset_metadata(dataset_path),
+        'type_function_map': {
+            # Invalid shapefile field types: 'blob', 'raster'.
+            # Shapefiles can only store dates, not times.
+            'date': (lambda x: kwargs['datetime_null_replacement']
+                     if x is None else x.date()),
+            'double': (lambda x: kwargs['numeric_null_replacement']
+                       if x is None else x),
+            #'geometry',  # Passed-through: Shapefile loader handles this.
+            #'guid': Not valid shapefile type.
+            'integer': (lambda x: kwargs['integer_null_replacement']
+                        if x is None else x),
+            #'oid',  # Passed-through: Shapefile loader handles this.
+            'single': (lambda x: kwargs['numeric_null_replacement']
+                       if x is None else x),
+            'smallinteger': (lambda x: kwargs['integer_null_replacement']
+                             if x is None else x),
+            'string': (lambda x: kwargs['string_null_replacement']
+                       if x is None else x)}}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    meta['dataset'] = properties.dataset_metadata(dataset_path)
-    meta['type_function_map'] = {
-        # Invalid shapefile field types: 'blob', 'raster'.
-        # Shapefiles can only store dates, not times.
-        'date': (lambda x: kwargs['datetime_null_replacement']
-                 if x is None else x.date()),
-        'double': (lambda x: kwargs['numeric_null_replacement']
-                   if x is None else x),
-        #'geometry',  # Passed-through: Shapefile loader handles this.
-        #'guid': Not valid shapefile type.
-        'integer': (lambda x: kwargs['integer_null_replacement']
-                    if x is None else x),
-        #'oid',  # Passed-through: Shapefile loader handles this.
-        'single': (lambda x: kwargs['numeric_null_replacement']
-                   if x is None else x),
-        'smallinteger': (lambda x: kwargs['integer_null_replacement']
-                         if x is None else x),
-        'string': (lambda x: kwargs['string_null_replacement']
-                   if x is None else x)}
     for field in meta['dataset']['fields']:
         if field['type'].lower() in meta['type_function_map']:
             fields.update_field_by_function(
@@ -134,8 +135,9 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
         str.
     """
     kwargs.setdefault('log_level', 'info')
-    meta = {'description': (
-        "Insert features into {} from dictionaries.".format(dataset_path))}
+    meta = {
+        'description': "Insert features into {} from dictionaries.".format(
+            dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
@@ -168,8 +170,9 @@ def insert_features_from_iters(dataset_path, insert_features, field_names,
         str.
     """
     kwargs.setdefault('log_level', 'info')
-    meta = {'description': (
-        "Insert features into {} from iterables.".format(dataset_path))}
+    meta = {
+        'description': "Insert features into {} from iterables.".format(
+            dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
@@ -206,12 +209,18 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Insert features into {} from {}.".format(
-            dataset_path, insert_dataset_path)}
+            dataset_path, insert_dataset_path),
+        'dataset': properties.dataset_metadata(dataset_path),
+        'insert_dataset': properties.dataset_metadata(insert_dataset_path),
+        'field_maps': arcpy.FieldMappings()}
+    meta['insert_dataset_view_name'] = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), insert_dataset_path,
+        dataset_where_sql=kwargs['insert_where_sql'],
+        # Insert view must be nonspatial to append to nonspatial table.
+        force_nonspatial=(not meta['dataset']['is_spatial']))
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line(
         'feature_count', feature_count(dataset_path), kwargs['log_level'])
-    meta['dataset'] = properties.dataset_metadata(dataset_path),
-    meta['insert_dataset'] = properties.dataset_metadata(insert_dataset_path)
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
     # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
@@ -231,17 +240,11 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
                 meta['dataset'][field_name_type].lower())
             meta['insert_field_names'].remove(
                 meta['insert_dataset'][field_name_type].lower())
-    meta['field_maps'] = arcpy.FieldMappings()
     for field_name in meta['field_names']:
         if field_name in meta['insert_field_names']:
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             meta['field_maps'].addFieldMap(field_map)
-    meta['insert_dataset_view_name'] = arcwrap.create_dataset_view(
-        helpers.unique_name('insert_dataset_view'), insert_dataset_path,
-        dataset_where_sql=kwargs['insert_where_sql'],
-        # Insert view must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not meta['dataset']['is_spatial']), log_level=None)
     try:
         arcpy.management.Append(
             inputs=meta['insert_dataset_view_name'], target=dataset_path,
