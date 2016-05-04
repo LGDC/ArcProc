@@ -1170,6 +1170,8 @@ def copy_dataset(dataset_path, output_path, **kwargs):
 def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
     """Create new dataset.
 
+    Wraps arcwrap.create_dataset.
+
     Args:
         dataset_path (str): Path of dataset to create.
         field_metadata_list (iter): Iterable of field metadata dicts.
@@ -1186,26 +1188,9 @@ def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
         kwargs.setdefault(*kwarg_default)
     _description = "Create dataset {}.".format(dataset_path)
     helpers.log_line('start', _description, kwargs['log_level'])
-    _create_kwargs = {'out_path': os.path.dirname(dataset_path),
-                      'out_name': os.path.basename(dataset_path)}
-    if kwargs['geometry_type']:
-        _create = arcpy.management.CreateFeatureclass
-        _create_kwargs['geometry_type'] = kwargs['geometry_type']
-        # Default to EPSG 4326 (unprojected WGS 84).
-        _create_kwargs['spatial_reference'] = arcpy.SpatialReference(
-            kwargs['spatial_reference_id'])
-    else:
-        _create = arcpy.management.CreateTable
-    try:
-        _create(**_create_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    if field_metadata_list:
-        for _metadata in field_metadata_list:
-            fields.add_field(log_level=None, **_metadata)
+    result = arcwrap.create_dataset(dataset_path, field_metadata_list, **kwargs)
     helpers.log_line('end', _description, kwargs['log_level'])
-    return dataset_path
+    return result
 
 
 @helpers.log_function

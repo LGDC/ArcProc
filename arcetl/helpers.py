@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Helper objects."""
+"""Internal module helper objects."""
 import functools
 import logging
 import os
