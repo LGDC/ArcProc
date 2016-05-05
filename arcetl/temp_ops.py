@@ -23,12 +23,11 @@ from .geometry.sets import (
 from .geometry.transformations import (
     convert_dataset_to_spatial, convert_polygons_to_lines, planarize_features,
     project)
-from .operations import (
-    sort_features, write_rows_to_csvfile,
-    build_network, compress_geodatabase, copy_dataset,
-    create_dataset, create_file_geodatabase,
-    create_geodatabase_xml_backup, delete_dataset, execute_sql_statement,
-    set_dataset_privileges)
+from .operations import sort_features, write_rows_to_csvfile
+from .workspace import (
+    build_network, compress_geodatabase, copy_dataset, create_dataset,
+    create_file_geodatabase, create_geodatabase_xml_backup, delete_dataset,
+    execute_sql_statement, set_dataset_privileges)
 
 
 LOG = logging.getLogger(__name__)

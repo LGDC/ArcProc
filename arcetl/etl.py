@@ -3,11 +3,7 @@
 import inspect
 import logging
 
-from . import features
-from . import helpers
-from . import operations
-from . import properties
-from . import temp_ops
+from . import arcwrap, features, helpers, operations, properties, temp_ops
 
 
 LOG = logging.getLogger(__name__)
@@ -33,7 +29,7 @@ class ArcETL(object):
         # Clear the transform dataset.
         if all([self.transform_path,
                 properties.is_valid_dataset(self.transform_path)]):
-            operations.delete_dataset(self.transform_path, log_level=None)
+            arcwrap.delete_dataset(self.transform_path)
             self.transform_path = None
         LOG.info("Closed.")
 
@@ -44,13 +40,12 @@ class ArcETL(object):
         # Remove previously-extant transform dataset.
         if all([self.transform_path,
                 properties.is_valid_dataset(self.transform_path)]):
-            operations.delete_dataset(self.transform_path, log_level=None)
+            arcwrap.delete_dataset(self.transform_path)
         # Extract to a new dataset.
-        self.transform_path = operations.copy_dataset(
+        self.transform_path = arcwrap.copy_dataset(
             dataset_path=extract_path,
             output_path=helpers.unique_temp_dataset_path('extract'),
-            dataset_where_sql=extract_where_sql, schema_only=schema_only,
-            log_level=None)
+            dataset_where_sql=extract_where_sql, schema_only=schema_only)
         helpers.log_line('end', _description)
         return self.transform_path
 
@@ -69,9 +64,9 @@ class ArcETL(object):
                 insert_where_sql=load_where_sql, log_level=None)
         else:
             # Load to a new dataset.
-            operations.copy_dataset(
-                self.transform_path, load_path,
-                dataset_where_sql=load_where_sql, log_level=None)
+            arcwrap.copy_dataset(
+                dataset_path=self.transform_path, output_path=load_path,
+                dataset_where_sql=load_where_sql)
         helpers.log_line('end', _description)
         return load_path
 
@@ -93,6 +88,6 @@ class ArcETL(object):
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
             if properties.is_valid_dataset(self.transform_path):
-                operations.delete_dataset(self.transform_path, log_level=None)
+                arcwrap.delete_dataset(self.transform_path)
             self.transform_path = result
         return result

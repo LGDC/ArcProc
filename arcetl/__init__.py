@@ -14,6 +14,7 @@ from .helpers import (
 from .operations import *
 from .properties import *
 from .values import *
+from .workspace import *
 
 
 __version__ = '1.0'
