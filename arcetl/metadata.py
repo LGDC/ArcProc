@@ -21,6 +21,21 @@ def dataset_metadata(dataset_path):
     return arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
 
 
+def domain_metadata(domain_name, workspace_path):
+    """Return dictionary of dataset metadata.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        dict.
+    """
+    return arcobj.domain_as_metadata(next(
+        #pylint: disable=no-member
+        domain for domain in arcpy.da.ListDomains(workspace_path)
+        #pylint: enable=no-member
+        if domain.name.lower() == domain_name.lower()))
+
+
 def feature_count(dataset_path, **kwargs):
     """Return number of features in dataset.
 

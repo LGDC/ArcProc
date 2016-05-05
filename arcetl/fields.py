@@ -272,13 +272,7 @@ def update_field_by_domain_code(dataset_path, field_name, code_field_name,
         'description':
             "Update field {} using domain {} referenced in {}.".format(
                 field_name, domain_name, code_field_name),
-        ##TODO: After creating workspace submodule, create domain_metadata
-        ##TODO: function Then apply here.
-        'domain': arcobj.domain_as_metadata(next(
-            #pylint: disable=no-member
-            domain for domain in arcpy.da.ListDomains(domain_workspace_path)
-            #pylint: enable=no-member
-            if domain.name.lower() == domain_name.lower()))}
+        'domain': metadata.domain_metadata(domain_name, domain_workspace_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     update_field_by_function(
         dataset_path, field_name,
