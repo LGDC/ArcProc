@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from . import arcwrap, fields, helpers, properties
+from .. import arcwrap, fields, helpers, properties
 
 
 LOG = logging.getLogger(__name__)
