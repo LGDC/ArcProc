@@ -14,7 +14,7 @@ LOG = logging.getLogger(__name__)
 
 
 def dataset_as_metadata(describe_object):
-    """Return dictionary of dataset metadata from an ArcPy Describe object."""
+    """Return dictionary of dataset metadata from an ArcPy describe object."""
     return {
         'name': getattr(describe_object, 'name'),
         'path': getattr(describe_object, 'catalogPath'),
@@ -32,8 +32,7 @@ def dataset_as_metadata(describe_object):
             getattr(describe_object, 'spatialReference').factoryCode
             if hasattr(describe_object, 'spatialReference') else None),
         'geometry_field_name': getattr(
-            describe_object, 'shapeFieldName', None),
-        }
+            describe_object, 'shapeFieldName', None)}
 
 
 def domain_as_metadata(domain_object):
@@ -49,8 +48,7 @@ def domain_as_metadata(domain_object):
         #'split_policy': getattr(domain_object, 'splitPolicy'),
         'code_description_map': getattr(domain_object, 'codedValues', {}),
         'range': getattr(domain_object, 'range', tuple()),
-        'type': getattr(domain_object, 'type'),
-        }
+        'type': getattr(domain_object, 'type')}
 
 
 def field_as_metadata(field_object):
@@ -72,9 +70,6 @@ def field_as_metadata(field_object):
         #'is_editable': getattr(field_object, 'editable'),
         #'is_nullable': getattr(field_object, 'isNullable'),
         }
-
-
-##TODO: geometry_as_map?
 
 
 ##TODO: spatial_reference_as_metadata.
