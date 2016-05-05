@@ -1,10 +1,11 @@
 # -*- coding=utf-8 -*-
-"""Data property objects."""
+"""Metadata objects."""
 import logging
 
 import arcpy
 
 from . import arcobj
+
 
 LOG = logging.getLogger(__name__)
 
@@ -24,6 +25,12 @@ def field_metadata(dataset_path, field_name):
     """Return dictionary of field metadata.
 
     Field name is case-insensitive.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+    Returns:
+        dict.
     """
     try:
         return arcobj.field_as_metadata(
@@ -34,7 +41,13 @@ def field_metadata(dataset_path, field_name):
 
 
 def is_valid_dataset(dataset_path):
-    """Check whether dataset exists/is valid."""
+    """Check whether dataset exists/is valid.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        bool.
+    """
     return (dataset_path is not None and arcpy.Exists(dataset_path)
             and dataset_metadata(dataset_path)['is_table'])
 
