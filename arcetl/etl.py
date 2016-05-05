@@ -3,7 +3,7 @@
 import inspect
 import logging
 
-from . import arcwrap, features, helpers, operations, properties, temp_ops
+from . import arcwrap, features, helpers, metadata, temp_ops
 
 
 LOG = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class ArcETL(object):
         LOG.info("Closing ArcETL instance for %s.", self.name)
         # Clear the transform dataset.
         if all([self.transform_path,
-                properties.is_valid_dataset(self.transform_path)]):
+                metadata.is_valid_dataset(self.transform_path)]):
             arcwrap.delete_dataset(self.transform_path)
             self.transform_path = None
         LOG.info("Closed.")
@@ -39,7 +39,7 @@ class ArcETL(object):
         helpers.log_line('start', _description)
         # Remove previously-extant transform dataset.
         if all([self.transform_path,
-                properties.is_valid_dataset(self.transform_path)]):
+                metadata.is_valid_dataset(self.transform_path)]):
             arcwrap.delete_dataset(self.transform_path)
         # Extract to a new dataset.
         self.transform_path = arcwrap.copy_dataset(
@@ -53,7 +53,7 @@ class ArcETL(object):
         """Load features from transform workspace to the load-dataset."""
         _description = "Load {}.".format(load_path)
         helpers.log_line('start', _description)
-        if properties.is_valid_dataset(load_path):
+        if metadata.is_valid_dataset(load_path):
             # Load to an existing dataset.
             # Unless preserving features, initialize the target dataset.
             if not preserve_features:
@@ -87,7 +87,7 @@ class ArcETL(object):
         result = transform(**kwargs)
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
-            if properties.is_valid_dataset(self.transform_path):
+            if metadata.is_valid_dataset(self.transform_path):
                 arcwrap.delete_dataset(self.transform_path)
             self.transform_path = result
         return result

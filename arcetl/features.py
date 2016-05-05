@@ -6,7 +6,7 @@ import logging
 
 import arcpy
 
-from . import arcwrap, fields, helpers, properties
+from . import arcwrap, fields, helpers, metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
     meta = {
         'description': "Adjust features in {} for shapefile output.".format(
             dataset_path),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'type_function_map': {
             # Invalid shapefile field types: 'blob', 'raster'.
             # Shapefiles can only store dates, not times.
@@ -210,8 +210,8 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
     meta = {
         'description': "Insert features into {} from {}.".format(
             dataset_path, insert_dataset_path),
-        'dataset': properties.dataset_metadata(dataset_path),
-        'insert_dataset': properties.dataset_metadata(insert_dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
+        'insert_dataset': metadata.dataset_metadata(insert_dataset_path),
         'field_maps': arcpy.FieldMappings()}
     meta['insert_dataset_view_name'] = arcwrap.create_dataset_view(
         helpers.unique_name('view'), insert_dataset_path,

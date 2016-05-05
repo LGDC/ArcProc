@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, features, fields, helpers, properties
+from .. import arcwrap, features, fields, helpers, metadata, values
 
 
 LOG = logging.getLogger(__name__)
@@ -206,7 +206,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     meta = {
         'description': "Identity features with {}.{}.".format(
             identity_dataset_path, identity_field_name),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'chunk_sql_template': "{field} >= {from_oid} and {field} <= {to_oid}",
         'update_function': (
             # Identity puts empty string when identity feature not present.
@@ -410,7 +410,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
         meta['chunk_sql'] = meta['chunk_sql_template'].format(
-            field=properties.dataset_metadata(dataset_path)['oid_field_name'],
+            field=metadata.dataset_metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1])
         if kwargs['dataset_where_sql']:
             meta['chunk_sql'] += " and ({})".format(
@@ -472,7 +472,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
     meta = {
         'description': "Union features with {}.{}.".format(
             union_dataset_path, union_field_name),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'chunk_sql_template': "{field} >= {from_oid} and {field} <= {to_oid}",
         'update_function': (
             # Union puts empty string when union feature not present.

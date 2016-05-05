@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, fields, helpers, properties
+from .. import arcwrap, fields, helpers, metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
     meta = {
         'description': "Convert polygon features in {} to lines.".format(
             dataset_path),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'dataset_view_name': arcwrap.create_dataset_view(
             helpers.unique_name('view'), dataset_path,
             dataset_where_sql=kwargs['dataset_where_sql'])}
@@ -100,7 +100,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
         raise
     arcwrap.delete_dataset(meta['dataset_view_name'])
     if kwargs['topological']:
-        meta['id_field_metadata'] = properties.field_metadata(
+        meta['id_field_metadata'] = metadata.field_metadata(
             dataset_path, kwargs['id_field_name'])
         for side in ('left', 'right'):
             meta[side] = dict()
@@ -193,7 +193,7 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     meta = {
         'description': "Project {} to EPSG={}.".format(
             dataset_path, spatial_reference_id),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'spatial_reference': (arcpy.SpatialReference(spatial_reference_id)
                               if spatial_reference_id else None)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])

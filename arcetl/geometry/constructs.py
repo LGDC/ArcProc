@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, fields, helpers, properties
+from .. import arcwrap, fields, helpers, metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
     arcwrap.copy_dataset('service_area/Polygons', output_path)
     arcwrap.delete_dataset('service_area')
     if kwargs['id_field_name']:
-        id_field_metadata = properties.field_metadata(
+        id_field_metadata = metadata.field_metadata(
             dataset_path, kwargs['id_field_name'])
         fields.add_fields_from_metadata_list(
             output_path, [id_field_metadata], log_level=None)

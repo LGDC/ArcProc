@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from . import arcobj, arcwrap, helpers, properties, values
+from . import arcobj, arcwrap, helpers, metadata, values
 
 
 LOG = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ def add_index(dataset_path, field_names, **kwargs):
             dataset_path, field_names),
         'index_types': {
             field['type'].lower() for field
-            in properties.dataset_metadata(dataset_path)['fields']
+            in metadata.dataset_metadata(dataset_path)['fields']
             if field['name'].lower() in (name.lower() for name in field_names)}
         }
     helpers.log_line('start', meta['description'], kwargs['log_level'])
@@ -175,7 +175,7 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     meta = {
         'description': "Duplicate {}.{} as {}.".format(
             dataset_path, field_name, new_field_name),
-        'field': properties.field_metadata(dataset_path, field_name)}
+        'field': metadata.field_metadata(dataset_path, field_name)}
     meta['field']['name'] = new_field_name
     # Cannot add OID-type field, so push to a long-type.
     if meta['field']['type'].lower() == 'oid':
@@ -621,7 +621,7 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     meta = {
         'description': "Update field {} using near-values {}.{}.".format(
             field_name, near_dataset_path, near_field_name),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'dataset_view_name': arcwrap.create_dataset_view(
             helpers.unique_name('view'), dataset_path,
             dataset_where_sql=kwargs['dataset_where_sql']),
@@ -634,7 +634,7 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     # Create a temporary copy of near dataset.
     arcwrap.copy_dataset(near_dataset_path, meta['temp_near_path'])
-    meta['temp_near_dataset'] = properties.dataset_metadata(
+    meta['temp_near_dataset'] = metadata.dataset_metadata(
         meta['temp_near_path'])
     # Avoid field name collisions with neutral holding field.
     meta['temp_near_field_name'] = duplicate_field(
@@ -673,7 +673,7 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     # Add update field to output.
     add_fields_from_metadata_list(
         dataset_path=meta['temp_output_path'],
-        metadata_list=[properties.field_metadata(dataset_path, field_name)],
+        metadata_list=[metadata.field_metadata(dataset_path, field_name)],
         log_level=None)
     # Push overlay (or replacement) value from temp to update field.
     update_field_by_function(
@@ -741,7 +741,7 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
     meta = {
         'description': "Update field {} using overlay values {}.{}.".format(
             field_name, overlay_dataset_path, overlay_field_name),
-        'dataset': properties.dataset_metadata(dataset_path),
+        'dataset': metadata.dataset_metadata(dataset_path),
         'dataset_view_name': arcwrap.create_dataset_view(
             helpers.unique_name('view'), dataset_path,
             dataset_where_sql=kwargs['dataset_where_sql']),
@@ -815,7 +815,7 @@ def update_field_by_unique_id(dataset_path, field_name, **kwargs):
     kwargs.setdefault('log_level', 'info')
     meta = {
         'description': "Update field {} using unique IDs.".format(field_name),
-        'field': properties.field_metadata(dataset_path, field_name)}
+        'field': metadata.field_metadata(dataset_path, field_name)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     unique_id_pool = helpers.unique_ids(
         data_type=arcobj.FIELD_TYPE_AS_PYTHON[meta['field']['type']],
@@ -855,7 +855,7 @@ def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
         'description':
             "Update node ID fields {} & {} using feature geometry.".format(
                 from_id_field_name, to_id_field_name),
-        'field': properties.field_metadata(dataset_path, from_id_field_name)}
+        'field': metadata.field_metadata(dataset_path, from_id_field_name)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     used_ids = set(
         values.features_as_iters(dataset_path, [from_id_field_name])

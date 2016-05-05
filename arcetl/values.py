@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from . import arcwrap, helpers, properties
+from . import arcwrap, helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -123,9 +123,9 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    dataset_oid_id_map = properties.oid_field_value_map(
+    dataset_oid_id_map = oid_field_value_map(
         meta['dataset_view_name'], dataset_id_field_name)
-    near_oid_id_map = properties.oid_field_value_map(
+    near_oid_id_map = oid_field_value_map(
         meta['near_dataset_view_name'], near_id_field_name)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
