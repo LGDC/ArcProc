@@ -100,25 +100,6 @@ def delete_features(dataset_path, **kwargs):
     return result
 
 
-def feature_count(dataset_path, **kwargs):
-    """Return number of features in dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-    Returns:
-        int.
-    """
-    kwargs.setdefault('dataset_where_sql', None)
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=['oid@'],
-        where_clause=kwargs['dataset_where_sql']) as cursor:
-        return len([None for _ in cursor])
-
-
 @helpers.log_function
 def insert_features_from_dicts(dataset_path, insert_features, field_names,
                                **kwargs):
