@@ -822,12 +822,9 @@ def update_field_by_unique_id(dataset_path, field_name, **kwargs):
     return field_name
 
 
-##TODO: Rename update_geometry_node_id_fields.
-##TODO: Reduce branches & local vars with sub-functions.
-##TODO: switch to one end at a time (field_name arg, side arg).
 @helpers.log_function
-def update_fields_by_geometry_node_ids(dataset_path, from_id_field_name,
-                                       to_id_field_name, **kwargs):
+def update_geometry_node_id_fields(dataset_path, from_id_field_name,
+                                   to_id_field_name, **kwargs):
     """Update fields with node IDs based on feature geometry.
 
     Method assumes the IDs are the same field type.

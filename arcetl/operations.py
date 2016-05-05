@@ -18,7 +18,7 @@ from .fields import (
     update_field_by_function, update_field_by_geometry,
     update_field_by_instance_method, update_field_by_joined_value,
     update_field_by_near_feature, update_field_by_overlay,
-    update_field_by_unique_id, update_fields_by_geometry_node_ids)
+    update_field_by_unique_id, update_geometry_node_id_fields)
 from .geometry.constructs import generate_facility_service_rings
 from .geometry.sets import (
     clip_features, dissolve_features, erase_features, identity_features,
