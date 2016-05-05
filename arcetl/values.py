@@ -1,6 +1,7 @@
 # -*- coding=utf-8 -*-
 """Dataset values objects."""
 import logging
+import operator
 
 import arcpy
 
@@ -8,6 +9,35 @@ from . import arcwrap, helpers
 
 
 LOG = logging.getLogger(__name__)
+
+
+def features_as_dicts(dataset_path, field_names=None, **kwargs):
+    """Generator for dictionaries of feature attributes.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_names (iter): Iterable of field names.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_id (int): EPSG code indicating the spatial reference
+            output geometry will be in.
+    Yields:
+        dict.
+    """
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
+        kwargs.setdefault(*kwarg_default)
+    meta = {'spatial_reference': (
+        arcpy.SpatialReference(kwargs['spatial_reference_id'])
+        if kwargs.get('spatial_reference_id') else None)}
+    #pylint: disable=no-member
+    with arcpy.da.SearchCursor(
+        #pylint: enable=no-member
+        in_table=dataset_path, field_names=field_names if field_names else '*',
+        where_clause=kwargs['dataset_where_sql'],
+        spatial_reference=meta['spatial_reference']) as cursor:
+        for feature in cursor:
+            yield dict(zip(cursor.fields, feature))
 
 
 def features_as_iters(dataset_path, field_names=None, **kwargs):
@@ -38,35 +68,6 @@ def features_as_iters(dataset_path, field_names=None, **kwargs):
         spatial_reference=meta['spatial_reference']) as cursor:
         for feature in cursor:
             yield kwargs['iter_type'](feature)
-
-
-def features_as_dicts(dataset_path, field_names=None, **kwargs):
-    """Generator for dictionaries of feature attributes.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_names (iter): Iterable of field names.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Yields:
-        dict.
-    """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=field_names if field_names else '*',
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
-        for feature in cursor:
-            yield dict(zip(cursor.fields, feature))
 
 
 def near_features_as_dicts(dataset_path, dataset_id_field_name,
@@ -257,3 +258,77 @@ def oid_geometry_map(dataset_path, **kwargs):
         spatial_reference=meta['spatial_reference']) as cursor:
         return {oid: geom for oid, geom in cursor}
 
+
+def sorted_feature_dicts(features, sort_field_names, **kwargs):
+    """Return sorted features as an iterable of attribute dictionaries.
+
+    Args:
+        features (iter): Iterable of feature attribute dictionaries.
+        sort_field_names (iter): Iterable of field names to sort on, in order.
+    Kwargs:
+        sort_reversed_field_names (iter): Iterable of field names (present in
+            sort_field_names) to sort values in reverse-order.
+    Returns:
+        list.
+    """
+    kwargs.setdefault('sort_reversed_field_names', [])
+    meta = {'features_type': features.__class__}
+    # Lists are the only sortable iterable. Convert if not already a list.
+    if not isinstance(features, list):
+        features = list(features)
+    # To loop-sort, need to sort from back or order.
+    for name in reversed(sort_field_names):
+        sort_kwargs = {'reverse': name in kwargs['sort_reversed_field_names']}
+        # Currently, we're just sorting geometry by the distance from its
+        # centroid to the spatial reference zero point.
+        if name == 'shape@':
+            sort_kwargs['key'] = (
+                lambda f: f['shape@'].centroid.distanceTo(
+                    arcpy.Geometry('point', arcpy.Point(0, 0),
+                                   f['shape@'].spatialReference)))
+        else:
+            sort_kwargs['key'] = operator.itemgetter(name)
+        features.sort(**sort_kwargs)
+    # Convert features back to original iterable type if necessary.
+    if not isinstance(features, meta['features_type']):
+        return meta['features_type'](features)
+    else:
+        return features
+
+
+def sorted_feature_iters(features, sort_field_names, **kwargs):
+    """Return sorted features as an iterable of attribute iterables.
+
+    Args:
+        features (iter): Iterable of feature attribute dictionaries.
+        sort_field_names (iter): Iterable of field names to sort on, in order.
+    Kwargs:
+        sort_reversed_field_names (iter): Iterable of field names (present in
+            sort_field_names) to sort values in reverse-order.
+    Returns:
+        list.
+    """
+    kwargs.setdefault('sort_reversed_field_names', [])
+    meta = {'features_type': features.__class__}
+    # Lists are the only sortable iterable. Convert if not already a list.
+    if not isinstance(features, list):
+        features = list(features)
+    # To loop-sort, need to sort from back or order.
+    for name in reversed(sort_field_names):
+        idx = sort_field_names.index(name)
+        sort_kwargs = {'reverse': name in kwargs['sort_reversed_field_names']}
+        # Currently, we're just sorting geometry by the distance from its
+        # centroid to the spatial reference zero point.
+        if name == 'shape@':
+            sort_kwargs['key'] = (
+                lambda f, i=idx: f[i].centroid.distanceTo(
+                    arcpy.Geometry(
+                        'point', arcpy.Point(0, 0), f[i].spatialReference)))
+        else:
+            sort_kwargs['key'] = operator.itemgetter(idx)
+        features.sort(**sort_kwargs)
+    # Convert features back to original iterable type if necessary.
+    if not isinstance(features, meta['features_type']):
+        return meta['features_type'](features)
+    else:
+        return features
