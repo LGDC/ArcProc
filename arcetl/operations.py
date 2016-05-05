@@ -4,9 +4,7 @@ import collections
 import csv
 import logging
 
-import arcpy
-
-from . import arcwrap, helpers
+from . import helpers
 #pylint: disable=unused-import
 from .features import (
     adjust_features_for_shapefile, delete_features, insert_features_from_dicts,

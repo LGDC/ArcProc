@@ -60,16 +60,4 @@ def field_as_metadata(field_object):
         'type': getattr(field_object, 'type').lower(),
         'length': getattr(field_object, 'length'),
         'precision': getattr(field_object, 'precision'),
-        'scale': getattr(field_object, 'scale'),
-        # Leaving out certain field properties which aren't
-        # necessary for ETL and are often problematic.
-        ##TODO: Get field metadata using functions to have defaults that work
-        ## around this.
-        #'default_value': getattr(field_object, 'defaultValue'),
-        #'is_required': getattr(field_object, 'required'),
-        #'is_editable': getattr(field_object, 'editable'),
-        #'is_nullable': getattr(field_object, 'isNullable'),
-        }
-
-
-##TODO: spatial_reference_as_metadata.
+        'scale': getattr(field_object, 'scale')}

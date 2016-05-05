@@ -58,19 +58,19 @@ def add_fields_from_metadata_list(dataset_path, metadata_list, **kwargs):
         'field_keywords': ['name', 'type', 'length', 'precision', 'scale',
                            'is_nullable', 'is_required']}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    for metadata in metadata_list:
+    for _metadata in metadata_list:
         try:
             field_name = arcwrap.add_field(
                 dataset_path,
-                **{'field_{}'.format(kw): metadata[kw]
-                   for kw in meta['field_keywords'] if kw in metadata})
+                **{'field_{}'.format(kw): _metadata[kw]
+                   for kw in meta['field_keywords'] if kw in _metadata})
         except arcpy.ExecuteError:
             LOG.exception("ArcPy execution.")
             raise
         helpers.log_line(
             'misc', "Added {}.".format(field_name), kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
-    return [metadata['name'] for metadata in metadata_list]
+    return [_metadata['name'] for _metadata in metadata_list]
 
 
 @helpers.log_function
