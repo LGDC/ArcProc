@@ -35,53 +35,6 @@ from .workspace import (
 LOG = logging.getLogger(__name__)
 
 
-##TODO: Implement sorting kwargs/functionality in:
-##insert_features_from_dicts, insert_features_from_iters,
-##insert_features_from_path, ArcETL().load. Then deprecate this.
-@helpers.log_function
-def sort_features(dataset_path, output_path, sort_field_names, **kwargs):
-    """Sort features into a new dataset.
-
-    reversed_field_names are fields in sort_field_names that should have
-    their sort order reversed.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        output_path (str): Path of output dataset.
-        sort_field_names (iter): Iterable of field names to sort on, in order.
-    Kwargs:
-        reversed_field_names (iter): Iterable of field names (present in
-            sort_field_names) to sort values in reverse-order.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
-                          ('reversed_field_names', [])]:
-        kwargs.setdefault(*kwarg_default)
-    _description = "Sort features in {} to {}.".format(
-        dataset_path, output_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
-    dataset_view_name = arcwrap.create_dataset_view(
-        helpers.unique_name('dataset_view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
-    try:
-        arcpy.management.Sort(
-            in_dataset=dataset_view_name, out_dataset=output_path,
-            sort_field=[
-                (name, 'descending') if name in  kwargs['reversed_field_names']
-                else (name, 'ascending') for name in sort_field_names],
-            spatial_sort_method='UR')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    arcwrap.delete_dataset(dataset_view_name)
-    helpers.log_line('end', _description, kwargs['log_level'])
-    return output_path
-
-
-##TODO: Find this a home? New submodule? Fine here for now.
 @helpers.log_function
 def write_rows_to_csvfile(rows, output_path, field_names, **kwargs):
     """Write collected of rows to a CSV-file.
