@@ -30,11 +30,8 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
     Returns:
         str.
     """
-    for kwarg_default in [
-            ('field_is_nullable', True), ('field_is_required', False),
-            ('field_length', 64), ('field_precision', None),
-            ('field_scale', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
+    # Other kwarg defaults set in the wrapped function.
+    kwargs.setdefault('log_level', 'info')
     meta = {'description': "Add field {}.{}.".format(dataset_path, field_name)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     result = arcwrap.add_field(dataset_path, field_name, field_type, **kwargs)

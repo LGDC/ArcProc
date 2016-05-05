@@ -87,15 +87,15 @@ def delete_features(dataset_path, **kwargs):
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
+    # Other kwarg defaults set in the wrapped function.
+    kwargs.setdefault('log_level', 'info')
     meta = {'description': "Delete features from {}.".format(dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     result = arcwrap.delete_features(dataset_path, **kwargs)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return result
 
@@ -120,8 +120,8 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
         'description': "Insert features into {} from dictionaries.".format(
             dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     #pylint: disable=no-member
@@ -129,8 +129,8 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
         #pylint: enable=no-member
         for feature in insert_features:
             cursor.insertRow([feature[name] for name in field_names])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
 
@@ -155,8 +155,8 @@ def insert_features_from_iters(dataset_path, insert_features, field_names,
         'description': "Insert features into {} from iterables.".format(
             dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     #pylint: disable=no-member
@@ -164,8 +164,8 @@ def insert_features_from_iters(dataset_path, insert_features, field_names,
         #pylint: enable=no-member
         for row in insert_features:
             cursor.insertRow(row)
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
 
@@ -200,8 +200,8 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
         # Insert view must be nonspatial to append to nonspatial table.
         force_nonspatial=(not meta['dataset']['is_spatial']))
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
     # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
@@ -234,7 +234,7 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
         LOG.exception("ArcPy execution.")
         raise
     arcpy.management.Delete(meta['insert_dataset_view_name'])
-    helpers.log_line(
-        'feature_count', feature_count(dataset_path), kwargs['log_level'])
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
+                     kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path

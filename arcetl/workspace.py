@@ -120,7 +120,7 @@ def copy_dataset(dataset_path, output_path, **kwargs):
     Returns:
         str.
     """
-    # Any other kwarg defaults set in the wrapped function.
+    # Other kwarg defaults set in the wrapped function.
     kwargs.setdefault('log_level', 'info')
     meta = {'description': "Copy {} to {}.".format(dataset_path, output_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
@@ -146,7 +146,7 @@ def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
     Returns:
         str.
     """
-    # Any other kwarg defaults set in the wrapped function.
+    # Other kwarg defaults set in the wrapped function.
     kwargs.setdefault('log_level', 'info')
     meta = {'description': "Create dataset {}.".format(dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
@@ -248,7 +248,7 @@ def delete_dataset(dataset_path, **kwargs):
     Returns:
         str.
     """
-    # Any other kwarg defaults set in the wrapped function.
+    # Other kwarg defaults set in the wrapped function.
     kwargs.setdefault('log_level', 'info')
     meta = {'description': "Delete {}.".format(dataset_path)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])

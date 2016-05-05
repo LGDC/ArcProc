@@ -9,9 +9,8 @@ import arcpy
 from . import arcwrap, helpers
 #pylint: disable=unused-import
 from .features import (
-    adjust_features_for_shapefile, delete_features, feature_count,
-    insert_features_from_dicts, insert_features_from_iters,
-    insert_features_from_path)
+    adjust_features_for_shapefile, delete_features, insert_features_from_dicts,
+    insert_features_from_iters, insert_features_from_path)
 from .fields import (
     add_field, add_fields_from_metadata_list, add_index, delete_field,
     duplicate_field, join_field, rename_field, update_field_by_domain_code,

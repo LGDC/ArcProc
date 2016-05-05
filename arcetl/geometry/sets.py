@@ -42,7 +42,7 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
             dataset_where_sql=kwargs['clip_where_sql']),
         'temp_output_path': helpers.unique_temp_dataset_path('output')}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     try:
         arcpy.analysis.Clip(
@@ -60,7 +60,7 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
     features.insert_features_from_path(
         dataset_path, meta['temp_output_path'], log_level=None)
     arcwrap.delete_dataset(meta['temp_output_path'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
@@ -94,7 +94,7 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
             dataset_where_sql=kwargs['dataset_where_sql']),
         'temp_output_path': helpers.unique_temp_dataset_path('output')}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     # Set the environment tolerance, so we can be sure the in_memory
     # datasets respect it. 0.003280839895013 is the default for all
@@ -117,7 +117,7 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     features.insert_features_from_path(
         dataset_path, meta['temp_output_path'], log_level=None)
     arcwrap.delete_dataset(meta['temp_output_path'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
@@ -151,7 +151,7 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
             dataset_where_sql=kwargs['erase_where_sql']),
         'temp_output_path': helpers.unique_temp_dataset_path('output')}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     try:
         arcpy.analysis.Erase(
@@ -168,7 +168,7 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
     features.insert_features_from_path(
         dataset_path, meta['temp_output_path'], log_level=None)
     arcwrap.delete_dataset(meta['temp_output_path'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
@@ -217,7 +217,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         'temp_overlay_path': helpers.unique_temp_dataset_path('overlay'),
         'temp_output_path': helpers.unique_temp_dataset_path('output')}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     # Create a temporary copy of the overlay dataset.
     arcwrap.copy_dataset(identity_dataset_path, meta['temp_overlay_path'])
@@ -269,7 +269,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             dataset_path, meta['temp_output_path'], log_level=None)
         arcwrap.delete_dataset(meta['temp_output_path'])
     arcwrap.delete_dataset(meta['temp_overlay_path'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
@@ -303,7 +303,7 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
             helpers.unique_name('view'), location_dataset_path,
             dataset_where_sql=kwargs['location_where_sql'])}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     try:
         arcpy.management.SelectLayerByLocation(
@@ -320,7 +320,7 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     arcwrap.delete_dataset(meta['location_dataset_view_name'])
     arcwrap.delete_features(meta['dataset_view_name'])
     arcwrap.delete_dataset(meta['dataset_view_name'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
@@ -376,7 +376,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         'temp_overlay_path': helpers.unique_temp_dataset_path('overlay'),
         'temp_output_path': helpers.unique_temp_dataset_path('output')}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     # Check flags & set details for spatial join call.
     if kwargs['overlay_most_coincident']:
@@ -440,7 +440,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             dataset_path, meta['temp_output_path'], log_level=None)
         arcwrap.delete_dataset(meta['temp_output_path'])
     arcwrap.delete_dataset(meta['temp_overlay_path'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
@@ -483,7 +483,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
         'temp_overlay_path': helpers.unique_temp_dataset_path('overlay'),
         'temp_output_path': helpers.unique_temp_dataset_path('output')}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     # Create a temporary copy of the overlay dataset.
     arcwrap.copy_dataset(union_dataset_path, meta['temp_overlay_path'])
@@ -534,7 +534,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
             dataset_path, meta['temp_output_path'], log_level=None)
         arcwrap.delete_dataset(meta['temp_output_path'])
     arcwrap.delete_dataset(meta['temp_overlay_path'])
-    helpers.log_line('feature_count', features.feature_count(dataset_path),
+    helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
     helpers.log_line('end', meta['description'], kwargs['log_level'])
     return dataset_path
