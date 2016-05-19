@@ -846,8 +846,8 @@ def update_geometry_node_id_fields(dataset_path, from_id_field_name,
         'field': metadata.field_metadata(dataset_path, from_id_field_name)}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     used_ids = set(
-        values.features_as_iters(dataset_path, [from_id_field_name])
-        + values.features_as_iters(dataset_path, [to_id_field_name]))
+        list(values.features_as_iters(dataset_path, [from_id_field_name]))
+        + list(values.features_as_iters(dataset_path, [to_id_field_name])))
     # Generator for open node IDs.
     open_node_ids = (
         i for i in helpers.unique_ids(
