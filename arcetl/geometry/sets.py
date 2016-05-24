@@ -20,9 +20,9 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
         dataset_path (str): Path of dataset.
         clip_dataset_path (str): Path of dataset defining clip area.
     Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         clip_where_sql (str): SQL where-clause for clip dataset subselection.
-        tolerance (float): Tolerance level (in dataset's units) to clip at.
         log_level (str): Level at which to log this function.
     Returns:
         str.
@@ -78,13 +78,21 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
             features.
         unsplit_lines (bool): Flag indicating if dissolving lines should merge
             features when endpoints meet without a crossing feature.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
-                          ('multipart', True), ('unsplit_lines', False)]:
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('log_level', 'info'),
+            ('multipart', True),
+            ##TODO: Push this to LCOG_ETL call kwargs.
+            # Set the environment tolerance, so we can be sure the in_memory
+            # datasets respect it. 0.003280839895013 is the default for all
+            # datasets in our geodatabases.
+            ('tolerance', 0.003280839895013),  # ('tolerance', None),
+            ('unsplit_lines', False)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Dissolve features in {} on {}.".format(
@@ -96,10 +104,9 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     helpers.log_line('start', meta['description'], kwargs['log_level'])
     helpers.log_line('feature_count', metadata.feature_count(dataset_path),
                      kwargs['log_level'])
-    # Set the environment tolerance, so we can be sure the in_memory
-    # datasets respect it. 0.003280839895013 is the default for all
-    # datasets in our geodatabases.
-    arcpy.env.XYTolerance = 0.003280839895013
+    if kwargs['tolerance']:
+        old_tolerance = arcpy.env.XYTolerance
+        arcpy.env.XYTolerance = kwargs['tolerance']
     try:
         arcpy.management.Dissolve(
             in_features=meta['dataset_view_name'],
@@ -110,6 +117,8 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
+    if kwargs['tolerance']:
+        arcpy.env.XYTolerance = old_tolerance
     # Delete undissolved features that are now dissolved (in the temp).
     arcwrap.delete_features(meta['dataset_view_name'])
     arcwrap.delete_dataset(meta['dataset_view_name'])
@@ -131,14 +140,16 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         dataset_path (str): Path of dataset.
         erase_dataset_path (str): Path of erase-dataset.
     Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         erase_where_sql (str): SQL where-clause for erase-dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None),
-                          ('erase_where_sql', None), ('log_level', 'info')]:
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('erase_where_sql', None),
+            ('log_level', 'info'), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Erase {} where geometry overlaps {}.".format(
@@ -157,7 +168,8 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         arcpy.analysis.Erase(
             in_features=meta['dataset_view_name'],
             erase_features=meta['erase_dataset_view_name'],
-            out_feature_class=meta['temp_output_path'])
+            out_feature_class=meta['temp_output_path'],
+            cluster_tolerance=kwargs['tolerance'])
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
@@ -193,6 +205,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         identity_dataset_path (str): Path of identity-dataset.
         identity_field_name (str): Name of identity-field.
     Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present identity field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         chunk_size (int): Number of features to process per loop iteration.
@@ -200,8 +213,10 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     Returns:
         str.
     """
-    for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
-                          ('log_level', 'info'), ('replacement_value', None)]:
+    for kwarg_default in [
+            ('chunk_size', 4096), ('dataset_where_sql', None),
+            ('log_level', 'info'), ('replacement_value', None),
+            ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Identity features with {}.{}.".format(
@@ -253,7 +268,8 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
                 in_features=meta['chunk_view_name'],
                 identity_features=meta['temp_overlay_path'],
                 out_feature_class=meta['temp_output_path'],
-                join_attributes='all', relationship=False)
+                join_attributes='all', cluster_tolerance=kwargs['tolerance'],
+                relationship=False)
         except arcpy.ExecuteError:
             LOG.exception("ArcPy execution.")
             raise
@@ -354,6 +370,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             coincident value.
         overlay_central_coincident (bool): Flag indicating overlay using
             centrally-coincident value.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present overlay-field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         chunk_size (int): Number of features to process per loop iteration.
@@ -364,7 +381,8 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
     for kwarg_default in [
             ('chunk_size', 4096), ('dataset_where_sql', None),
             ('log_level', 'info'), ('overlay_central_coincident', False),
-            ('overlay_most_coincident', False), ('replacement_value', None)]:
+            ('overlay_most_coincident', False), ('replacement_value', None),
+            ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Overlay features with {}.{}.".format(
@@ -419,6 +437,9 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             helpers.unique_name('view'), dataset_path,
             dataset_where_sql=meta['chunk_sql'])
         # Create the temp output of the overlay.
+        if kwargs['tolerance']:
+            old_tolerance = arcpy.env.XYTolerance
+            arcpy.env.XYTolerance = kwargs['tolerance']
         try:
             arcpy.analysis.SpatialJoin(
                 target_features=meta['chunk_view_name'],
@@ -428,6 +449,8 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         except arcpy.ExecuteError:
             LOG.exception("ArcPy execution.")
             raise
+        if kwargs['tolerance']:
+            arcpy.env.XYTolerance = old_tolerance
         # Push overlay (or replacement) value from temp to update field.
         fields.update_field_by_function(
             meta['temp_output_path'], field_name, meta['update_function'],
@@ -459,6 +482,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
         union_dataset_path (str): Path of union-dataset.
         union_field_name (str): Name of union-field.
     Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present union-field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         chunk_size (int): Number of features to process per loop iteration.
@@ -466,8 +490,10 @@ def union_features(dataset_path, field_name, union_dataset_path,
     Returns:
         str.
     """
-    for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
-                          ('log_level', 'info'), ('replacement_value', None)]:
+    for kwarg_default in [
+            ('chunk_size', 4096), ('dataset_where_sql', None),
+            ('log_level', 'info'), ('replacement_value', None),
+            ('tolerance', None)]:
         kwargs.setdefault(kwarg_default)
     meta = {
         'description': "Union features with {}.{}.".format(
@@ -518,7 +544,8 @@ def union_features(dataset_path, field_name, union_dataset_path,
                 in_features=[
                     meta['chunk_view_name'], meta['temp_overlay_path']],
                 out_feature_class=meta['temp_output_path'],
-                join_attributes='all', gaps=False)
+                join_attributes='all', cluster_tolerance=kwargs['tolerance'],
+                gaps=False)
         except arcpy.ExecuteError:
             LOG.exception("ArcPy execution.")
             raise

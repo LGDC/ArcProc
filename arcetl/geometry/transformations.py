@@ -73,15 +73,21 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
     Kwargs:
         topological (bool): Flag indicating if lines should be topological, or
             merge overlapping lines.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         id_field_name (str): Name of field to apply ID to lines from.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
-    for kwarg_default in [('topological', False), ('id_field_name', None),
-                          ('dataset_where_sql', None), ('log_level', 'info')]:
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('id_field_name', None),
+            ('log_level', 'info'), ('tolerance', None),
+            ('topological', False)]:
         kwargs.setdefault(*kwarg_default)
+    # Tolerance only applies to topological conversions.
+    if not kwargs['topological']:
+        kwargs['tolerance'] = None
     meta = {
         'description': "Convert polygon features in {} to lines.".format(
             dataset_path),
@@ -90,6 +96,9 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
             helpers.unique_name('view'), dataset_path,
             dataset_where_sql=kwargs['dataset_where_sql'])}
     helpers.log_line('start', meta['description'], kwargs['log_level'])
+    if kwargs['tolerance']:
+        old_tolerance = arcpy.env.XYTolerance
+        arcpy.env.XYTolerance = kwargs['tolerance']
     try:
         arcpy.management.PolygonToLine(
             in_features=meta['dataset_view_name'],
@@ -98,6 +107,8 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
+    if kwargs['tolerance']:
+        arcpy.env.XYTolerance = old_tolerance
     arcwrap.delete_dataset(meta['dataset_view_name'])
     if kwargs['topological']:
         meta['id_field_metadata'] = metadata.field_metadata(
@@ -145,12 +156,14 @@ def planarize_features(dataset_path, output_path, **kwargs):
         dataset_path (str): Path of dataset.
         output_path (str): Path of output dataset.
     Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
+                          ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Planarize features in {}.".format(dataset_path),
@@ -161,8 +174,8 @@ def planarize_features(dataset_path, output_path, **kwargs):
     try:
         arcpy.management.FeatureToLine(
             in_features=meta['dataset_view_name'],
-            out_feature_class=output_path, ##cluster_tolerance,
-            attributes=True)
+            out_feature_class=output_path,
+            cluster_tolerance=kwargs['tolerance'], attributes=True)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise

@@ -718,6 +718,7 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
             coincident value.
         overlay_central_coincident (bool): Flag indicating overlay using
             centrally-coincident value.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present overlay-field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
@@ -725,9 +726,10 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         str.
     """
     for kwarg_default in [
+            ('dataset_where_sql', None), ('log_level', 'info'),
             ('overlay_most_coincident', False),
             ('overlay_central_coincident', False), ('replacement_value', None),
-            ('dataset_where_sql', None), ('log_level', 'info')]:
+            ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Update field {} using overlay values {}.{}.".format(
@@ -759,6 +761,9 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         new_field_name=helpers.unique_name(overlay_field_name),
         duplicate_values=True, log_level=None)
     # Create temp output of the overlay.
+    if kwargs['tolerance']:
+        old_tolerance = arcpy.env.XYTolerance
+        arcpy.env.XYTolerance = kwargs['tolerance']
     try:
         arcpy.analysis.SpatialJoin(
             target_features=meta['dataset_view_name'],
@@ -767,6 +772,8 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
+    if kwargs['tolerance']:
+        arcpy.env.XYTolerance = old_tolerance
     arcwrap.delete_dataset(meta['dataset_view_name'])
     arcwrap.delete_dataset(meta['temp_overlay_path'])
     # Push overlay (or replacement) value from temp to update field.
