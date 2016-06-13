@@ -36,7 +36,7 @@ def dataset_as_metadata(describe_object):
 
 
 def domain_as_metadata(domain_object):
-    """Return dictionary of domain metadata from an ArcPy domain object."""
+    """Return dictionary of metadata from an ArcPy domain object."""
     return {
         'name': getattr(domain_object, 'name'),
         'description': getattr(domain_object, 'description'),
@@ -52,7 +52,7 @@ def domain_as_metadata(domain_object):
 
 
 def field_as_metadata(field_object):
-    """Return dictionary of field metadata from an ArcPy field object."""
+    """Return dictionary of metadata from an ArcPy field object."""
     return {
         'name': getattr(field_object, 'name'),
         'alias_name': getattr(field_object, 'aliasName'),
@@ -61,3 +61,15 @@ def field_as_metadata(field_object):
         'length': getattr(field_object, 'length'),
         'precision': getattr(field_object, 'precision'),
         'scale': getattr(field_object, 'scale')}
+
+
+def spatial_reference_as_metadata(reference_object):
+    """Return dictionary of metadata from an ArcPy spatial reference object."""
+    ##TODO: Finish stub.
+    ##http://desktop.arcgis.com/en/arcmap/latest/analyze/arcpy-classes/spatialreference.htm
+    metadata = {}
+    metadata['spatial_reference_id'] = reference_object.factoryCode
+    metadata['angular_unit'] = getattr(
+        reference_object, 'angularUnitName', None)
+    metadata['linear_unit'] = getattr(reference_object, 'linearUnitName', None)
+    return metadata
