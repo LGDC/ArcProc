@@ -86,6 +86,29 @@ def is_valid_dataset(dataset_path):
             and dataset_metadata(dataset_path)['is_table'])
 
 
+def linear_unit_as_string(measure, spatial_reference):
+    """Return unit of measure as a linear unit string."""
+    linear_unit = spatial_reference_metadata(spatial_reference)['linear_unit']
+    # if measure != 1 and linear_unit == 'Foot':
+    #     linear_unit = 'Feet'
+    return '{} {}'.format(measure, linear_unit)
+
+
+def spatial_reference_metadata(spatial_reference):
+    """Return dictionary of spatial reference metadata.
+
+    Args:
+        spatial_reference (str): Path of dataset, or spatial reference ID.
+    Returns:
+        dict.
+    """
+    if isinstance(spatial_reference, int):
+        reference_object = arcpy.SpatialReference(spatial_reference)
+    elif is_valid_dataset(spatial_reference):
+        reference_object = arcpy.Describe(spatial_reference).spatialReference
+    return arcobj.spatial_reference_as_metadata(reference_object)
+
+
 def workspace_dataset_names(workspace_path, **kwargs):
     """Generator for workspace's dataset names.
 

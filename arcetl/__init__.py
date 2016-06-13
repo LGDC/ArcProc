@@ -2,7 +2,8 @@
 """ETL framework library based on ArcGIS/ArcPy."""
 #pylint: disable=unused-import
 from .etl import ArcETL
-from .geometry.constructs import generate_facility_service_rings
+from .geometry.constructs import (
+    generate_facility_service_rings, generate_service_areas)
 from .geometry.sets import (
     clip_features, dissolve_features, erase_features, identity_features,
     keep_features_by_location, overlay_features, union_features)
