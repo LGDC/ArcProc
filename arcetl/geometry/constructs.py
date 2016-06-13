@@ -11,11 +11,8 @@ LOG = logging.getLogger(__name__)
 
 
 @helpers.log_function
-#pylint: disable=too-many-arguments
-def generate_facility_service_rings(dataset_path, output_path, network_path,
-                                    cost_attribute, ring_width, max_distance,
-                                    **kwargs):
-    #pylint: enable=too-many-arguments
+def generate_service_rings(dataset_path, output_path, network_path,
+                           cost_attribute, ring_width, max_distance, **kwargs):
     """Create facility service ring features using a network dataset.
 
     Args:
@@ -37,18 +34,26 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
             high-detail.
         overlap_facilities (bool): Flag indicating whether different facility's
             rings can overlap.
+        trim_value (float): Distance from network features to trim areas to.
         id_field_name (str): Name of facility ID field.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
+    if kwargs.get('trim_value'):
+        raise NotImplementedError(
+            "Polygon trim in ArcPy not working currently.")
     for kwarg_default in [
             ('dataset_where_sql', None), ('detailed_rings', False),
             ('id_field_name', None), ('log_level', 'info'),
             ('overlap_facilities', True), ('restriction_attributes', []),
-            ('travel_from_facility', False)]:
+            ('travel_from_facility', False), ('trim_value', None)]:
         kwargs.setdefault(*kwarg_default)
+    # trim_value assumes meters if not input as linear_unit string.
+    if kwargs['trim_value']:
+        kwargs['trim_value'] = metadata.linear_unit_as_string(
+            kwargs['trim_value'], dataset_path)
     meta = {
         'description': "Generate service rings for {} facilities.".format(
             dataset_path),
@@ -79,9 +84,8 @@ def generate_facility_service_rings(dataset_path, output_path, network_path,
             nesting_type='rings',
             UTurn_policy='allow_dead_ends_and_intersections_only',
             restriction_attribute_name=kwargs['restriction_attributes'],
-            # The trim seems to override the non-overlapping part in
-            # larger analyses.
-            #polygon_trim=True, poly_trim_value=ring_width,
+            polygon_trim=True if kwargs['trim_value'] else False,
+            poly_trim_value=kwargs['trim_value'],
             hierarchy='no_hierarchy')
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
