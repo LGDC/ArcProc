@@ -721,6 +721,8 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present overlay-field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        overlay_where_sql (str): SQL where-clause for overlay dataset
+            subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
@@ -728,8 +730,8 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
     for kwarg_default in [
             ('dataset_where_sql', None), ('log_level', 'info'),
             ('overlay_most_coincident', False),
-            ('overlay_central_coincident', False), ('replacement_value', None),
-            ('tolerance', None)]:
+            ('overlay_central_coincident', False), ('overlay_where_sql', None),
+            ('replacement_value', None), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     meta = {
         'description': "Update field {} using overlay values {}.{}.".format(
@@ -754,7 +756,8 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
                        'join_type': 'keep_all',
                        'match_option': 'intersect'}
     # Create temporary copy of overlay dataset.
-    arcwrap.copy_dataset(overlay_dataset_path, meta['temp_overlay_path'])
+    arcwrap.copy_dataset(overlay_dataset_path, meta['temp_overlay_path'],
+                         dataset_where_sql=kwargs['overlay_where_sql'])
     # Avoid field name collisions with neutral holding field.
     meta['temp_overlay_field_name'] = duplicate_field(
         meta['temp_overlay_path'], overlay_field_name,
