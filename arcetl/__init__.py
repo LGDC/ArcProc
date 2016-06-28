@@ -31,9 +31,9 @@ from .values import (
     oid_field_value_map, oid_field_values, oid_geometries, oid_geometry_map,
     sorted_feature_dicts, sorted_feature_iters)
 from .workspace import (
-    build_network, compress_geodatabase, copy_dataset, create_dataset,
-    create_file_geodatabase, create_geodatabase_xml_backup, delete_dataset,
-    execute_sql_statement, set_dataset_privileges)
+    build_locator, build_network, compress_geodatabase, copy_dataset,
+    create_dataset, create_file_geodatabase, create_geodatabase_xml_backup,
+    delete_dataset, execute_sql_statement, set_dataset_privileges)
 
 
 __version__ = '1.0'

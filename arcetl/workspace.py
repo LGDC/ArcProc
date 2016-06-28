@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-"""Processing operation objects."""
+"""Workspace operations."""
 import logging
 import os
 import tempfile
@@ -10,6 +10,30 @@ from . import arcwrap, helpers
 
 
 LOG = logging.getLogger(__name__)
+
+
+@helpers.log_function
+def build_locator(locator_path, **kwargs):
+    """Build network (dataset or geometric).
+
+    Args:
+        locator_path (str): Path of locator.
+    Kwargs:
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Build locator %s.", locator_path)
+    try:
+        arcpy.geocoding.RebuildAddressLocator(locator_path)
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    LOG.log(log_level, "End: Build.")
+    return locator_path
 
 
 @helpers.log_function
