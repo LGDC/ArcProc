@@ -71,8 +71,11 @@ class ArcETL(object):
 
     def transform(self, transformation, **kwargs):
         """Run transform operation as defined in the workspace."""
+        ##TODO: Deprecate; then remove operations.py.
         if isinstance(transformation, str):
             transformation = getattr(operations, transformation)
+            LOG.warning("transformation argument as string of function name"
+                        " will be deprecated.")
         # Unless otherwise stated, dataset path is self.transform_path.
         if 'dataset_path' not in kwargs:
             kwargs['dataset_path'] = self.transform_path
