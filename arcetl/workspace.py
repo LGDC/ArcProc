@@ -47,18 +47,19 @@ def build_network(network_path, **kwargs):
     Returns:
         str.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Build network {}.".format(network_path),
-            #pylint: disable=no-member
-            'network_type': arcpy.Describe(network_path).dataType}
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Build network %s.", network_path)
+    #pylint: disable=no-member
+    network_type = arcpy.Describe(network_path).dataType
     #pylint: enable=no-member
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
-    if meta['network_type'] == 'GeometricNetwork':
+    if network_type == 'GeometricNetwork':
         build_function = arcpy.management.RebuildGeometricNetwork
         build_kwargs = {'geometric_network': network_path,
                         # Geometric network build requires logfile output.
                         'out_log': os.path.join(tempfile.gettempdir(), 'log')}
-    elif meta['network_type'] == 'NetworkDataset':
+    elif network_type == 'NetworkDataset':
         helpers.toggle_arc_extension('Network', toggle_on=True)
         build_function = arcpy.na.BuildNetwork
         build_kwargs = {'in_network_dataset': network_path}
@@ -72,7 +73,7 @@ def build_network(network_path, **kwargs):
     helpers.toggle_arc_extension('Network', toggle_off=True)
     if 'out_log' in build_kwargs:
         os.remove(build_kwargs['out_log'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Build.")
     return network_path
 
 
@@ -90,24 +91,23 @@ def compress_geodatabase(geodatabase_path, **kwargs):
     """
     for kwarg_default in [('disconnect_users', False), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'description': "Compress {}.".format(geodatabase_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Compress %s.", geodatabase_path)
     try:
-        meta['workspace_type'] = arcpy.Describe(geodatabase_path).workspaceType
+        workspace_type = arcpy.Describe(geodatabase_path).workspaceType
     except AttributeError:
         raise ValueError(
             "{} not a valid geodatabase.".format(geodatabase_path))
-    if meta['workspace_type'] == 'LocalDatabase':
+    if workspace_type == 'LocalDatabase':
         compress_function = arcpy.management.CompressFileGeodatabaseData
         compress_kwargs = {'in_data': geodatabase_path}
-    elif meta['workspace_type'] == 'RemoteDatabase':
+    elif workspace_type == 'RemoteDatabase':
         compress_function = arcpy.management.Compress
         compress_kwargs = {'in_workspace': geodatabase_path}
     else:
         raise ValueError(
-            "{} not a valid geodatabase type.".format(meta['workspace_type']))
-    if all([meta['workspace_type'] == 'RemoteDatabase',
-            kwargs['disconnect_users']]):
+            "{} not a valid geodatabase type.".format(workspace_type))
+    if all([workspace_type == 'RemoteDatabase', kwargs['disconnect_users']]):
         arcpy.AcceptConnections(
             sde_workspace=geodatabase_path, accept_connections=False)
         arcpy.DisconnectUser(sde_workspace=geodatabase_path, users='all')
@@ -116,11 +116,10 @@ def compress_geodatabase(geodatabase_path, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    if all([meta['workspace_type'] == 'RemoteDatabase',
-            kwargs['disconnect_users']]):
+    if all([workspace_type == 'RemoteDatabase', kwargs['disconnect_users']]):
         arcpy.AcceptConnections(
             sde_workspace=geodatabase_path, accept_connections=True)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Compress.")
     return geodatabase_path
 
 
@@ -145,11 +144,12 @@ def copy_dataset(dataset_path, output_path, **kwargs):
         str.
     """
     # Other kwarg defaults set in the wrapped function.
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Copy {} to {}.".format(dataset_path, output_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Copy %s to %s.", dataset_path, output_path)
     result = arcwrap.copy_dataset(dataset_path, output_path, **kwargs)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Copy.")
     return result
 
 
@@ -171,11 +171,12 @@ def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
         str.
     """
     # Other kwarg defaults set in the wrapped function.
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Create dataset {}.".format(dataset_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Create dataset %s.", dataset_path)
     result = arcwrap.create_dataset(dataset_path, field_metadata_list, **kwargs)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Create.")
     return result
 
 
@@ -197,18 +198,15 @@ def create_file_geodatabase(geodatabase_path, **kwargs):
     for kwarg_default in [('include_xml_data', False), ('log_level', 'info'),
                           ('xml_workspace_path', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Create file geodatabase at {}.".format(
-            geodatabase_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Create file geodatabase %s.", geodatabase_path)
     if os.path.exists(geodatabase_path):
         LOG.warning("Geodatabase already exists.")
         return geodatabase_path
     try:
         arcpy.management.CreateFileGDB(
             out_folder_path=os.path.dirname(geodatabase_path),
-            out_name=os.path.basename(geodatabase_path),
-            out_version='current')
+            out_name=os.path.basename(geodatabase_path), out_version='current')
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
@@ -223,7 +221,7 @@ def create_file_geodatabase(geodatabase_path, **kwargs):
         except arcpy.ExecuteError:
             LOG.exception("ArcPy execution.")
             raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Create.")
     return geodatabase_path
 
 
@@ -244,9 +242,9 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
     for kwarg_default in [('include_data', False), ('include_metadata', True),
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'description': "Create backup {} for {}.".format(geodatabase_path,
-                                                             output_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level,
+            "Start: Create backup of %s at %s.", geodatabase_path, output_path)
     try:
         arcpy.management.ExportXMLWorkspaceDocument(
             in_data=geodatabase_path, out_file=output_path,
@@ -255,7 +253,7 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Create.")
     return output_path
 
 
@@ -273,11 +271,12 @@ def delete_dataset(dataset_path, **kwargs):
         str.
     """
     # Other kwarg defaults set in the wrapped function.
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Delete {}.".format(dataset_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Delete %s.", dataset_path)
     result = arcwrap.delete_dataset(dataset_path)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Delete.")
     return result
 
 
@@ -294,9 +293,10 @@ def execute_sql_statement(statement, database_path, **kwargs):
     Returns:
         str, tuple.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Execute SQL statement."}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Execute SQL statement.")
     conn = arcpy.ArcSDESQLExecute(server=database_path)
     try:
         result = conn.execute(statement)
@@ -305,7 +305,7 @@ def execute_sql_statement(statement, database_path, **kwargs):
         raise
     finally:
         del conn  # Yeah, what can you do?
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Execute.")
     return result
 
 
@@ -325,20 +325,19 @@ def set_dataset_privileges(dataset_path, user_name, allow_view=None,
     Returns:
         str.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {
-        'description': "Set privileges for {} on {}.".format(
-            user_name, dataset_path),
-        'boolean_privilege_map': {
-            True: 'grant', False: 'revoke', None: 'as_is'}}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level,
+            "Start: Set privileges for %s on %s.", user_name, dataset_path)
+    boolean_privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
     try:
         arcpy.management.ChangePrivileges(
             in_dataset=dataset_path, user=user_name,
-            View=meta['boolean_privilege_map'][allow_view],
-            Edit=meta['boolean_privilege_map'][allow_edit])
+            View=boolean_privilege_map[allow_view],
+            Edit=boolean_privilege_map[allow_edit])
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Set.")
     return dataset_path
