@@ -27,21 +27,6 @@ def log_function(function):
     return decorator.decorator(_wrapper)(function)
 
 
-def log_line(line_type, line, level='info'):
-    """Log a line in formatted as expected for the type."""
-    if not level:
-        return
-    if line_type == 'start':
-        getattr(LOG, level)("Start: {}".format(line))
-    elif line_type == 'end':
-        getattr(LOG, level)("End: {}.".format(line.split()[0]))
-    elif line_type == 'feature_count':
-        getattr(LOG, level)("Feature count: {}.".format(line))
-    else:
-        getattr(LOG, level)(line)
-    return
-
-
 def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
                                  fourths=0):
     """Convert sexagesimal-parsed angles to a decimal."""
