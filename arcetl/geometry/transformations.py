@@ -29,26 +29,27 @@ def convert_dataset_to_spatial(dataset_path, output_path, x_field_name,
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('spatial_reference_id', 4326)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Convert {} to spatial dataset.".format(dataset_path),
-        'dataset_view_name': helpers.unique_name('view'),
-        'spatial_reference': (
-            arcpy.SpatialReference(kwargs['spatial_reference_id'])
-            if kwargs.get('spatial_reference_id') else None)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
+            dataset_path, output_path)
+    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    dataset_view_name = helpers.unique_name('view')
     try:
         arcpy.management.MakeXYEventLayer(
-            table=dataset_path, out_layer=meta['dataset_view_name'],
+            table=dataset_path, out_layer=dataset_view_name,
             in_x_field=x_field_name, in_y_field=y_field_name,
             in_z_field=z_field_name,
-            spatial_reference=kwargs['spatial_reference'])
+            spatial_reference=(
+                arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                if kwargs.get('spatial_reference_id') else None))
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    arcwrap.copy_dataset(meta['dataset_view_name'], output_path,
+    arcwrap.copy_dataset(dataset_view_name, output_path,
                          dataset_where_sql=kwargs['dataset_where_sql'])
-    arcwrap.delete_dataset(meta['dataset_view_name'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    arcwrap.delete_dataset(dataset_view_name)
+    LOG.log(log_level, "End: Convert.")
+    LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
 
 
@@ -85,23 +86,25 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
             ('log_level', 'info'), ('tolerance', None),
             ('topological', False)]:
         kwargs.setdefault(*kwarg_default)
-    # Tolerance only applies to topological conversions.
     if not kwargs['topological']:
+        # Tolerance only applies to topological conversions.
         kwargs['tolerance'] = None
-    meta = {
-        'description': "Convert polygon features in {} to lines.".format(
-            dataset_path),
-        'dataset': metadata.dataset_metadata(dataset_path),
-        'dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql'])}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Convert polgyon features in %s to line features in %s.",
+        dataset_path, output_path)
+    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    dataset_meta = metadata.dataset_metadata(dataset_path)
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
     if kwargs['tolerance']:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
     try:
         arcpy.management.PolygonToLine(
-            in_features=meta['dataset_view_name'],
+            in_features=dataset_view_name,
             out_feature_class=output_path,
             neighbor_option=kwargs['topological'])
     except arcpy.ExecuteError:
@@ -109,36 +112,35 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
         raise
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
-    arcwrap.delete_dataset(meta['dataset_view_name'])
+    arcwrap.delete_dataset(dataset_view_name)
     if kwargs['topological']:
-        meta['id_field_metadata'] = metadata.field_metadata(
-            dataset_path, kwargs['id_field_name'])
         for side in ('left', 'right'):
-            meta[side] = dict()
-            meta[side]['oid_field_name'] = '{}_FID'.format(side.upper())
+            side_meta = {'oid_field_name': '{}_FID'.format(side.upper())}
             if kwargs['id_field_name']:
-                meta[side]['id_field'] = meta['id_field_metadata'].copy()
-                meta[side]['id_field']['name'] = '{}_{}'.format(
+                side_meta['id_field'] = metadata.field_metadata(
+                    dataset_path, kwargs['id_field_name'])
+                side_meta['id_field']['name'] = '{}_{}'.format(
                     side, kwargs['id_field_name'])
                 # Cannot create an OID-type field, so force to long.
-                if meta[side]['id_field']['type'].lower() == 'oid':
-                    meta[side]['id_field']['type'] = 'long'
+                if side_meta['id_field']['type'].lower() == 'oid':
+                    side_meta['id_field']['type'] = 'long'
                 fields.add_fields_from_metadata_list(
-                    output_path, metadata_list=[meta[side]['id_field']],
+                    output_path, metadata_list=[side_meta['id_field']],
                     log_level=None)
                 fields.update_field_by_joined_value(
                     dataset_path=output_path,
-                    field_name=meta[side]['id_field']['name'],
+                    field_name=side_meta['id_field']['name'],
                     join_dataset_path=dataset_path,
                     join_field_name=kwargs['id_field_name'],
-                    on_field_pairs=[(meta[side]['oid_field_name'],
-                                     meta['dataset']['oid_field_name'])],
+                    on_field_pairs=[(side_meta['oid_field_name'],
+                                     dataset_meta['oid_field_name'])],
                     log_level=None)
             fields.delete_field(
-                output_path, meta[side]['oid_field_name'], log_level=None)
+                output_path, side_meta['oid_field_name'], log_level=None)
     else:
         fields.delete_field(output_path, 'ORIG_FID', log_level=None)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Convert.")
+    LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
 
 
@@ -165,22 +167,25 @@ def planarize_features(dataset_path, output_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Planarize features in {}.".format(dataset_path),
-        'dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql'])}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level, "Start: Planarize features in %s to line features in %s.",
+        dataset_path, output_path)
+    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
     try:
         arcpy.management.FeatureToLine(
-            in_features=meta['dataset_view_name'],
+            in_features=dataset_view_name,
             out_feature_class=output_path,
             cluster_tolerance=kwargs['tolerance'], attributes=True)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    arcwrap.delete_dataset(meta['dataset_view_name'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    arcwrap.delete_dataset(dataset_view_name)
+    LOG.log(log_level, "End: Planarize.")
+    LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
 
 
@@ -203,13 +208,10 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Project {} to EPSG={}.".format(
-            dataset_path, spatial_reference_id),
-        'dataset': metadata.dataset_metadata(dataset_path),
-        'spatial_reference': (arcpy.SpatialReference(spatial_reference_id)
-                              if spatial_reference_id else None)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Project %s to EPSG=%s in %s.",
+            dataset_path, spatial_reference_id, output_path)
+    dataset_meta = metadata.dataset_metadata(dataset_path)
     # Project tool cannot output to an in-memory workspace (will throw error
     # 000944). Not a bug. Esri's Project documentation (as of v10.4)
     # specifically states: "The in_memory workspace is not supported as a
@@ -218,11 +220,11 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     arcwrap.create_dataset(
         output_path,
         field_metadata_list=[
-            field for field in meta['dataset']['fields']
+            field for field in dataset_meta['fields']
             if field['type'].lower() not in ('geometry ', 'oid')],
-        geometry_type=meta['dataset']['geometry_type'],
+        geometry_type=dataset_meta['geometry_type'],
         spatial_reference_id=spatial_reference_id)
     arcwrap.copy_dataset(dataset_path, output_path,
                          dataset_where_sql=kwargs['dataset_where_sql'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Project.")
     return output_path

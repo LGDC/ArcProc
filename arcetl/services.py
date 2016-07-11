@@ -44,10 +44,10 @@ def generate_token(server_url, username, password, **kwargs):
         post_data['ip'] = kwargs['requestor_ip']
     else:
         post_data['client'] = 'requestip'
-    response = requests.post(url=post_url, data=post_data)
-    response.raise_for_status()
+    token = requests.post(url=post_url, data=post_data).json()['token']
+    LOG.log(log_level, "Token = %s.", token)
     LOG.log(log_level, "End: Generate.")
-    return response.json()['token']
+    return token
 
 
 @helpers.log_function

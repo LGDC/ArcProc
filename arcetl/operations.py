@@ -53,8 +53,9 @@ def write_rows_to_csvfile(rows, output_path, field_names, **kwargs):
     for kwarg_default in [('file_mode', 'wb'), ('header', False),
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    _description = "Write rows iterable to CSV-file {}".format(output_path)
-    helpers.log_line('start', _description, kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Write iterable of row objects to CSVfile %s.",
+            output_path)
     with open(output_path, kwargs['file_mode']) as csvfile:
         for index, row in enumerate(rows):
             if index == 0:
@@ -70,5 +71,6 @@ def write_rows_to_csvfile(rows, output_path, field_names, **kwargs):
                     raise TypeError(
                         "Row objects must be dictionaries or sequences.")
             writer.writerow(row)
-    helpers.log_line('end', _description, kwargs['log_level'])
+    LOG.log(log_level, "End: Write.")
+    LOG.log(log_level, "%s rows.", len(rows))
     return output_path

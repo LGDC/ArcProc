@@ -27,15 +27,14 @@ def features_as_dicts(dataset_path, field_names=None, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=field_names if field_names else '*',
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         for feature in cursor:
             yield dict(zip(cursor.fields, feature))
 
@@ -57,15 +56,14 @@ def features_as_iters(dataset_path, field_names=None, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('iter_type', tuple),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=field_names if field_names else '*',
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         for feature in cursor:
             yield kwargs['iter_type'](feature)
 
@@ -102,21 +100,18 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
             ('dataset_where_sql', None), ('max_near_distance', None),
             ('near_where_sql', None), ('only_closest', False)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql']),
-        'near_dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), near_dataset_path,
-            dataset_where_sql=kwargs['near_where_sql']),
-        'temp_near_path': helpers.unique_temp_dataset_path('near'),
-        'near_field_names': ('in_fid', 'near_fid', 'near_dist', 'near_rank',
-                             'near_angle', 'near_x', 'near_y')}
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
+    near_dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), near_dataset_path,
+        dataset_where_sql=kwargs['near_where_sql'])
+    temp_near_path = helpers.unique_temp_dataset_path('near')
     try:
         arcpy.analysis.GenerateNearTable(
-            in_features=meta['dataset_view_name'],
-            near_features=meta['near_dataset_view_name'],
-            out_table=meta['temp_near_path'],
+            in_features=dataset_view_name,
+            near_features=near_dataset_view_name,
+            out_table=temp_near_path,
             search_radius=kwargs['max_near_distance'],
             location=True,
             angle=True, closest=kwargs['only_closest'],
@@ -125,13 +120,14 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
         LOG.exception("ArcPy execution.")
         raise
     dataset_oid_id_map = oid_field_value_map(
-        meta['dataset_view_name'], dataset_id_field_name)
+        dataset_view_name, dataset_id_field_name)
     near_oid_id_map = oid_field_value_map(
-        meta['near_dataset_view_name'], near_id_field_name)
+        near_dataset_view_name, near_id_field_name)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
-        in_table=meta['temp_near_path'],
-        field_names=meta['near_field_names']) as cursor:
+        in_table=temp_near_path,
+        field_names=['in_fid', 'near_fid', 'near_dist', 'near_rank',
+                     'near_angle', 'near_x', 'near_y']) as cursor:
         #pylint: enable=no-member
         for row in cursor:
             row_info = dict(zip(cursor.fields, row))
@@ -142,9 +138,9 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'angle': row_info['near_angle'],
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
-    arcwrap.delete_dataset(meta['dataset_view_name'])
-    arcwrap.delete_dataset(meta['near_dataset_view_name'])
-    arcwrap.delete_dataset(meta['temp_near_path'])
+    arcwrap.delete_dataset(dataset_view_name)
+    arcwrap.delete_dataset(near_dataset_view_name)
+    arcwrap.delete_dataset(temp_near_path)
 
 
 def oid_field_values(dataset_path, field_name, **kwargs):
@@ -163,15 +159,14 @@ def oid_field_values(dataset_path, field_name, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=['oid@', field_name],
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         for oid, value in cursor:
             yield (oid, value)
 
@@ -192,15 +187,14 @@ def oid_field_value_map(dataset_path, field_name, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=['oid@', field_name],
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         return {oid: value for oid, value in cursor}
 
 
@@ -219,15 +213,14 @@ def oid_geometries(dataset_path, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=['oid@', 'shape@'],
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         for oid, geom in cursor:
             yield (oid, geom)
 
@@ -247,15 +240,14 @@ def oid_geometry_map(dataset_path, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {'spatial_reference': (
-        arcpy.SpatialReference(kwargs['spatial_reference_id'])
-        if kwargs.get('spatial_reference_id') else None)}
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=['oid@', 'shape@'],
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         return {oid: geom for oid, geom in cursor}
 
 
@@ -272,7 +264,7 @@ def sorted_feature_dicts(features, sort_field_names, **kwargs):
         list.
     """
     kwargs.setdefault('sort_reversed_field_names', [])
-    meta = {'features_type': features.__class__}
+    features_type = features.__class__
     # Lists are the only sortable iterable. Convert if not already a list.
     if not isinstance(features, list):
         features = list(features)
@@ -290,8 +282,8 @@ def sorted_feature_dicts(features, sort_field_names, **kwargs):
             sort_kwargs['key'] = operator.itemgetter(name)
         features.sort(**sort_kwargs)
     # Convert features back to original iterable type if necessary.
-    if not isinstance(features, meta['features_type']):
-        return meta['features_type'](features)
+    if not isinstance(features, features_type):
+        return features_type(features)
     else:
         return features
 
@@ -309,7 +301,7 @@ def sorted_feature_iters(features, sort_field_names, **kwargs):
         list.
     """
     kwargs.setdefault('sort_reversed_field_names', [])
-    meta = {'features_type': features.__class__}
+    features_type = features.__class__
     # Lists are the only sortable iterable. Convert if not already a list.
     if not isinstance(features, list):
         features = list(features)
@@ -328,7 +320,7 @@ def sorted_feature_iters(features, sort_field_names, **kwargs):
             sort_kwargs['key'] = operator.itemgetter(idx)
         features.sort(**sort_kwargs)
     # Convert features back to original iterable type if necessary.
-    if not isinstance(features, meta['features_type']):
-        return meta['features_type'](features)
+    if not isinstance(features, features_type):
+        return features_type(features)
     else:
         return features

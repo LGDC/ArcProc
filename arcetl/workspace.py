@@ -92,7 +92,7 @@ def compress_geodatabase(geodatabase_path, **kwargs):
     for kwarg_default in [('disconnect_users', False), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Compress %s.", geodatabase_path)
+    LOG.log(log_level, "Start: Compress geodatabase %s.", geodatabase_path)
     try:
         workspace_type = arcpy.Describe(geodatabase_path).workspaceType
     except AttributeError:
@@ -147,7 +147,8 @@ def copy_dataset(dataset_path, output_path, **kwargs):
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Copy %s to %s.", dataset_path, output_path)
+    LOG.log(
+        log_level, "Start: Copy dataset %s to %s.", dataset_path, output_path)
     result = arcwrap.copy_dataset(dataset_path, output_path, **kwargs)
     LOG.log(log_level, "End: Copy.")
     return result
@@ -243,8 +244,8 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level,
-            "Start: Create backup of %s at %s.", geodatabase_path, output_path)
+    LOG.log(log_level, "Start: Create XML backup of geodatabase %s at %s.",
+            geodatabase_path, output_path)
     try:
         arcpy.management.ExportXMLWorkspaceDocument(
             in_data=geodatabase_path, out_file=output_path,
@@ -274,7 +275,7 @@ def delete_dataset(dataset_path, **kwargs):
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Delete %s.", dataset_path)
+    LOG.log(log_level, "Start: Delete dataset %s.", dataset_path)
     result = arcwrap.delete_dataset(dataset_path)
     LOG.log(log_level, "End: Delete.")
     return result
@@ -328,14 +329,16 @@ def set_dataset_privileges(dataset_path, user_name, allow_view=None,
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level,
-            "Start: Set privileges for %s on %s.", user_name, dataset_path)
-    boolean_privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
+    privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
+    view_arg, edit_arg = privilege_map[allow_view], privilege_map[allow_edit]
+    LOG.log(
+        log_level,
+        "Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
+        dataset_path, user_name, view_arg, edit_arg)
     try:
         arcpy.management.ChangePrivileges(
             in_dataset=dataset_path, user=user_name,
-            View=boolean_privilege_map[allow_view],
-            Edit=boolean_privilege_map[allow_edit])
+            View=view_arg, Edit=edit_arg)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise

@@ -31,11 +31,12 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
         str.
     """
     # Other kwarg defaults set in the wrapped function.
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Add field {}.{}.".format(dataset_path, field_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Add field %s to %s.", field_name, dataset_path)
     result = arcwrap.add_field(dataset_path, field_name, field_type, **kwargs)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Add.")
     return result
 
 
@@ -51,26 +52,24 @@ def add_fields_from_metadata_list(dataset_path, metadata_list, **kwargs):
     Returns:
         list.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {
-        'description': "Add fields to {} from a metadata list.".format(
-            dataset_path),
-        'field_keywords': ['name', 'type', 'length', 'precision', 'scale',
-                           'is_nullable', 'is_required']}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
-    for _metadata in metadata_list:
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level, "Start: Add fields to %s from metadata list.", dataset_path)
+    field_keywords = ['name', 'type', 'length', 'precision', 'scale',
+                      'is_nullable', 'is_required']
+    for field_meta in metadata_list:
         try:
-            field_name = arcwrap.add_field(
-                dataset_path,
-                **{'field_{}'.format(kw): _metadata[kw]
-                   for kw in meta['field_keywords'] if kw in _metadata})
+            add_kwargs = {'field_{}'.format(kw): field_meta[kw]
+                          for kw in field_keywords if kw in field_meta}
+            field_name = arcwrap.add_field(dataset_path, **add_kwargs)
         except arcpy.ExecuteError:
             LOG.exception("ArcPy execution.")
             raise
-        helpers.log_line(
-            'misc', "Added {}.".format(field_name), kwargs['log_level'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
-    return [_metadata['name'] for _metadata in metadata_list]
+        LOG.log(log_level, "Added %s.", field_name)
+    LOG.log(log_level, "End: Add.")
+    return [field_meta['name'] for field_meta in metadata_list]
 
 
 @helpers.log_function
@@ -97,16 +96,14 @@ def add_index(dataset_path, field_names, **kwargs):
             ('is_ascending', False), ('is_unique', False),
             ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Add index for {}.{}.".format(
-            dataset_path, field_names),
-        'index_types': {
-            field['type'].lower() for field
-            in metadata.dataset_metadata(dataset_path)['fields']
-            if field['name'].lower() in (name.lower() for name in field_names)}
-        }
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
-    if 'geometry' in meta['index_types']:
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Add index on field(s) %s on %s.",
+            field_names, dataset_path)
+    dataset_meta = metadata.dataset_metadata(dataset_path)
+    index_types = {
+        field['type'].lower() for field in dataset_meta['fields']
+        if field['name'].lower() in (name.lower() for name in field_names)}
+    if 'geometry' in index_types:
         if len(field_names) > 1:
             raise RuntimeError("Cannot create a composite spatial index.")
         add_function = arcpy.management.AddSpatialIndex
@@ -122,7 +119,7 @@ def add_index(dataset_path, field_names, **kwargs):
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Add.")
     return dataset_path
 
 
@@ -138,16 +135,18 @@ def delete_field(dataset_path, field_name, **kwargs):
     Returns:
         str.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Delete field {}.".format(field_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level, "Start: Delete field %s on %s.", field_name, dataset_path)
     try:
         arcpy.management.DeleteField(
             in_table=dataset_path, drop_field=field_name)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Delete.")
     return field_name
 
 
@@ -169,23 +168,21 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     for kwarg_default in [('dataset_where_sql', None),
                           ('duplicate_values', False), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Duplicate {}.{} as {}.".format(
-            dataset_path, field_name, new_field_name),
-        'field': metadata.field_metadata(dataset_path, field_name)}
-    meta['field']['name'] = new_field_name
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
+            field_name, new_field_name, dataset_path)
+    field_meta = metadata.field_metadata(dataset_path, field_name)
+    field_meta['name'] = new_field_name
     # Cannot add OID-type field, so push to a long-type.
-    if meta['field']['type'].lower() == 'oid':
-        meta['field']['type'] = 'long'
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
-    add_fields_from_metadata_list(
-        dataset_path, [meta['field']], log_level=None)
+    if field_meta['type'].lower() == 'oid':
+        field_meta['type'] = 'long'
+    add_fields_from_metadata_list(dataset_path, [field_meta], log_level=None)
     if kwargs['duplicate_values']:
         update_field_by_function(
-            dataset_path, meta['field']['name'], function=(lambda x: x),
+            dataset_path, field_meta['name'], function=(lambda x: x),
             field_as_first_arg=False, arg_field_names=[field_name],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Duplicate.")
     return new_field_name
 
 
@@ -205,10 +202,11 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     Returns:
         str.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {'description': "Join field {} from {}.".format(join_field_name,
-                                                           join_dataset_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Join field %s on %s from %s.",
+            join_field_name, dataset_path, join_dataset_path)
     try:
         arcpy.management.JoinField(
             in_data=dataset_path, in_field=on_field_name,
@@ -217,7 +215,7 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Join.")
     return join_field_name
 
 
@@ -234,18 +232,18 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     Returns:
         str.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {
-        'description': "Rename field {}.{} to {}.".format(
-            dataset_path, field_name, new_field_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Rename field %s to %s on %s.",
+            field_name, new_field_name, dataset_path)
     try:
         arcpy.management.AlterField(in_table=dataset_path, field=field_name,
                                     new_field_name=new_field_name)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Rename.")
     return new_field_name
 
 
@@ -268,18 +266,19 @@ def update_field_by_domain_code(dataset_path, field_name, code_field_name,
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description':
-            "Update field {} using domain {} referenced in {}.".format(
-                field_name, domain_name, code_field_name),
-        'domain': metadata.domain_metadata(domain_name, domain_workspace_path)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Update field %s on %s using domain %s.%s coded in field %s.",
+        field_name, dataset_path, domain_workspace_path, domain_name,
+        code_field_name)
+    domain_meta = metadata.domain_metadata(domain_name, domain_workspace_path)
     update_field_by_function(
         dataset_path, field_name,
-        function=meta['domain']['code_description_map'].get,
+        function=domain_meta['code_description_map'].get,
         field_as_first_arg=False, arg_field_names=[code_field_name],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -299,22 +298,21 @@ def update_field_by_expression(dataset_path, field_name, expression, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Update field {} using the expression <{}>.".format(
-            field_name, expression),
-        'dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql'])}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Update field %s on %s using expression <%s>.",
+            field_name, dataset_path, expression)
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
     try:
         arcpy.management.CalculateField(
-            in_table=meta['dataset_view_name'], field=field_name,
+            in_table=dataset_view_name, field=field_name,
             expression=expression, expression_type='python_9.3')
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    arcwrap.delete_dataset(meta['dataset_view_name'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    arcwrap.delete_dataset(dataset_view_name)
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -346,17 +344,17 @@ def update_field_by_feature_match(dataset_path, field_name,
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('flag_value', None),
-                          ('log_level', 'info'), ('sort_field_names', None)]:
-        kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Update field {} using feature-matching {}.".format(
-            field_name, update_type)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
-    ##valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
+    # for kwarg_default in [('dataset_where_sql', None), ('flag_value', None),
+    #                       ('log_level', 'info'), ('sort_field_names', None)]:
+    #     kwargs.setdefault(*kwarg_default)
+    # log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    # LOG.log(
+    #     log_level, "Start: Update field %s on %s using feature-matching %s.",
+    #     field_name, dataset_path, update_type)
+    # valid_update_value_types = ['flag-value', 'match-count', 'sort-order']
     raise NotImplementedError
-    ##helpers.log_line('end', meta['description'], kwargs['log_level'])
-    ##return field_name
+    # LOG.log(log_level, "End: Update.")
+    # return field_name
 
 
 @helpers.log_function
@@ -391,10 +389,9 @@ def update_field_by_function(dataset_path, field_name, function, **kwargs):
             ('field_as_first_arg', True), ('kwarg_field_names', []),
             ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Update field {} using function {}.".format(
-            field_name, function.__name__)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Update field %s on %s using function %s.",
+            field_name, dataset_path, function)
     #pylint: disable=no-member
     with arcpy.da.UpdateCursor(
         #pylint: enable=no-member
@@ -411,7 +408,7 @@ def update_field_by_function(dataset_path, field_name, function, **kwargs):
             new_value = function(*args, **_kwargs)
             if row[0] != new_value:
                 cursor.updateRow([new_value] + list(row[1:]))
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -439,14 +436,13 @@ def update_field_by_geometry(dataset_path, field_name,
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description':
-            "Update field {} using a geometry properties {}.".format(
-                field_name, geometry_property_cascade),
-        'spatial_reference': (
-            arcpy.SpatialReference(kwargs['spatial_reference_id'])
-            if kwargs.get('spatial_reference_id') else None)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Update field %s on %s using geometry properties %s.",
+        field_name, dataset_path, geometry_property_cascade)
+    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
+                         if kwargs.get('spatial_reference_id') else None)
     property_as_cascade = {
         'area': ['area'],
         'centroid': ['centroid'],
@@ -460,14 +456,13 @@ def update_field_by_geometry(dataset_path, field_name,
         'y-minimum': ['extent', 'YMin'], 'ymin': ['extent', 'YMin'],
         'z-coordinate': ['Z'], 'z': ['Z'],
         'z-maximum': ['extent', 'ZMax'], 'zmax': ['extent', 'ZMax'],
-        'z-minimum': ['extent', 'ZMin'], 'zmin': ['extent', 'ZMin'],
-        }
+        'z-minimum': ['extent', 'ZMin'], 'zmin': ['extent', 'ZMin']}
     #pylint: disable=no-member
     with arcpy.da.UpdateCursor(
         #pylint: enable=no-member
         in_table=dataset_path, field_names=[field_name, 'shape@'],
         where_clause=kwargs.get('dataset_where_sql'),
-        spatial_reference=meta['spatial_reference']) as cursor:
+        spatial_reference=spatial_reference) as cursor:
         for field_value, geometry in cursor:
             if geometry is None:
                 new_value = None
@@ -475,13 +470,12 @@ def update_field_by_geometry(dataset_path, field_name,
                 new_value = geometry
                 # Cascade down the geometry properties.
                 for _property in geometry_property_cascade:
-                    ##_property = _property.lower()
                     for sub_property in property_as_cascade.get(
                             _property.lower(), [_property]):
                         new_value = getattr(new_value, sub_property)
             if new_value != field_value:
                 cursor.updateRow((new_value, geometry))
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -514,10 +508,11 @@ def update_field_by_instance_method(dataset_path, field_name, instance_class,
             ('field_as_first_arg', True), ('kwarg_field_names', []),
             ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Update field {} using instance method {}().{}.".format(
-            field_name, instance_class.__name__, method_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Update field %s on %s using method %s of instanced %s.",
+        field_name, dataset_path, method_name, instance_class)
     update_field_by_function(
         dataset_path, field_name,
         function=getattr(instance_class(), method_name),
@@ -525,7 +520,7 @@ def update_field_by_instance_method(dataset_path, field_name, instance_class,
         arg_field_names=kwargs['arg_field_names'],
         kwarg_field_names=kwargs['kwarg_field_names'],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -549,11 +544,10 @@ def update_field_by_joined_value(dataset_path, field_name, join_dataset_path,
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description':
-            "Update field {} with joined values from {}.{}>.".format(
-                field_name, join_dataset_path, join_field_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level, "Start: Update field %s on %s using joined field %s on %s.",
+        field_name, dataset_path, join_field_name, join_dataset_path)
     # Build join-reference.
     join_value_map = {
         tuple(feature[1:]): feature[0]
@@ -570,7 +564,7 @@ def update_field_by_joined_value(dataset_path, field_name, join_dataset_path,
             new_value = join_value_map.get(tuple(row[1:]))
             if row[0] != new_value:
                 cursor.updateRow([new_value] + list(row[1:]))
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -609,35 +603,31 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
             ('replacement_value', None), ('x_coordinate_field_name', None),
             ('y_coordinate_field_name', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Update field {} using near-values {}.{}.".format(
-            field_name, near_dataset_path, near_field_name),
-        'dataset': metadata.dataset_metadata(dataset_path),
-        'dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql']),
-        'temp_near_path': helpers.unique_temp_dataset_path('near'),
-        'temp_output_path': helpers.unique_temp_dataset_path('output'),
-        'update_function': (
-            (lambda x: kwargs['replacement_value'] if x else None)
-            if kwargs['replacement_value'] is not None
-            else (lambda x: x))}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Update field %s on %s using field %s on near-features %s.",
+        field_name, dataset_path, near_field_name, near_dataset_path)
+    dataset_meta = metadata.dataset_metadata(dataset_path)
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
     # Create a temporary copy of near dataset.
-    arcwrap.copy_dataset(near_dataset_path, meta['temp_near_path'])
-    meta['temp_near_dataset'] = metadata.dataset_metadata(
-        meta['temp_near_path'])
+    temp_near_path = arcwrap.copy_dataset(
+        near_dataset_path, helpers.unique_temp_dataset_path('near'))
     # Avoid field name collisions with neutral holding field.
-    meta['temp_near_field_name'] = duplicate_field(
-        meta['temp_near_path'], near_field_name,
+    temp_near_field_name = duplicate_field(
+        temp_near_path, near_field_name,
         new_field_name=helpers.unique_name(near_field_name),
         duplicate_values=True, log_level=None)
+    temp_near_dataset_meta = metadata.dataset_metadata(temp_near_path)
     # Create the temp output of the near features.
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     try:
         arcpy.analysis.GenerateNearTable(
-            in_features=meta['dataset_view_name'],
-            near_features=meta['temp_near_path'],
-            out_table=meta['temp_output_path'],
+            in_features=dataset_view_name,
+            near_features=temp_near_path,
+            out_table=temp_output_path,
             search_radius=kwargs['max_search_distance'],
             location=any([kwargs['x_coordinate_field_name'],
                           kwargs['y_coordinate_field_name']]),
@@ -648,29 +638,31 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
-    arcwrap.delete_dataset(meta['dataset_view_name'])
+    arcwrap.delete_dataset(dataset_view_name)
     # Remove near rows not matching chosen rank.
     arcwrap.delete_features(
-        dataset_path=meta['temp_output_path'],
+        dataset_path=temp_output_path,
         dataset_where_sql="near_rank <> {}".format(kwargs['near_rank']))
     # Join ID values to the near output & rename facility_geofeature_id.
     join_field(
-        dataset_path=meta['temp_output_path'],
-        join_dataset_path=meta['temp_near_path'],
-        join_field_name=meta['temp_near_field_name'], on_field_name='near_fid',
-        on_join_field_name=meta['temp_near_dataset']['oid_field_name'],
+        dataset_path=temp_output_path, join_dataset_path=temp_near_path,
+        join_field_name=temp_near_field_name, on_field_name='near_fid',
+        on_join_field_name=temp_near_dataset_meta['oid_field_name'],
         log_level=None)
-    arcwrap.delete_dataset(meta['temp_near_path'])
+    arcwrap.delete_dataset(temp_near_path)
     # Add update field to output.
     add_fields_from_metadata_list(
-        dataset_path=meta['temp_output_path'],
+        dataset_path=temp_output_path,
         metadata_list=[metadata.field_metadata(dataset_path, field_name)],
         log_level=None)
     # Push overlay (or replacement) value from temp to update field.
     update_field_by_function(
-        meta['temp_output_path'], field_name, meta['update_function'],
+        temp_output_path, field_name,
+        function=(
+            (lambda x: kwargs['replacement_value'] if x else None)
+            if kwargs['replacement_value'] is not None else (lambda x: x)),
         field_as_first_arg=False,
-        arg_field_names=[meta['temp_near_field_name']], log_level=None)
+        arg_field_names=[temp_near_field_name], log_level=None)
     # Update values in original dataset.
     field_join_map = {field_name: field_name}
     for keyword, join_name in [
@@ -683,11 +675,11 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     for _name, join_name in field_join_map.items():
         update_field_by_joined_value(
             dataset_path, field_name=_name, join_field_name=join_name,
-            join_dataset_path=meta['temp_output_path'],
-            on_field_pairs=[(meta['dataset']['oid_field_name'], 'in_fid')],
+            join_dataset_path=temp_output_path,
+            on_field_pairs=[(dataset_meta['oid_field_name'], 'in_fid')],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    arcwrap.delete_dataset(meta['temp_output_path'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    arcwrap.delete_dataset(temp_output_path)
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -702,7 +694,7 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
     feature's value.
 
     Please note that only one overlay flag at a time can be used (e.g.
-    overlay_most_coincident, overlay_central_coincident). If mutliple are
+    overlay_most_coincident, overlay_central_coincident). If multiple are
     set to True, the first one referenced in the code will be used. If no
     overlay flags are set, the operation will perform a basic intersection
     check, and the result will be at the whim of the geoprocessing
@@ -733,16 +725,15 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
             ('overlay_central_coincident', False), ('overlay_where_sql', None),
             ('replacement_value', None), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    meta = {
-        'description': "Update field {} using overlay values {}.{}.".format(
-            field_name, overlay_dataset_path, overlay_field_name),
-        'dataset': metadata.dataset_metadata(dataset_path),
-        'dataset_view_name': arcwrap.create_dataset_view(
-            helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql']),
-        'temp_overlay_path': helpers.unique_temp_dataset_path('overlay'),
-        'temp_output_path': helpers.unique_temp_dataset_path('output')}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Update field %s on %s using field %s on overlay-features %s.",
+        field_name, dataset_path, overlay_field_name, overlay_dataset_path)
+    dataset_meta = metadata.dataset_metadata(dataset_path)
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
     # Check flags & set details for spatial join call.
     if kwargs['overlay_most_coincident']:
         raise NotImplementedError(
@@ -756,46 +747,47 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
                        'join_type': 'keep_all',
                        'match_option': 'intersect'}
     # Create temporary copy of overlay dataset.
-    arcwrap.copy_dataset(overlay_dataset_path, meta['temp_overlay_path'],
-                         dataset_where_sql=kwargs['overlay_where_sql'])
+    temp_overlay_path = arcwrap.copy_dataset(
+        overlay_dataset_path, helpers.unique_temp_dataset_path('overlay'),
+        dataset_where_sql=kwargs['overlay_where_sql'])
     # Avoid field name collisions with neutral holding field.
-    meta['temp_overlay_field_name'] = duplicate_field(
-        meta['temp_overlay_path'], overlay_field_name,
+    temp_overlay_field_name = duplicate_field(
+        temp_overlay_path, overlay_field_name,
         new_field_name=helpers.unique_name(overlay_field_name),
         duplicate_values=True, log_level=None)
     # Create temp output of the overlay.
     if kwargs['tolerance']:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     try:
         arcpy.analysis.SpatialJoin(
-            target_features=meta['dataset_view_name'],
-            join_features=meta['temp_overlay_path'],
-            out_feature_class=meta['temp_output_path'], **join_kwargs)
+            target_features=dataset_view_name,
+            join_features=temp_overlay_path,
+            out_feature_class=temp_output_path, **join_kwargs)
     except arcpy.ExecuteError:
         LOG.exception("ArcPy execution.")
         raise
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
-    arcwrap.delete_dataset(meta['dataset_view_name'])
-    arcwrap.delete_dataset(meta['temp_overlay_path'])
+    arcwrap.delete_dataset(dataset_view_name)
+    arcwrap.delete_dataset(temp_overlay_path)
     # Push overlay (or replacement) value from temp to update field.
     if kwargs['replacement_value'] is not None:
-        update_function = lambda x: kwargs['replacement_value'] if x else None
+        function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
-        update_function = lambda x: x
+        function = (lambda x: x)
     update_field_by_function(
-        meta['temp_output_path'], field_name, function=update_function,
-        field_as_first_arg=False,
-        arg_field_names=[meta['temp_overlay_field_name']], log_level=None)
+        temp_output_path, field_name, function, field_as_first_arg=False,
+        arg_field_names=[temp_overlay_field_name], log_level=None)
     # Update values in original dataset.
     update_field_by_joined_value(
         dataset_path, field_name,
-        join_dataset_path=meta['temp_output_path'], join_field_name=field_name,
-        on_field_pairs=[(meta['dataset']['oid_field_name'], 'target_fid')],
+        join_dataset_path=temp_output_path, join_field_name=field_name,
+        on_field_pairs=[(dataset_meta['oid_field_name'], 'target_fid')],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
-    arcwrap.delete_dataset(meta['temp_output_path'])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    arcwrap.delete_dataset(temp_output_path)
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -812,15 +804,15 @@ def update_field_by_unique_id(dataset_path, field_name, **kwargs):
     Returns:
         str.
     """
-    kwargs.setdefault('dataset_where_sql', None)
-    kwargs.setdefault('log_level', 'info')
-    meta = {
-        'description': "Update field {} using unique IDs.".format(field_name),
-        'field': metadata.field_metadata(dataset_path, field_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Update field %s on %s using unique IDs.",
+            field_name, dataset_path)
+    field_meta = metadata.field_metadata(dataset_path, field_name)
     unique_id_pool = helpers.unique_ids(
-        data_type=arcobj.FIELD_TYPE_AS_PYTHON[meta['field']['type']],
-        string_length=meta['field'].get('length', 16))
+        data_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['type']],
+        string_length=field_meta.get('length', 16))
     #pylint: disable=no-member
     with arcpy.da.UpdateCursor(
         #pylint: enable=no-member
@@ -828,7 +820,7 @@ def update_field_by_unique_id(dataset_path, field_name, **kwargs):
         where_clause=kwargs['dataset_where_sql']) as cursor:
         for _ in cursor:
             cursor.updateRow([next(unique_id_pool)])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -848,21 +840,21 @@ def update_geometry_node_id_fields(dataset_path, from_id_field_name,
     Returns:
         str.
     """
-    kwargs.setdefault('log_level', 'info')
-    meta = {
-        'description':
-            "Update node ID fields {} & {} using feature geometry.".format(
-                from_id_field_name, to_id_field_name),
-        'field': metadata.field_metadata(dataset_path, from_id_field_name)}
-    helpers.log_line('start', meta['description'], kwargs['log_level'])
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(
+        log_level,
+        "Start: Update node ID field %s & %s on %s using feature geometry.",
+        from_id_field_name, to_id_field_name, dataset_path)
+    field_meta = metadata.field_metadata(dataset_path, from_id_field_name)
     used_ids = set(
         list(values.features_as_iters(dataset_path, [from_id_field_name]))
         + list(values.features_as_iters(dataset_path, [to_id_field_name])))
-    # Generator for open node IDs.
     open_node_ids = (
         i for i in helpers.unique_ids(
-            arcobj.FIELD_TYPE_AS_PYTHON[meta['field']['type']],
-            meta['field']['length'])
+            data_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['type']],
+            string_length=field_meta['length'])
         if i not in used_ids)
     # Build node XY mapping.
     oid_fid_tid_geoms = values.features_as_iters(
@@ -941,5 +933,5 @@ def update_geometry_node_id_fields(dataset_path, from_id_field_name,
             if any([old_fnode_id != new_fnode_id,
                     old_tnode_id != new_tnode_id]):
                 cursor.updateRow([oid, new_fnode_id, new_tnode_id])
-    helpers.log_line('end', meta['description'], kwargs['log_level'])
+    LOG.log(log_level, "End: Update.")
     return (from_id_field_name, to_id_field_name)
