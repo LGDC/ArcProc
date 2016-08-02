@@ -1,3 +1,4 @@
 arcpy
 decorator
+funcsigs
 requests
