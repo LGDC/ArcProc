@@ -69,9 +69,9 @@ def copy_dataset(dataset_path, output_path, **kwargs):
         str.
     """
     for kwarg_default in [
-            ('dataset_where_sql', None), ('log_level', 'info'),
-            ('overwrite', False), ('schema_only', False),
-            ('sort_field_names', []), ('sort_reversed_field_names', [])]:
+            ('dataset_where_sql', None), ('overwrite', False),
+            ('schema_only', False), ('sort_field_names', []),
+            ('sort_reversed_field_names', [])]:
         kwargs.setdefault(*kwarg_default)
     dataset_meta = arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
     dataset_view_name = create_dataset_view(
