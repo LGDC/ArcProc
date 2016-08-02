@@ -4,7 +4,7 @@ import logging
 
 import funcsigs
 
-from . import helpers, metadata, operations
+from . import arcwrap, helpers, metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -30,18 +30,17 @@ class ArcETL(object):
         # Clear the transform dataset.
         if all([self.transform_path,
                 metadata.is_valid_dataset(self.transform_path)]):
-            operations.delete_dataset(self.transform_path, log_level=None)
+            arcwrap.delete_dataset(self.transform_path)
             self.transform_path = None
         LOG.info("Closed.")
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
         LOG.info("Start: Extract %s.", extract_path)
-        self.transform_path = operations.copy_dataset(
+        self.transform_path = arcwrap.copy_dataset(
             dataset_path=extract_path,
             output_path=helpers.unique_temp_dataset_path('extract'),
-            dataset_where_sql=extract_where_sql, schema_only=schema_only,
-            log_level=None)
+            dataset_where_sql=extract_where_sql, schema_only=schema_only)
         LOG.info("End: Extract.")
         return self.transform_path
 
@@ -52,16 +51,16 @@ class ArcETL(object):
             # Load to an existing dataset.
             # Unless preserving features, initialize target dataset.
             if not preserve_features:
-                operations.delete_features(load_path, log_level=None)
-            operations.insert_features_from_path(
+                arcwrap.delete_features(load_path)
+            arcwrap.insert_features_from_path(
                 dataset_path=load_path,
                 insert_dataset_path=self.transform_path,
-                insert_where_sql=load_where_sql, log_level=None)
+                insert_where_sql=load_where_sql)
         else:
             # Load to a new dataset.
-            operations.copy_dataset(
+            arcwrap.copy_dataset(
                 dataset_path=self.transform_path, output_path=load_path,
-                dataset_where_sql=load_where_sql, log_level=None)
+                dataset_where_sql=load_where_sql)
         LOG.info("End: Load.")
         return load_path
 
@@ -71,11 +70,6 @@ class ArcETL(object):
 
     def transform(self, transformation, **kwargs):
         """Run transform operation as defined in the workspace."""
-        ##TODO: Deprecate; then remove operations.py.
-        if isinstance(transformation, str):
-            transformation = getattr(operations, transformation)
-            LOG.warning("transformation argument as string of function name"
-                        " will be deprecated.")
         # Unless otherwise stated, dataset path is self.transform_path.
         if 'dataset_path' not in kwargs:
             kwargs['dataset_path'] = self.transform_path
@@ -89,6 +83,6 @@ class ArcETL(object):
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
             if metadata.is_valid_dataset(self.transform_path):
-                operations.delete_dataset(self.transform_path, log_level=None)
+                arcwrap.delete_dataset(self.transform_path)
             self.transform_path = result
         return result

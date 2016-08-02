@@ -25,7 +25,6 @@ from .helpers import (sexagesimal_angle_to_decimal, unique_ids, unique_name,
 from .metadata import (
     dataset_metadata, domain_metadata, feature_count, field_metadata,
     is_valid_dataset, workspace_dataset_names)
-from .operations import write_rows_to_csvfile
 from .services import generate_token, toggle_service
 from .values import (
     features_as_dicts, features_as_iters, near_features_as_dicts,
@@ -34,7 +33,8 @@ from .values import (
 from .workspace import (
     build_locator, build_network, compress_geodatabase, copy_dataset,
     create_dataset, create_file_geodatabase, create_geodatabase_xml_backup,
-    delete_dataset, execute_sql_statement, set_dataset_privileges)
+    delete_dataset, execute_sql_statement, set_dataset_privileges,
+    write_rows_to_csvfile)
 
 
 __version__ = '1.0'
