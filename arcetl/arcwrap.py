@@ -245,3 +245,62 @@ def delete_features(dataset_path, **kwargs):
             raise
     delete_dataset(dataset_view_name)
     return dataset_path
+
+
+def insert_features_from_path(dataset_path, insert_dataset_path,
+                              field_names=None, **kwargs):
+    """Insert features from a dataset referred to by a system path.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        insert_dataset_path (str): Path of insert-dataset.
+        field_names (iter): Iterable of field names to insert.
+    Kwargs:
+        insert_where_sql (str): SQL where-clause for insert-dataset
+            subselection.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('insert_where_sql', None)]:
+        kwargs.setdefault(*kwarg_default)
+    dataset_meta = arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
+    insert_dataset_meta = arcobj.dataset_as_metadata(
+        arcpy.Describe(insert_dataset_path))
+    insert_dataset_view_name = create_dataset_view(
+        helpers.unique_name('view'), insert_dataset_path,
+        dataset_where_sql=kwargs['insert_where_sql'],
+        # Insert view must be nonspatial to append to nonspatial table.
+        force_nonspatial=(not dataset_meta['is_spatial']))
+    # Create field maps.
+    # Added because ArcGIS Pro's no-test append is case-sensitive (verified
+    # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
+    # Append tool does not auto-map to the same field name if naming
+    # convention differs.
+    if field_names:
+        field_names = [name.lower() for name in field_names]
+    else:
+        field_names = [
+            field['name'].lower() for field in dataset_meta['fields']]
+    insert_field_names = [
+        field['name'].lower() for field in insert_dataset_meta['fields']]
+    # Append takes care of geometry & OIDs independent of the field maps.
+    for field_name_type in ('geometry_field_name', 'oid_field_name'):
+        if dataset_meta.get(field_name_type):
+            field_names.remove(dataset_meta[field_name_type].lower())
+            insert_field_names.remove(
+                insert_dataset_meta[field_name_type].lower())
+    field_maps = arcpy.FieldMappings()
+    for field_name in field_names:
+        if field_name in insert_field_names:
+            field_map = arcpy.FieldMap()
+            field_map.addInputField(insert_dataset_path, field_name)
+            field_maps.addFieldMap(field_map)
+    try:
+        arcpy.management.Append(
+            inputs=insert_dataset_view_name, target=dataset_path,
+            schema_type='no_test', field_mapping=field_maps)
+    except arcpy.ExecuteError:
+        LOG.exception("ArcPy execution.")
+        raise
+    arcpy.management.Delete(insert_dataset_view_name)
+    return dataset_path
