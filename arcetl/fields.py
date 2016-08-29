@@ -60,13 +60,9 @@ def add_fields_from_metadata_list(dataset_path, metadata_list, **kwargs):
     field_keywords = ['name', 'type', 'length', 'precision', 'scale',
                       'is_nullable', 'is_required']
     for field_meta in metadata_list:
-        try:
-            add_kwargs = {'field_{}'.format(kw): field_meta[kw]
-                          for kw in field_keywords if kw in field_meta}
-            field_name = arcwrap.add_field(dataset_path, **add_kwargs)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
+        add_kwargs = {'field_{}'.format(kw): field_meta[kw]
+                      for kw in field_keywords if kw in field_meta}
+        field_name = arcwrap.add_field(dataset_path, **add_kwargs)
         LOG.log(log_level, "Added %s.", field_name)
     LOG.log(log_level, "End: Add.")
     return [field_meta['name'] for field_meta in metadata_list]
@@ -94,6 +90,7 @@ def add_index(dataset_path, field_names, **kwargs):
         str.
     """
     for kwarg_default in [
+            ('fail_on_lock_ok', False),
             ('index_name', '_'.join(['ndx'] + field_names)),
             ('is_ascending', False), ('is_unique', False),
             ('log_level', 'info')]:
@@ -145,12 +142,7 @@ def delete_field(dataset_path, field_name, **kwargs):
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(
         log_level, "Start: Delete field %s on %s.", field_name, dataset_path)
-    try:
-        arcpy.management.DeleteField(
-            in_table=dataset_path, drop_field=field_name)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
     LOG.log(log_level, "End: Delete.")
     return field_name
 
@@ -212,14 +204,10 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Join field %s on %s from %s.",
             join_field_name, dataset_path, join_dataset_path)
-    try:
-        arcpy.management.JoinField(
-            in_data=dataset_path, in_field=on_field_name,
-            join_table=join_dataset_path, join_field=on_join_field_name,
-            fields=join_field_name)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.JoinField(
+        in_data=dataset_path, in_field=on_field_name,
+        join_table=join_dataset_path, join_field=on_join_field_name,
+        fields=join_field_name)
     LOG.log(log_level, "End: Join.")
     return join_field_name
 
@@ -242,12 +230,8 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Rename field %s to %s on %s.",
             field_name, new_field_name, dataset_path)
-    try:
-        arcpy.management.AlterField(in_table=dataset_path, field=field_name,
-                                    new_field_name=new_field_name)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.AlterField(
+        in_table=dataset_path, field=field_name, new_field_name=new_field_name)
     LOG.log(log_level, "End: Rename.")
     return new_field_name
 
@@ -309,13 +293,9 @@ def update_field_by_expression(dataset_path, field_name, expression, **kwargs):
     dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
-    try:
-        arcpy.management.CalculateField(
-            in_table=dataset_view_name, field=field_name,
-            expression=expression, expression_type='python_9.3')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.CalculateField(
+        in_table=dataset_view_name, field=field_name,
+        expression=expression, expression_type='python_9.3')
     arcwrap.delete_dataset(dataset_view_name)
     LOG.log(log_level, "End: Update.")
     return field_name
@@ -365,13 +345,6 @@ def update_field_by_feature_match(dataset_path, field_name,
 @helpers.log_function
 def update_field_by_function(dataset_path, field_name, function, **kwargs):
     """Update field values by passing them to a function.
-
-    field_as_first_arg flag indicates that the function will consume the
-    field's value as the first argument.
-    arg_field_names indicate fields whose values will be positional
-    arguments passed to the function.
-    kwarg_field_names indicate fields who values will be passed as keyword
-    arguments (field name as key).
 
     Args:
         dataset_path (str): Path of dataset.
@@ -628,21 +601,17 @@ def update_field_by_near_feature(dataset_path, field_name, near_dataset_path,
     temp_near_dataset_meta = metadata.dataset_metadata(temp_near_path)
     # Create the temp output of the near features.
     temp_output_path = helpers.unique_temp_dataset_path('output')
-    try:
-        arcpy.analysis.GenerateNearTable(
-            in_features=dataset_view_name,
-            near_features=temp_near_path,
-            out_table=temp_output_path,
-            search_radius=kwargs['max_search_distance'],
-            location=any([kwargs['x_coordinate_field_name'],
-                          kwargs['y_coordinate_field_name']]),
-            angle=any([kwargs['angle_field_name']]),
-            closest='all', closest_count=kwargs['near_rank'],
-            # Would prefer geodesic, but that forces XY values to lon-lat.
-            method='planar')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.analysis.GenerateNearTable(
+        in_features=dataset_view_name,
+        near_features=temp_near_path,
+        out_table=temp_output_path,
+        search_radius=kwargs['max_search_distance'],
+        location=any([kwargs['x_coordinate_field_name'],
+                      kwargs['y_coordinate_field_name']]),
+        angle=any([kwargs['angle_field_name']]),
+        closest='all', closest_count=kwargs['near_rank'],
+        # Would prefer geodesic, but that forces XY values to lon-lat.
+        method='planar')
     arcwrap.delete_dataset(dataset_view_name)
     # Remove near rows not matching chosen rank.
     arcwrap.delete_features(
@@ -765,14 +734,10 @@ def update_field_by_overlay(dataset_path, field_name, overlay_dataset_path,
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
     temp_output_path = helpers.unique_temp_dataset_path('output')
-    try:
-        arcpy.analysis.SpatialJoin(
-            target_features=dataset_view_name,
-            join_features=temp_overlay_path,
-            out_feature_class=temp_output_path, **join_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.analysis.SpatialJoin(
+        target_features=dataset_view_name,
+        join_features=temp_overlay_path,
+        out_feature_class=temp_output_path, **join_kwargs)
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
     arcwrap.delete_dataset(dataset_view_name)
@@ -890,7 +855,7 @@ def update_geometry_node_id_fields(dataset_path, from_id_field_name,
     # Pivot node_xy_map into a node ID map.
     node_id_map = {}
     # {node_id: {'node_xy': tuple(), 'feature_count': int()}}
-    for new_xy in node_xy_map.keys():
+    for new_xy in node_xy_map:
         new_node_id = node_xy_map[new_xy]['node_id']
         new_feature_count = len(
             node_xy_map[new_xy]['f_oids'].union(
