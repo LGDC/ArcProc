@@ -84,6 +84,8 @@ def add_index(dataset_path, field_names, **kwargs):
         dataset_path (str): Path of dataset.
         field_names (iter): Iterable of field names.
     Kwargs:
+        fail_on_lock_ok (bool): Flag indicating success even if dataset locks
+            prevent adding index.
         index_name (str): Optional name for index.
         is_ascending (bool): Flag indicating index built in ascending order.
         is_unique (bool): Flag indicating index built with unique constraint.
@@ -116,9 +118,12 @@ def add_index(dataset_path, field_names, **kwargs):
             'unique': kwargs['is_unique'], 'ascending': kwargs['is_ascending']}
     try:
         add_function(**add_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    except arcpy.ExecuteError as error:
+        if all([kwargs['fail_on_lock_ok'],
+                error.message.startswith('ERROR 000464')]):
+            LOG.warning("Lock on %s prevents adding index.")
+        else:
+            raise
     LOG.log(log_level, "End: Add.")
     return dataset_path
 
