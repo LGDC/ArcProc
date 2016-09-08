@@ -29,11 +29,7 @@ def build_locator(locator_path, **kwargs):
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Build locator %s.", locator_path)
-    try:
-        arcpy.geocoding.RebuildAddressLocator(locator_path)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.geocoding.RebuildAddressLocator(locator_path)
     LOG.log(log_level, "End: Build.")
     return locator_path
 
@@ -67,11 +63,7 @@ def build_network(network_path, **kwargs):
         build_kwargs = {'in_network_dataset': network_path}
     else:
         raise ValueError("{} not a valid network type.".format(network_path))
-    try:
-        build_function(**build_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    build_function(**build_kwargs)
     helpers.toggle_arc_extension('Network', toggle_off=True)
     if 'out_log' in build_kwargs:
         os.remove(build_kwargs['out_log'])
@@ -113,11 +105,7 @@ def compress_geodatabase(geodatabase_path, **kwargs):
         arcpy.AcceptConnections(
             sde_workspace=geodatabase_path, accept_connections=False)
         arcpy.DisconnectUser(sde_workspace=geodatabase_path, users='all')
-    try:
-        compress_function(**compress_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    compress_function(**compress_kwargs)
     if all([workspace_type == 'RemoteDatabase', kwargs['disconnect_users']]):
         arcpy.AcceptConnections(
             sde_workspace=geodatabase_path, accept_connections=True)
@@ -206,24 +194,16 @@ def create_file_geodatabase(geodatabase_path, **kwargs):
     if os.path.exists(geodatabase_path):
         LOG.warning("Geodatabase already exists.")
         return geodatabase_path
-    try:
-        arcpy.management.CreateFileGDB(
-            out_folder_path=os.path.dirname(geodatabase_path),
-            out_name=os.path.basename(geodatabase_path), out_version='current')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.CreateFileGDB(
+        out_folder_path=os.path.dirname(geodatabase_path),
+        out_name=os.path.basename(geodatabase_path), out_version='current')
     if kwargs['xml_workspace_path']:
-        try:
-            arcpy.management.ImportXMLWorkspaceDocument(
-                target_geodatabase=geodatabase_path,
-                in_file=kwargs['xml_workspace_path'],
-                import_type=(
-                    'data' if kwargs['include_xml_data'] else 'schema_only'),
-                config_keyword='defaults')
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
+        arcpy.management.ImportXMLWorkspaceDocument(
+            target_geodatabase=geodatabase_path,
+            in_file=kwargs['xml_workspace_path'],
+            import_type=(
+                'data' if kwargs['include_xml_data'] else 'schema_only'),
+            config_keyword='defaults')
     LOG.log(log_level, "End: Create.")
     return geodatabase_path
 
@@ -248,14 +228,10 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Create XML backup of geodatabase %s at %s.",
             geodatabase_path, output_path)
-    try:
-        arcpy.management.ExportXMLWorkspaceDocument(
-            in_data=geodatabase_path, out_file=output_path,
-            export_type='data' if kwargs['include_data'] else 'schema_only',
-            storage_type='binary', export_metadata=kwargs['include_metadata'])
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.ExportXMLWorkspaceDocument(
+        in_data=geodatabase_path, out_file=output_path,
+        export_type='data' if kwargs['include_data'] else 'schema_only',
+        storage_type='binary', export_metadata=kwargs['include_metadata'])
     LOG.log(log_level, "End: Create.")
     return output_path
 
@@ -337,13 +313,8 @@ def set_dataset_privileges(dataset_path, user_name, allow_view=None,
         log_level,
         "Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
         dataset_path, user_name, view_arg, edit_arg)
-    try:
-        arcpy.management.ChangePrivileges(
-            in_dataset=dataset_path, user=user_name,
-            View=view_arg, Edit=edit_arg)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.ChangePrivileges(
+        in_dataset=dataset_path, user=user_name, View=view_arg, Edit=edit_arg)
     LOG.log(log_level, "End: Set.")
     return dataset_path
 

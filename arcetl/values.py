@@ -107,22 +107,17 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
         helpers.unique_name('view'), near_dataset_path,
         dataset_where_sql=kwargs['near_where_sql'])
     temp_near_path = helpers.unique_temp_dataset_path('near')
-    try:
-        arcpy.analysis.GenerateNearTable(
-            in_features=dataset_view_name,
-            near_features=near_dataset_view_name,
-            out_table=temp_near_path,
-            search_radius=kwargs['max_near_distance'],
-            location=True,
-            angle=True, closest=kwargs['only_closest'],
-            method='geodesic')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.analysis.GenerateNearTable(
+        in_features=dataset_view_name, near_features=near_dataset_view_name,
+        out_table=temp_near_path, search_radius=kwargs['max_near_distance'],
+        location=True, angle=True, closest=kwargs['only_closest'],
+        method='geodesic')
     dataset_oid_id_map = oid_field_value_map(
         dataset_view_name, dataset_id_field_name)
+    arcwrap.delete_dataset(dataset_view_name)
     near_oid_id_map = oid_field_value_map(
         near_dataset_view_name, near_id_field_name)
+    arcwrap.delete_dataset(near_dataset_view_name)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         in_table=temp_near_path,
@@ -138,8 +133,6 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'angle': row_info['near_angle'],
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
-    arcwrap.delete_dataset(dataset_view_name)
-    arcwrap.delete_dataset(near_dataset_view_name)
     arcwrap.delete_dataset(temp_near_path)
 
 

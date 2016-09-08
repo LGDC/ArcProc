@@ -61,44 +61,32 @@ def generate_service_areas(dataset_path, output_path, network_path,
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
     helpers.toggle_arc_extension('Network', toggle_on=True)
-    try:
-        arcpy.na.MakeServiceAreaLayer(
-            in_network_dataset=network_path,
-            out_network_analysis_layer='service_area',
-            impedance_attribute=cost_attribute,
-            travel_from_to=('travel_from' if kwargs['travel_from_facility']
-                            else 'travel_to'),
-            default_break_values='{}'.format(max_distance),
-            polygon_type=('detailed_polys' if kwargs['detailed_features']
-                          else 'simple_polys'),
-            merge='no_merge' if kwargs['overlap_facilities'] else 'no_overlap',
-            nesting_type='disks',
-            UTurn_policy='allow_dead_ends_and_intersections_only',
-            restriction_attribute_name=kwargs['restriction_attributes'],
-            polygon_trim=True if kwargs['trim_value'] else False,
-            poly_trim_value=kwargs['trim_value'],
-            hierarchy='no_hierarchy')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    try:
-        arcpy.na.AddLocations(
-            in_network_analysis_layer="service_area", sub_layer="Facilities",
-            in_table=dataset_view_name,
-            field_mappings='Name {} #'.format(kwargs['id_field_name']),
-            search_tolerance=max_distance, match_type='match_to_closest',
-            append='clear', snap_to_position_along_network='no_snap',
-            exclude_restricted_elements=True)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.na.MakeServiceAreaLayer(
+        in_network_dataset=network_path,
+        out_network_analysis_layer='service_area',
+        impedance_attribute=cost_attribute,
+        travel_from_to=('travel_from' if kwargs['travel_from_facility']
+                        else 'travel_to'),
+        default_break_values='{}'.format(max_distance),
+        polygon_type=('detailed_polys' if kwargs['detailed_features']
+                      else 'simple_polys'),
+        merge='no_merge' if kwargs['overlap_facilities'] else 'no_overlap',
+        nesting_type='disks',
+        UTurn_policy='allow_dead_ends_and_intersections_only',
+        restriction_attribute_name=kwargs['restriction_attributes'],
+        polygon_trim=True if kwargs['trim_value'] else False,
+        poly_trim_value=kwargs['trim_value'],
+        hierarchy='no_hierarchy')
+    arcpy.na.AddLocations(
+        in_network_analysis_layer="service_area", sub_layer="Facilities",
+        in_table=dataset_view_name,
+        field_mappings='Name {} #'.format(kwargs['id_field_name']),
+        search_tolerance=max_distance, match_type='match_to_closest',
+        append='clear', snap_to_position_along_network='no_snap',
+        exclude_restricted_elements=True)
     arcwrap.delete_dataset(dataset_view_name)
-    try:
-        arcpy.na.Solve(in_network_analysis_layer="service_area",
-                       ignore_invalids=True, terminate_on_solve_error=True)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.na.Solve(in_network_analysis_layer="service_area",
+                   ignore_invalids=True, terminate_on_solve_error=True)
     helpers.toggle_arc_extension('Network', toggle_off=True)
     arcwrap.copy_dataset('service_area/Polygons', output_path)
     arcwrap.delete_dataset('service_area')
@@ -165,46 +153,34 @@ def generate_service_rings(dataset_path, output_path, network_path,
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
     helpers.toggle_arc_extension('Network', toggle_on=True)
-    try:
-        arcpy.na.MakeServiceAreaLayer(
-            in_network_dataset=network_path,
-            out_network_analysis_layer='service_area',
-            impedance_attribute=cost_attribute,
-            travel_from_to=('travel_from' if kwargs['travel_from_facility']
-                            else 'travel_to'),
-            default_break_values=' '.join(
-                str(x) for x
-                in range(ring_width, max_distance + 1, ring_width)),
-            polygon_type=('detailed_polys' if kwargs['detailed_rings']
-                          else 'simple_polys'),
-            merge='no_merge' if kwargs['overlap_facilities'] else 'no_overlap',
-            nesting_type='rings',
-            UTurn_policy='allow_dead_ends_and_intersections_only',
-            restriction_attribute_name=kwargs['restriction_attributes'],
-            polygon_trim=True if kwargs['trim_value'] else False,
-            poly_trim_value=kwargs['trim_value'],
-            hierarchy='no_hierarchy')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    try:
-        arcpy.na.AddLocations(
-            in_network_analysis_layer="service_area", sub_layer="Facilities",
-            in_table=dataset_view_name,
-            field_mappings='Name {} #'.format(kwargs['id_field_name']),
-            search_tolerance=max_distance, match_type='match_to_closest',
-            append='clear', snap_to_position_along_network='no_snap',
-            exclude_restricted_elements=True)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.na.MakeServiceAreaLayer(
+        in_network_dataset=network_path,
+        out_network_analysis_layer='service_area',
+        impedance_attribute=cost_attribute,
+        travel_from_to=('travel_from' if kwargs['travel_from_facility']
+                        else 'travel_to'),
+        default_break_values=' '.join(
+            str(x) for x
+            in range(ring_width, max_distance + 1, ring_width)),
+        polygon_type=('detailed_polys' if kwargs['detailed_rings']
+                      else 'simple_polys'),
+        merge='no_merge' if kwargs['overlap_facilities'] else 'no_overlap',
+        nesting_type='rings',
+        UTurn_policy='allow_dead_ends_and_intersections_only',
+        restriction_attribute_name=kwargs['restriction_attributes'],
+        polygon_trim=True if kwargs['trim_value'] else False,
+        poly_trim_value=kwargs['trim_value'],
+        hierarchy='no_hierarchy')
+    arcpy.na.AddLocations(
+        in_network_analysis_layer="service_area", sub_layer="Facilities",
+        in_table=dataset_view_name,
+        field_mappings='Name {} #'.format(kwargs['id_field_name']),
+        search_tolerance=max_distance, match_type='match_to_closest',
+        append='clear', snap_to_position_along_network='no_snap',
+        exclude_restricted_elements=True)
     arcwrap.delete_dataset(dataset_view_name)
-    try:
-        arcpy.na.Solve(in_network_analysis_layer="service_area",
-                       ignore_invalids=True, terminate_on_solve_error=True)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.na.Solve(in_network_analysis_layer="service_area",
+                   ignore_invalids=True, terminate_on_solve_error=True)
     helpers.toggle_arc_extension('Network', toggle_off=True)
     arcwrap.copy_dataset('service_area/Polygons', output_path)
     arcwrap.delete_dataset('service_area')

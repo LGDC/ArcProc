@@ -44,15 +44,10 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
         helpers.unique_name('view'), clip_dataset_path,
         dataset_where_sql=kwargs['clip_where_sql'])
     temp_output_path = helpers.unique_temp_dataset_path('output')
-    try:
-        arcpy.analysis.Clip(
-            in_features=dataset_view_name,
-            clip_features=clip_dataset_view_name,
-            out_feature_class=temp_output_path,
-            cluster_tolerance=kwargs['tolerance'])
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.analysis.Clip(
+        in_features=dataset_view_name, clip_features=clip_dataset_view_name,
+        out_feature_class=temp_output_path,
+        cluster_tolerance=kwargs['tolerance'])
     arcwrap.delete_dataset(clip_dataset_view_name)
     # Load back into the dataset.
     arcwrap.delete_features(dataset_view_name)
@@ -99,16 +94,10 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
     temp_output_path = helpers.unique_temp_dataset_path('output')
-    try:
-        arcpy.management.Dissolve(
-            in_features=dataset_view_name,
-            out_feature_class=temp_output_path,
-            dissolve_field=dissolve_field_names,
-            multi_part=kwargs['multipart'],
-            unsplit_lines=kwargs['unsplit_lines'])
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.Dissolve(
+        in_features=dataset_view_name, out_feature_class=temp_output_path,
+        dissolve_field=dissolve_field_names, multi_part=kwargs['multipart'],
+        unsplit_lines=kwargs['unsplit_lines'])
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
     # Delete undissolved features that are now dissolved (in the temp).
@@ -154,15 +143,10 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         helpers.unique_name('view'), erase_dataset_path,
         dataset_where_sql=kwargs['erase_where_sql'])
     temp_output_path = helpers.unique_temp_dataset_path('output')
-    try:
-        arcpy.analysis.Erase(
-            in_features=dataset_view_name,
-            erase_features=erase_dataset_view_name,
-            out_feature_class=temp_output_path,
-            cluster_tolerance=kwargs['tolerance'])
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.analysis.Erase(
+        in_features=dataset_view_name, erase_features=erase_dataset_view_name,
+        out_feature_class=temp_output_path,
+        cluster_tolerance=kwargs['tolerance'])
     arcwrap.delete_dataset(erase_dataset_view_name)
     # Load back into the dataset.
     arcwrap.delete_features(dataset_view_name)
@@ -250,16 +234,10 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             dataset_where_sql=chunk_sql)
         # Create temporary dataset with the identity values.
         temp_output_path = helpers.unique_temp_dataset_path('output')
-        try:
-            arcpy.analysis.Identity(
-                in_features=chunk_view_name,
-                identity_features=temp_overlay_path,
-                out_feature_class=temp_output_path,
-                join_attributes='all', cluster_tolerance=kwargs['tolerance'],
-                relationship=False)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
+        arcpy.analysis.Identity(
+            in_features=chunk_view_name, identity_features=temp_overlay_path,
+            out_feature_class=temp_output_path, join_attributes='all',
+            cluster_tolerance=kwargs['tolerance'], relationship=False)
         # Push identity (or replacement) value from temp to update field.
         fields.update_field_by_function(
             temp_output_path, field_name, update_function,
@@ -306,17 +284,13 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     location_dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('view'), location_dataset_path,
         dataset_where_sql=kwargs['location_where_sql'])
-    try:
-        arcpy.management.SelectLayerByLocation(
-            in_layer=dataset_view_name, overlap_type='intersect',
-            select_features=location_dataset_view_name,
-            selection_type='new_selection')
-        # Switch selection for non-overlapping features (to delete).
-        arcpy.management.SelectLayerByLocation(
-            in_layer=dataset_view_name, selection_type='switch_selection')
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.SelectLayerByLocation(
+        in_layer=dataset_view_name, overlap_type='intersect',
+        select_features=location_dataset_view_name,
+        selection_type='new_selection')
+    # Switch selection for non-overlapping features (to delete).
+    arcpy.management.SelectLayerByLocation(
+        in_layer=dataset_view_name, selection_type='switch_selection')
     arcwrap.delete_dataset(location_dataset_view_name)
     arcwrap.delete_features(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
@@ -422,15 +396,9 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
         temp_output_path = helpers.unique_temp_dataset_path('output')
-        try:
-            arcpy.analysis.SpatialJoin(
-                target_features=chunk_view_name,
-                join_features=temp_overlay_path,
-                out_feature_class=temp_output_path,
-                **join_kwargs)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
+        arcpy.analysis.SpatialJoin(
+            target_features=chunk_view_name, join_features=temp_overlay_path,
+            out_feature_class=temp_output_path, **join_kwargs)
         if kwargs['tolerance']:
             arcpy.env.XYTolerance = old_tolerance
         # Push overlay (or replacement) value from temp to update field.
@@ -517,15 +485,10 @@ def union_features(dataset_path, field_name, union_dataset_path,
             dataset_where_sql=chunk_sql)
         # Create the temp output of the union.
         temp_output_path = helpers.unique_temp_dataset_path('output')
-        try:
-            arcpy.analysis.Union(
-                in_features=[chunk_view_name, temp_union_path],
-                out_feature_class=temp_output_path,
-                join_attributes='all', cluster_tolerance=kwargs['tolerance'],
-                gaps=False)
-        except arcpy.ExecuteError:
-            LOG.exception("ArcPy execution.")
-            raise
+        arcpy.analysis.Union(
+            in_features=[chunk_view_name, temp_union_path],
+            out_feature_class=temp_output_path, join_attributes='all',
+            cluster_tolerance=kwargs['tolerance'], gaps=False)
         # Push union (or replacement) value from temp to update field.
         fields.update_field_by_function(
             temp_output_path, field_name, update_function,

@@ -34,17 +34,13 @@ def convert_dataset_to_spatial(dataset_path, output_path, x_field_name,
             dataset_path, output_path)
     LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     dataset_view_name = helpers.unique_name('view')
-    try:
-        arcpy.management.MakeXYEventLayer(
-            table=dataset_path, out_layer=dataset_view_name,
-            in_x_field=x_field_name, in_y_field=y_field_name,
-            in_z_field=z_field_name,
-            spatial_reference=(
-                arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                if kwargs.get('spatial_reference_id') else None))
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.MakeXYEventLayer(
+        table=dataset_path, out_layer=dataset_view_name,
+        in_x_field=x_field_name, in_y_field=y_field_name,
+        in_z_field=z_field_name,
+        spatial_reference=(
+            arcpy.SpatialReference(kwargs['spatial_reference_id'])
+            if kwargs.get('spatial_reference_id') else None))
     arcwrap.copy_dataset(dataset_view_name, output_path,
                          dataset_where_sql=kwargs['dataset_where_sql'])
     arcwrap.delete_dataset(dataset_view_name)
@@ -102,14 +98,9 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
     if kwargs['tolerance']:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
-    try:
-        arcpy.management.PolygonToLine(
-            in_features=dataset_view_name,
-            out_feature_class=output_path,
-            neighbor_option=kwargs['topological'])
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.PolygonToLine(
+        in_features=dataset_view_name, out_feature_class=output_path,
+        neighbor_option=kwargs['topological'])
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
     arcwrap.delete_dataset(dataset_view_name)
@@ -175,14 +166,9 @@ def planarize_features(dataset_path, output_path, **kwargs):
     dataset_view_name = arcwrap.create_dataset_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
-    try:
-        arcpy.management.FeatureToLine(
-            in_features=dataset_view_name,
-            out_feature_class=output_path,
-            cluster_tolerance=kwargs['tolerance'], attributes=True)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.FeatureToLine(
+        in_features=dataset_view_name, out_feature_class=output_path,
+        cluster_tolerance=kwargs['tolerance'], attributes=True)
     arcwrap.delete_dataset(dataset_view_name)
     LOG.log(log_level, "End: Planarize.")
     LOG.log(log_level, "%s features.", metadata.feature_count(output_path))

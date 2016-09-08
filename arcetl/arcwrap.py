@@ -36,19 +36,14 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
             ('field_length', 64), ('field_precision', None),
             ('field_scale', None)]:
         kwargs.setdefault(*kwarg_default)
-    try:
-        arcpy.management.AddField(
-            in_table=dataset_path, field_name=field_name,
-            field_type=arcobj.FIELD_TYPE_AS_ARC.get(
-                field_type.lower(), field_type),
-            field_length=kwargs['field_length'],
-            field_precision=kwargs['field_precision'],
-            field_scale=kwargs['field_scale'],
-            field_is_nullable=kwargs['field_is_nullable'],
-            field_is_required=kwargs['field_is_required'])
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.AddField(
+        in_table=dataset_path, field_name=field_name,
+        field_type=arcobj.FIELD_TYPE_AS_ARC.get(field_type.lower(), field_type),
+        field_length=kwargs['field_length'],
+        field_precision=kwargs['field_precision'],
+        field_scale=kwargs['field_scale'],
+        field_is_nullable=kwargs['field_is_nullable'],
+        field_is_required=kwargs['field_is_required'])
     return field_name
 
 
@@ -101,11 +96,7 @@ def copy_dataset(dataset_path, output_path, **kwargs):
         raise ValueError("{} unsupported dataset type.".format(dataset_path))
     if kwargs['overwrite'] and arcpy.Exists(output_path):
         delete_dataset(output_path)
-    try:
-        copy_function(**copy_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    copy_function(**copy_kwargs)
     delete_dataset(dataset_view_name)
     return output_path
 
@@ -136,11 +127,7 @@ def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
             kwargs['spatial_reference_id'])
     else:
         create_function = arcpy.management.CreateTable
-    try:
-        create_function(**create_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    create_function(**create_kwargs)
     if field_metadata_list:
         for metadata in field_metadata_list:
             add_field(**metadata)
@@ -175,11 +162,7 @@ def create_dataset_view(view_name, dataset_path, **kwargs):
         create_kwargs['out_view'] = view_name
     else:
         raise ValueError("{} unsupported dataset type.".format(dataset_path))
-    try:
-        create_function(**create_kwargs)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    create_function(**create_kwargs)
     return view_name
 
 
@@ -191,11 +174,7 @@ def delete_dataset(dataset_path):
     Returns:
         str.
     """
-    try:
-        arcpy.management.Delete(in_data=dataset_path)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
+    arcpy.management.Delete(in_data=dataset_path)
     return dataset_path
 
 
@@ -235,14 +214,9 @@ def delete_features(dataset_path, **kwargs):
                 LOG.debug("Truncate unsupported; will try deleting rows.")
                 run_truncate = False
             else:
-                LOG.exception("ArcPy execution.")
                 raise
     if not run_truncate:
-        try:
-            arcpy.management.DeleteRows(in_rows=dataset_view_name)
-        except:
-            LOG.exception("ArcPy execution.")
-            raise
+        arcpy.management.DeleteRows(in_rows=dataset_view_name)
     delete_dataset(dataset_view_name)
     return dataset_path
 
@@ -295,12 +269,8 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
-    try:
-        arcpy.management.Append(
-            inputs=insert_dataset_view_name, target=dataset_path,
-            schema_type='no_test', field_mapping=field_maps)
-    except arcpy.ExecuteError:
-        LOG.exception("ArcPy execution.")
-        raise
-    arcpy.management.Delete(insert_dataset_view_name)
+    arcpy.management.Append(
+        inputs=insert_dataset_view_name, target=dataset_path,
+        schema_type='no_test', field_mapping=field_maps)
+    delete_dataset(insert_dataset_view_name)
     return dataset_path
