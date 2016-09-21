@@ -20,10 +20,12 @@ def dataset_as_metadata(describe_object):
         'path': getattr(describe_object, 'catalogPath'),
         'data_type': getattr(describe_object, 'dataType'),
         'workspace_path': getattr(describe_object, 'path'),
+        # Do not use getattr! Tables can not have OIDs.
         'is_table': hasattr(describe_object, 'hasOID'),
+        'is_versioned': getattr(describe_object, 'isVersioned', False),
         'oid_field_name': getattr(describe_object, 'OIDFieldName', None),
-        'field_names': [field.name for field
-                        in getattr(describe_object, 'fields', [])],
+        'field_names': [
+            field.name for field in getattr(describe_object, 'fields', [])],
         'fields': [field_as_metadata(field) for field
                    in getattr(describe_object, 'fields', [])],
         'is_spatial': hasattr(describe_object, 'shapeType'),
