@@ -193,6 +193,8 @@ def delete_features(dataset_path, **kwargs):
     truncate_type_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
         'ERROR 000187',
+        # "Operation not supported on a versioned table."
+        'ERROR 001259',
         # "Operation not supported on table {table name}."
         'ERROR 001260',
         # Operation not supported on a feature class in a controller
