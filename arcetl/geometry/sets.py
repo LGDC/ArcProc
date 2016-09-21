@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, features, fields, helpers, metadata, values
+from .. import arcwrap, fields, helpers, metadata, values
 
 
 CHUNK_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"
@@ -52,8 +52,7 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
     # Load back into the dataset.
     arcwrap.delete_features(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
-    features.insert_features_from_path(
-        dataset_path, temp_output_path, log_level=None)
+    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "End: Clip.")
     LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
@@ -104,8 +103,7 @@ def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
     arcwrap.delete_features(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
     # Copy the dissolved features (in the temp) to the dataset.
-    features.insert_features_from_path(
-        dataset_path, temp_output_path, log_level=None)
+    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "End: Dissolve.")
     LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
@@ -151,8 +149,7 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
     # Load back into the dataset.
     arcwrap.delete_features(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
-    features.insert_features_from_path(
-        dataset_path, temp_output_path, log_level=None)
+    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "End: Erase.")
     LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
@@ -246,8 +243,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         # Replace original chunk features with identity features.
         arcwrap.delete_features(chunk_view_name)
         arcwrap.delete_dataset(chunk_view_name)
-        features.insert_features_from_path(
-            dataset_path, temp_output_path, log_level=None)
+        arcwrap.insert_features_from_path(dataset_path, temp_output_path)
         arcwrap.delete_dataset(temp_output_path)
     arcwrap.delete_dataset(temp_overlay_path)
     LOG.log(log_level, "End: Identity.")
@@ -409,8 +405,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         # Replace original chunk features with overlay features.
         arcwrap.delete_features(chunk_view_name)
         arcwrap.delete_dataset(chunk_view_name)
-        features.insert_features_from_path(
-            dataset_path, temp_output_path, log_level=None)
+        arcwrap.insert_features_from_path(dataset_path, temp_output_path)
         arcwrap.delete_dataset(temp_output_path)
     arcwrap.delete_dataset(temp_overlay_path)
     LOG.log(log_level, "End: Overlay.")
@@ -497,8 +492,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
         # Replace original chunk features with union features.
         arcwrap.delete_features(chunk_view_name)
         arcwrap.delete_dataset(chunk_view_name)
-        features.insert_features_from_path(
-            dataset_path, temp_output_path, log_level=None)
+        arcwrap.insert_features_from_path(dataset_path, temp_output_path)
         arcwrap.delete_dataset(temp_output_path)
     arcwrap.delete_dataset(temp_union_path)
     LOG.log(log_level, "End: Union.")
