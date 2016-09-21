@@ -26,6 +26,7 @@ from .metadata import (
     dataset_metadata, domain_metadata, feature_count, field_metadata,
     is_valid_dataset, workspace_dataset_names)
 from .services import generate_token, toggle_service
+from .network import (closest_facility_route)
 from .values import (
     features_as_dicts, features_as_iters, near_features_as_dicts,
     oid_field_value_map, oid_field_values, oid_geometries, oid_geometry_map,
