@@ -141,7 +141,7 @@ def oid_field_values(dataset_path, field_name, **kwargs):
 
     Args:
         dataset_path (str): Path of dataset.
-        field_name (iter): Name of field.
+        field_name (str): Name of field.
     Kwargs:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         spatial_reference_id (int): EPSG code indicating the spatial reference
