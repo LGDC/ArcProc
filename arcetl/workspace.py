@@ -172,6 +172,33 @@ def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
 
 
 @helpers.log_function
+def create_dataset_view(view_name, dataset_path, **kwargs):
+    """Create new view of dataset.
+
+    Wraps arcwrap.create_dataset_view.
+
+    Args:
+        view_name (str): Name of view to create.
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        force_nonspatial (bool): Flag ensure view is nonspatial.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    # Other kwarg defaults set in the wrapped function.
+    for kwarg_default in [('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Create view %s of dataset %s.",
+            view_name, dataset_path)
+    result = arcwrap.create_dataset_view(view_name, dataset_path, **kwargs)
+    LOG.log(log_level, "End: Create.")
+    return result
+
+
+@helpers.log_function
 def create_file_geodatabase(geodatabase_path, **kwargs):
     """Create new file geodatabase.
 

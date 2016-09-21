@@ -32,9 +32,10 @@ from .values import (
     sorted_feature_dicts, sorted_feature_iters)
 from .workspace import (
     build_locator, build_network, compress_geodatabase, copy_dataset,
-    create_dataset, create_file_geodatabase, create_geodatabase_xml_backup,
-    delete_dataset, execute_sql_statement, set_dataset_privileges,
-    write_rows_to_csvfile)
+    create_dataset, create_dataset_view, create_file_geodatabase,
+    create_geodatabase_xml_backup, delete_dataset, execute_sql_statement,
+    set_dataset_privileges, write_rows_to_csvfile
+    )
 
 
 __version__ = '1.0'
