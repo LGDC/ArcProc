@@ -60,7 +60,7 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
 
 
 @helpers.log_function
-def dissolve_features(dataset_path, dissolve_field_names, **kwargs):
+def dissolve_features(dataset_path, dissolve_field_names=None, **kwargs):
     """Merge features that share values in given fields.
 
     Args:
