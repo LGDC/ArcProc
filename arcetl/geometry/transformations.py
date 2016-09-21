@@ -135,6 +135,58 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
     return output_path
 
 
+def eliminate_interior_rings(dataset_path, **kwargs):
+    """Merge features that share values in given fields.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        max_area (float, str): Maximum area under which parts are eliminated.
+            Numeric area will be in dataset's units. String area will be
+            formatted as '{number} {unit}'.
+        max_percent_total_area (float): Maximum percent of total area under
+            which parts are eliminated. Default is 100.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
+                          ('max_area', None), ('max_percent_total_area', None)]:
+        kwargs.setdefault(*kwarg_default)
+    # Only set max_percent_total_area default if neither it or area defined.
+    if all([kwargs['max_area'] is None,
+            kwargs['max_percent_total_area'] is None]):
+        kwargs['max_percent_total_area'] = 99.9999
+        kwargs['condition'] = 'percent'
+    elif all([kwargs['max_area'] is not None,
+              kwargs['max_percent_total_area'] is not None]):
+        kwargs['condition'] = 'area_or_percent'
+    elif kwargs['max_area'] is not None:
+        kwargs['condition'] = 'area'
+    else:
+        kwargs['condition'] = 'percent'
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Eliminate interior rungs in %s.", dataset_path)
+    dataset_view_name = arcwrap.create_dataset_view(
+        helpers.unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'])
+    temp_output_path = helpers.unique_temp_dataset_path('output')
+    arcpy.management.EliminatePolygonPart(
+        in_features=dataset_view_name, out_feature_class=temp_output_path,
+        condition=kwargs['condition'], part_area=kwargs['max_area'],
+        part_area_percent=kwargs['max_percent_total_area'],
+        part_option='contained_only')
+    # Delete un-eliminated features that are now eliminated (in the temp).
+    arcwrap.delete_features(dataset_view_name)
+    arcwrap.delete_dataset(dataset_view_name)
+    # Copy the dissolved features (in the temp) to the dataset.
+    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+    arcwrap.delete_dataset(temp_output_path)
+    LOG.log(log_level, "End: Eliminate.")
+    return dataset_path
+
+
 @helpers.log_function
 def planarize_features(dataset_path, output_path, **kwargs):
     """Convert feature geometry to lines - planarizing them.

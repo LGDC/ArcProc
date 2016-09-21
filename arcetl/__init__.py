@@ -8,7 +8,8 @@ from .geometry.sets import (
     keep_features_by_location, overlay_features, union_features)
 from .geometry.transformations import (
     convert_dataset_to_spatial, convert_polygons_to_lines,
-    planarize_features, project)
+    eliminate_interior_rings, planarize_features, project
+    )
 from .features import (
     adjust_features_for_shapefile, delete_features, insert_features_from_dicts,
     insert_features_from_iters, insert_features_from_path)
