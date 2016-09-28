@@ -12,7 +12,6 @@ from . import arcwrap, fields, helpers, metadata
 LOG = logging.getLogger(__name__)
 
 
-@helpers.log_function
 def adjust_features_for_shapefile(dataset_path, **kwargs):
     """Adjust features to meet shapefile requirements.
 
@@ -41,7 +40,7 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
             ('string_null_replacement', ''), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Adjust features in %s for shapefile output.",
+    LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
             dataset_path)
     dataset_meta = metadata.dataset_metadata(dataset_path)
     type_function_map = {
@@ -72,7 +71,6 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
     return dataset_path
 
 
-@helpers.log_function
 def delete_features(dataset_path, **kwargs):
     """Delete select features.
 
@@ -91,10 +89,11 @@ def delete_features(dataset_path, **kwargs):
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    init_count = metadata.feature_count(dataset_path)
     result = arcwrap.delete_features(dataset_path, **kwargs)
+    final_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features deleted.", init_count - final_count)
     LOG.log(log_level, "End: Delete.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     return result
 
 
@@ -115,18 +114,17 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Insert features into %s from dictionaries.",
+    LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    init_count = metadata.feature_count(dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    #pylint: disable=no-member
     with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-        #pylint: enable=no-member
         for feature in insert_features:
             cursor.insertRow([feature[name] for name in field_names])
+    final_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features inserted.", final_count - init_count)
     LOG.log(log_level, "End: Insert.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     return dataset_path
 
 
@@ -147,18 +145,17 @@ def insert_features_from_iters(dataset_path, insert_features, field_names,
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Insert features into %s from iterables.",
+    LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    init_count = metadata.feature_count(dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    #pylint: disable=no-member
     with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-        #pylint: enable=no-member
         for row in insert_features:
             cursor.insertRow(row)
+    final_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features inserted.", final_count - init_count)
     LOG.log(log_level, "End: Insert.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     return dataset_path
 
 
@@ -182,11 +179,12 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Insert features into %s from %s.",
-            dataset_path, insert_dataset_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
+    LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
+            insert_dataset_path, dataset_path)
+    init_count = metadata.feature_count(dataset_path)
     result = arcwrap.insert_features_from_path(
         dataset_path, insert_dataset_path, field_names, **kwargs)
+    final_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features inserted.", final_count - init_count)
     LOG.log(log_level, "End: Insert.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     return result
