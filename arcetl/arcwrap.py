@@ -218,7 +218,9 @@ def delete_features(dataset_path, **kwargs):
             else:
                 raise
     if not run_truncate:
-        arcpy.management.DeleteRows(in_rows=dataset_view_name)
+        dataset_meta = arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
+        with arcpy.da.Editor(dataset_meta['workspace_path']):
+            arcpy.management.DeleteRows(in_rows=dataset_view_name)
     delete_dataset(dataset_view_name)
     return dataset_path
 
@@ -271,8 +273,10 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
-    arcpy.management.Append(
-        inputs=insert_dataset_view_name, target=dataset_path,
-        schema_type='no_test', field_mapping=field_maps)
+    with arcpy.da.Editor(dataset_meta['workspace_path']):
+        arcpy.management.Append(
+            inputs=insert_dataset_view_name, target=dataset_path,
+            schema_type='no_test', field_mapping=field_maps
+        )
     delete_dataset(insert_dataset_view_name)
     return dataset_path
