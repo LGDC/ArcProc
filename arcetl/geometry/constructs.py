@@ -4,7 +4,10 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, fields, helpers, metadata
+from ..arcwrap import copy_dataset, create_dataset_view, delete_dataset
+from ..fields import add_fields_from_metadata_list, update_field_by_function
+from ..helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
+from ..metadata import field_metadata, linear_unit_as_string
 
 
 LOG = logging.getLogger(__name__)
@@ -48,18 +51,20 @@ def generate_service_areas(dataset_path, output_path, network_path,
             ('dataset_where_sql', None), ('detailed_features', False),
             ('id_field_name', None), ('log_level', 'info'),
             ('overlap_facilities', True), ('restriction_attributes', []),
-            ('travel_from_facility', False), ('trim_value', None)]:
+            ('travel_from_facility', False), ('trim_value', None)
+        ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
-        kwargs['trim_value'] = metadata.linear_unit_as_string(
-            kwargs['trim_value'], dataset_path)
-    dataset_view_name = arcwrap.create_dataset_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
-    helpers.toggle_arc_extension('Network', toggle_on=True)
+        kwargs['trim_value'] = linear_unit_as_string(kwargs['trim_value'],
+                                                     dataset_path)
+    dataset_view_name = create_dataset_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql']
+        )
+    toggle_arc_extension('Network', toggle_on=True)
     arcpy.na.MakeServiceAreaLayer(
         in_network_dataset=network_path,
         out_network_analysis_layer='service_area',
@@ -75,29 +80,31 @@ def generate_service_areas(dataset_path, output_path, network_path,
         restriction_attribute_name=kwargs['restriction_attributes'],
         polygon_trim=True if kwargs['trim_value'] else False,
         poly_trim_value=kwargs['trim_value'],
-        hierarchy='no_hierarchy')
+        hierarchy='no_hierarchy'
+        )
     arcpy.na.AddLocations(
         in_network_analysis_layer="service_area", sub_layer="Facilities",
         in_table=dataset_view_name,
         field_mappings='Name {} #'.format(kwargs['id_field_name']),
         search_tolerance=max_distance, match_type='match_to_closest',
         append='clear', snap_to_position_along_network='no_snap',
-        exclude_restricted_elements=True)
-    arcwrap.delete_dataset(dataset_view_name)
+        exclude_restricted_elements=True
+        )
+    delete_dataset(dataset_view_name)
     arcpy.na.Solve(in_network_analysis_layer="service_area",
                    ignore_invalids=True, terminate_on_solve_error=True)
-    helpers.toggle_arc_extension('Network', toggle_off=True)
-    arcwrap.copy_dataset('service_area/Polygons', output_path)
-    arcwrap.delete_dataset('service_area')
+    toggle_arc_extension('Network', toggle_off=True)
+    copy_dataset('service_area/Polygons', output_path)
+    delete_dataset('service_area')
     if kwargs['id_field_name']:
-        id_field_metadata = metadata.field_metadata(
-            dataset_path, kwargs['id_field_name'])
-        fields.add_fields_from_metadata_list(
-            output_path, [id_field_metadata], log_level=None)
-        fields.update_field_by_function(
+        id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
+        add_fields_from_metadata_list(output_path, [id_field_meta],
+                                      log_level=None)
+        update_field_by_function(
             output_path, kwargs['id_field_name'],
-            function=TYPE_ID_FUNCTION_MAP[id_field_metadata['type']],
-            field_as_first_arg=False, arg_field_names=['Name'], log_level=None)
+            function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
+            field_as_first_arg=False, arg_field_names=['Name'], log_level=None
+            )
     LOG.log(log_level, "End: Generate.")
     return output_path
 
@@ -134,23 +141,26 @@ def generate_service_rings(dataset_path, output_path, network_path,
     """
     if kwargs.get('trim_value'):
         raise NotImplementedError(
-            "Polygon trim in ArcPy not working currently.")
+            "Polygon trim in ArcPy not working currently."
+            )
     for kwarg_default in [
             ('dataset_where_sql', None), ('detailed_rings', False),
             ('id_field_name', None), ('log_level', 'info'),
             ('overlap_facilities', True), ('restriction_attributes', []),
-            ('travel_from_facility', False), ('trim_value', None)]:
+            ('travel_from_facility', False), ('trim_value', None)
+        ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
-        kwargs['trim_value'] = metadata.linear_unit_as_string(
-            kwargs['trim_value'], dataset_path)
-    dataset_view_name = arcwrap.create_dataset_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
-    helpers.toggle_arc_extension('Network', toggle_on=True)
+        kwargs['trim_value'] = linear_unit_as_string(kwargs['trim_value'],
+                                                     dataset_path)
+    dataset_view_name = create_dataset_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql']
+        )
+    toggle_arc_extension('Network', toggle_on=True)
     arcpy.na.MakeServiceAreaLayer(
         in_network_dataset=network_path,
         out_network_analysis_layer='service_area',
@@ -168,28 +178,30 @@ def generate_service_rings(dataset_path, output_path, network_path,
         restriction_attribute_name=kwargs['restriction_attributes'],
         polygon_trim=True if kwargs['trim_value'] else False,
         poly_trim_value=kwargs['trim_value'],
-        hierarchy='no_hierarchy')
+        hierarchy='no_hierarchy'
+        )
     arcpy.na.AddLocations(
         in_network_analysis_layer="service_area", sub_layer="Facilities",
         in_table=dataset_view_name,
         field_mappings='Name {} #'.format(kwargs['id_field_name']),
         search_tolerance=max_distance, match_type='match_to_closest',
         append='clear', snap_to_position_along_network='no_snap',
-        exclude_restricted_elements=True)
-    arcwrap.delete_dataset(dataset_view_name)
+        exclude_restricted_elements=True
+        )
+    delete_dataset(dataset_view_name)
     arcpy.na.Solve(in_network_analysis_layer="service_area",
                    ignore_invalids=True, terminate_on_solve_error=True)
-    helpers.toggle_arc_extension('Network', toggle_off=True)
-    arcwrap.copy_dataset('service_area/Polygons', output_path)
-    arcwrap.delete_dataset('service_area')
+    toggle_arc_extension('Network', toggle_off=True)
+    copy_dataset('service_area/Polygons', output_path)
+    delete_dataset('service_area')
     if kwargs['id_field_name']:
-        id_field_metadata = metadata.field_metadata(
-            dataset_path, kwargs['id_field_name'])
-        fields.add_fields_from_metadata_list(
-            output_path, [id_field_metadata], log_level=None)
-        fields.update_field_by_function(
+        id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
+        add_fields_from_metadata_list(output_path, [id_field_meta],
+                                      log_level=None)
+        update_field_by_function(
             output_path, kwargs['id_field_name'],
-            function=TYPE_ID_FUNCTION_MAP[id_field_metadata['type']],
-            field_as_first_arg=False, arg_field_names=['Name'], log_level=None)
+            function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
+            field_as_first_arg=False, arg_field_names=['Name'], log_level=None
+            )
     LOG.log(log_level, "End: Generate.")
     return output_path
