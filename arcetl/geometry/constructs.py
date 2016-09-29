@@ -16,7 +16,6 @@ TYPE_ID_FUNCTION_MAP = {
     'string': (lambda x: x.split(' : ')[0] if x else None)}
 
 
-@helpers.log_function
 def generate_service_areas(dataset_path, output_path, network_path,
                            cost_attribute, max_distance, **kwargs):
     """Create network service area features.
@@ -103,7 +102,6 @@ def generate_service_areas(dataset_path, output_path, network_path,
     return output_path
 
 
-@helpers.log_function
 def generate_service_rings(dataset_path, output_path, network_path,
                            cost_attribute, ring_width, max_distance, **kwargs):
     """Create facility service ring features using a network dataset.
