@@ -6,7 +6,8 @@ import logging
 
 import arcpy
 
-from . import arcwrap, fields, helpers, metadata
+from . import arcwrap, fields, helpers
+from .metadata import dataset_metadata, feature_count
 
 
 LOG = logging.getLogger(__name__)
@@ -37,12 +38,13 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
     for kwarg_default in [
             ('datetime_null_replacement', datetime.date.min),
             ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
-            ('string_null_replacement', ''), ('log_level', 'info')]:
+            ('string_null_replacement', ''), ('log_level', 'info')
+        ]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
             dataset_path)
-    dataset_meta = metadata.dataset_metadata(dataset_path)
+    dataset_meta = dataset_metadata(dataset_path)
     type_function_map = {
         # Invalid shapefile field types: 'blob', 'raster'.
         # Shapefiles can only store dates, not times.
@@ -60,13 +62,16 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
         'smallinteger': (lambda x: kwargs['integer_null_replacement']
                          if x is None else x),
         'string': (lambda x: kwargs['string_null_replacement']
-                   if x is None else x)}
-    for field in dataset_meta['fields']:
-        if field['type'].lower() in type_function_map:
-            fields.update_field_by_function(
-                dataset_path, field['name'],
-                function=type_function_map[field['type'].lower()],
-                log_level=None)
+                   if x is None else x)
+        }
+    with arcpy.da.Editor(dataset_meta['workspace_path']):
+        for field in dataset_meta['fields']:
+            if field['type'].lower() in type_function_map:
+                fields.update_field_by_function(
+                    dataset_path, field['name'],
+                    function=type_function_map[field['type'].lower()],
+                    log_level=None
+                    )
     LOG.log(log_level, "End: Adjust.")
     return dataset_path
 
@@ -89,11 +94,10 @@ def delete_features(dataset_path, **kwargs):
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
-    init_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     result = arcwrap.delete_features(dataset_path, **kwargs)
-    final_count = metadata.feature_count(dataset_path)
-    LOG.log(log_level, "%s features deleted.", init_count - final_count)
-    LOG.log(log_level, "End: Delete.")
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    LOG.log(log_level, "End: Delete (%s features in dataset).")
     return result
 
 
@@ -116,14 +120,15 @@ def insert_features_from_dicts(dataset_path, insert_features, field_names,
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
-    init_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-        for feature in insert_features:
-            cursor.insertRow([feature[name] for name in field_names])
-    final_count = metadata.feature_count(dataset_path)
-    LOG.log(log_level, "%s features inserted.", final_count - init_count)
+    dataset_meta = dataset_metadata(dataset_path)
+    with arcpy.da.Editor(dataset_meta['workspace_path']):
+        with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+            for feature in insert_features:
+                cursor.insertRow([feature[name] for name in field_names])
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Insert.")
     return dataset_path
 
@@ -147,14 +152,15 @@ def insert_features_from_iters(dataset_path, insert_features, field_names,
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
-    init_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-        for row in insert_features:
-            cursor.insertRow(row)
-    final_count = metadata.feature_count(dataset_path)
-    LOG.log(log_level, "%s features inserted.", final_count - init_count)
+    dataset_meta = dataset_metadata(dataset_path)
+    with arcpy.da.Editor(dataset_meta['workspace_path']):
+        with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+            for row in insert_features:
+                cursor.insertRow(row)
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Insert.")
     return dataset_path
 
@@ -181,10 +187,10 @@ def insert_features_from_path(dataset_path, insert_dataset_path,
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
-    init_count = metadata.feature_count(dataset_path)
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     result = arcwrap.insert_features_from_path(
-        dataset_path, insert_dataset_path, field_names, **kwargs)
-    final_count = metadata.feature_count(dataset_path)
-    LOG.log(log_level, "%s features inserted.", final_count - init_count)
+        dataset_path, insert_dataset_path, field_names, **kwargs
+        )
+    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Insert.")
     return result
