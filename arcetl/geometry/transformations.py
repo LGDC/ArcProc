@@ -33,7 +33,6 @@ def convert_dataset_to_spatial(dataset_path, output_path, x_field_name,
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
             dataset_path, output_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     dataset_view_name = helpers.unique_name('view')
     arcpy.management.MakeXYEventLayer(
         table=dataset_path, out_layer=dataset_view_name,
@@ -43,10 +42,9 @@ def convert_dataset_to_spatial(dataset_path, output_path, x_field_name,
             arcpy.SpatialReference(kwargs['spatial_reference_id'])
             if kwargs.get('spatial_reference_id') else None))
     dataset.copy(dataset_view_name, output_path,
-                         dataset_where_sql=kwargs['dataset_where_sql'])
-    dataset.delete(dataset_view_name)
+                 dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Convert.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
 
 
@@ -91,11 +89,10 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
         log_level,
         "Start: Convert polgyon features in %s to line features in %s.",
         dataset_path, output_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     dataset_meta = metadata.dataset_metadata(dataset_path)
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     if kwargs['tolerance']:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
@@ -104,7 +101,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
         neighbor_option=kwargs['topological'])
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
-    dataset.delete(dataset_view_name)
+    dataset.delete(dataset_view_name, log_level=None)
     if kwargs['topological']:
         for side in ('left', 'right'):
             side_meta = {'oid_field_name': '{}_FID'.format(side.upper())}
@@ -126,13 +123,13 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
                     join_field_name=kwargs['id_field_name'],
                     on_field_pairs=[(side_meta['oid_field_name'],
                                      dataset_meta['oid_field_name'])],
-                    log_level=None)
+                    log_level=None
+                    )
             dataset.delete_field(output_path, side_meta['oid_field_name'],
                                  log_level=None)
     else:
         dataset.delete_field(output_path, 'ORIG_FID', log_level=None)
     LOG.log(log_level, "End: Convert.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
 
 
@@ -171,7 +168,7 @@ def eliminate_interior_rings(dataset_path, **kwargs):
     LOG.log(log_level, "Start: Eliminate interior rungs in %s.", dataset_path)
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.management.EliminatePolygonPart(
         in_features=dataset_view_name, out_feature_class=temp_output_path,
@@ -179,11 +176,11 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         part_area_percent=kwargs['max_percent_total_area'],
         part_option='contained_only')
     # Delete un-eliminated features that are now eliminated (in the temp).
-    features.delete(dataset_view_name)
-    dataset.delete(dataset_view_name)
+    features.delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
     # Copy the dissolved features (in the temp) to the dataset.
-    features.insert_from_path(dataset_path, temp_output_path)
-    dataset.delete(temp_output_path)
+    features.insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Eliminate.")
     return dataset_path
 
@@ -215,16 +212,14 @@ def planarize_features(dataset_path, output_path, **kwargs):
     LOG.log(
         log_level, "Start: Planarize features in %s to line features in %s.",
         dataset_path, output_path)
-    LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     arcpy.management.FeatureToLine(
         in_features=dataset_view_name, out_feature_class=output_path,
         cluster_tolerance=kwargs['tolerance'], attributes=True)
-    dataset.delete(dataset_view_name)
+    dataset.delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Planarize.")
-    LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
 
 
@@ -262,8 +257,8 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
             field for field in dataset_meta['fields']
             if field['type'].lower() not in ('geometry ', 'oid')],
         geometry_type=dataset_meta['geometry_type'],
-        spatial_reference_id=spatial_reference_id)
+        spatial_reference_id=spatial_reference_id, log_level=None)
     dataset.copy(dataset_path, output_path,
-                         dataset_where_sql=kwargs['dataset_where_sql'])
+                 dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     LOG.log(log_level, "End: Project.")
     return output_path

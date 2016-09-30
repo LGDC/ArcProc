@@ -1,12 +1,13 @@
 # -*- coding=utf-8 -*-
 """Attribute operations."""
+import functools
 import logging
 
 import arcpy
 
 from arcetl import dataset, features
 from arcetl.arcobj import FIELD_TYPE_AS_PYTHON
-from .fields import duplicate_field, join_field
+from .fields import join_field
 from arcetl.helpers import (
     LOG_LEVEL_MAP, unique_ids, unique_name, unique_temp_dataset_path
     )
@@ -74,14 +75,13 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
             field_name, dataset_path, expression)
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        arcpy.management.CalculateField(
-            in_table=dataset_view_name, field=field_name,
-            expression=expression, expression_type='python_9.3'
-            )
-    dataset.delete(dataset_view_name)
+    arcpy.management.CalculateField(
+        in_table=dataset_view_name, field=field_name,
+        expression=expression, expression_type='python_9.3'
+        )
+    dataset.delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -153,25 +153,63 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Update attributes in %s on %s by function %s.",
             field_name, dataset_path, function)
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.UpdateCursor(
-            in_table=dataset_path,
-            field_names=([field_name]
-                         + list(kwargs['arg_field_names'])
-                         + list(kwargs['kwarg_field_names'])),
-            where_clause=kwargs['dataset_where_sql']
-            ) as cursor:
-            for row in cursor:
-                function_args = row[1:(len(kwargs['arg_field_names']) + 1)]
-                if kwargs['field_as_first_arg']:
-                    function_args.insert(0, row[0])
-                function_kwargs = dict(zip(
-                    kwargs['kwarg_field_names'],
-                    row[(len(kwargs['arg_field_names']) + 1):]
-                    ))
-                new_value = function(*function_args, **function_kwargs)
-                if row[0] != new_value:
-                    cursor.updateRow([new_value] + list(row[1:]))
+    with arcpy.da.UpdateCursor(
+        in_table=dataset_path,
+        field_names=([field_name]
+                     + list(kwargs['arg_field_names'])
+                     + list(kwargs['kwarg_field_names'])),
+        where_clause=kwargs['dataset_where_sql']
+        ) as cursor:
+        for row in cursor:
+            function_args = row[1:(len(kwargs['arg_field_names']) + 1)]
+            if kwargs['field_as_first_arg']:
+                function_args.insert(0, row[0])
+            function_kwargs = dict(zip(
+                kwargs['kwarg_field_names'],
+                row[(len(kwargs['arg_field_names']) + 1):]
+                ))
+            new_value = function(*function_args, **function_kwargs)
+            if row[0] != new_value:
+                cursor.updateRow([new_value] + list(row[1:]))
+    LOG.log(log_level, "End: Update.")
+    return field_name
+
+
+def update_by_function_map(dataset_path, field_name, function, key_field_name,
+                           **kwargs):
+    """Update attribute values by finding them in a function-created mapping.
+
+    wraps update_by_function.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+        function (object): Function executed to create map.
+        key_field_name (str): Name of field whose values will be the map's key.
+    Kwargs:
+        default_value (object): Name of method to get values from.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('default_value', None),
+                          ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, ("Start: Update attributes in %s on %s"
+                        " by function %s mapping with key in %s."),
+            field_name, dataset_path, function, key_field_name)
+    function_map = function()
+    if kwargs['default_value']:
+        get_map = functools.partial(function_map.get, kwargs['default_value'])
+    else:
+        get_map = functools.partial(function_map.get)
+    update_by_function(
+        dataset_path, field_name, function=get_map,
+        field_as_first_arg=False, arg_field_names=[key_field_name],
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        )
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -220,24 +258,23 @@ def update_by_geometry(dataset_path, field_name, geometry_property_cascade,
         'z-maximum': ['extent', 'ZMax'], 'zmax': ['extent', 'ZMax'],
         'z-minimum': ['extent', 'ZMin'], 'zmin': ['extent', 'ZMin'],
         }
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.UpdateCursor(
-            in_table=dataset_path, field_names=[field_name, 'shape@'],
-            where_clause=kwargs.get('dataset_where_sql'),
-            spatial_reference=spatial_reference
-            ) as cursor:
-            for field_value, geometry in cursor:
-                if geometry is None:
-                    new_value = None
-                else:
-                    new_value = geometry
-                    # Cascade down the geometry properties.
-                    for _property in geometry_property_cascade:
-                        for sub_property in property_as_cascade.get(
-                                _property.lower(), [_property]):
-                            new_value = getattr(new_value, sub_property)
-                if new_value != field_value:
-                    cursor.updateRow((new_value, geometry))
+    with arcpy.da.UpdateCursor(
+        in_table=dataset_path, field_names=[field_name, 'shape@'],
+        where_clause=kwargs.get('dataset_where_sql'),
+        spatial_reference=spatial_reference
+        ) as cursor:
+        for field_value, geometry in cursor:
+            if geometry is None:
+                new_value = None
+            else:
+                new_value = geometry
+                # Cascade down the geometry properties.
+                for _property in geometry_property_cascade:
+                    for sub_property in property_as_cascade.get(
+                            _property.lower(), [_property]):
+                        new_value = getattr(new_value, sub_property)
+            if new_value != field_value:
+                cursor.updateRow((new_value, geometry))
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -314,15 +351,14 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
         for feature in features_as_iters(
             join_dataset_path,
             field_names=[join_field_name] + [p[1] for p in on_field_pairs])}
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.UpdateCursor(
-            in_table=dataset_path,
-            field_names=[field_name] + [p[0] for p in on_field_pairs],
-            where_clause=kwargs.get('dataset_where_sql')) as cursor:
-            for row in cursor:
-                new_value = join_value_map.get(tuple(row[1:]))
-                if row[0] != new_value:
-                    cursor.updateRow([new_value] + list(row[1:]))
+    with arcpy.da.UpdateCursor(
+        in_table=dataset_path,
+        field_names=[field_name] + [p[0] for p in on_field_pairs],
+        where_clause=kwargs.get('dataset_where_sql')) as cursor:
+        for row in cursor:
+            new_value = join_value_map.get(tuple(row[1:]))
+            if row[0] != new_value:
+                cursor.updateRow([new_value] + list(row[1:]))
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -368,13 +404,14 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
             field_name, dataset_path, near_field_name, near_dataset_path)
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     # Create a temporary copy of near dataset.
-    temp_near_path = dataset.copy(near_dataset_path,
-                                  unique_temp_dataset_path('near'))
+    temp_near_path = dataset.copy(
+        near_dataset_path, unique_temp_dataset_path('near'), log_level=None
+        )
     # Avoid field name collisions with neutral holding field.
-    temp_near_field_name = duplicate_field(
+    temp_near_field_name = dataset.duplicate_field(
         temp_near_path, near_field_name,
         new_field_name=unique_name(near_field_name), log_level=None
         )
@@ -400,7 +437,8 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
     # Remove near rows not matching chosen rank.
     features.delete(
         dataset_path=temp_output_path,
-        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank'])
+        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank']),
+        log_level=None
         )
     # Join ID values to the near output & rename facility_geofeature_id.
     join_field(
@@ -409,7 +447,7 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
         on_join_field_name=dataset_metadata(temp_near_path)['oid_field_name'],
         log_level=None
         )
-    dataset.delete(temp_near_path)
+    dataset.delete(temp_near_path, log_level=None)
     # Add update field to output.
     dataset.add_field_from_metadata(
         temp_output_path, field_metadata(dataset_path, field_name),
@@ -442,8 +480,8 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
                 ],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
             )
-    dataset.delete(dataset_view_name)
-    dataset.delete(temp_output_path)
+    dataset.delete(dataset_view_name, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -508,15 +546,15 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
                        'match_option': 'intersect'}
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     # Create temporary copy of overlay dataset.
     temp_overlay_path = dataset.copy(
         overlay_dataset_path, unique_temp_dataset_path('overlay'),
-        dataset_where_sql=kwargs['overlay_where_sql']
+        dataset_where_sql=kwargs['overlay_where_sql'], log_level=None
         )
     # Avoid field name collisions with neutral holding field.
-    temp_overlay_field_name = duplicate_field(
+    temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, overlay_field_name,
         new_field_name=unique_name(overlay_field_name), log_level=None
         )
@@ -536,7 +574,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         )
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
-    dataset.delete(temp_overlay_path)
+    dataset.delete(temp_overlay_path, log_level=None)
     # Push overlay (or replacement) value from temp to update field.
     if kwargs['replacement_value'] is not None:
         function = (lambda x: kwargs['replacement_value'] if x else None)
@@ -555,8 +593,8 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
             ],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
-    dataset.delete(dataset_view_name)
-    dataset.delete(temp_output_path)
+    dataset.delete(dataset_view_name, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -584,11 +622,10 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         data_type=FIELD_TYPE_AS_PYTHON[field_meta['type']],
         string_length=field_meta.get('length', 16)
         )
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.UpdateCursor(dataset_path, [field_name],
-                                   kwargs['dataset_where_sql']) as cursor:
-            for _ in cursor:
-                cursor.updateRow([next(unique_id_pool)])
+    with arcpy.da.UpdateCursor(dataset_path, [field_name],
+                               kwargs['dataset_where_sql']) as cursor:
+        for _ in cursor:
+            cursor.updateRow([next(unique_id_pool)])
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -690,15 +727,14 @@ def update_node_ids_by_geometry(dataset_path, from_id_field_name,
         for feature_oid in node_xy_map[node_xy]['t_oids']:
             feature_nodes[feature_oid]['tnode'] = node_id
     # Push changes to features.
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.UpdateCursor(
-            dataset_path, ['oid@', from_id_field_name, to_id_field_name]
-            ) as cursor:
-            for oid, old_fnode_id, old_tnode_id in cursor:
-                new_fnode_id = feature_nodes[oid]['fnode']
-                new_tnode_id = feature_nodes[oid]['tnode']
-                if any([old_fnode_id != new_fnode_id,
-                        old_tnode_id != new_tnode_id]):
-                    cursor.updateRow([oid, new_fnode_id, new_tnode_id])
+    with arcpy.da.UpdateCursor(
+        dataset_path, ['oid@', from_id_field_name, to_id_field_name]
+        ) as cursor:
+        for oid, old_fnode_id, old_tnode_id in cursor:
+            new_fnode_id = feature_nodes[oid]['fnode']
+            new_tnode_id = feature_nodes[oid]['tnode']
+            if any([old_fnode_id != new_fnode_id,
+                    old_tnode_id != new_tnode_id]):
+                cursor.updateRow([oid, new_fnode_id, new_tnode_id])
     LOG.log(log_level, "End: Update.")
     return (from_id_field_name, to_id_field_name)

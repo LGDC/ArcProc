@@ -62,7 +62,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
     facility = {
         'view_name': dataset.create_view(
             helpers.unique_name('facility_view'), facility_path,
-            dataset_where_sql=kwargs['facility_where_sql']),
+            dataset_where_sql=kwargs['facility_where_sql'], log_level=None),
         'id_field': metadata.field_metadata(
             facility_path, facility_id_field_name)}
     arcpy.na.AddFieldToAnalysisLayer(
@@ -77,14 +77,14 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         in_table=facility['view_name'],
         field_mappings='facility_id {} #'.format(facility_id_field_name),
         append=False, exclude_restricted_elements=True)
-    dataset.delete(facility['view_name'])
+    dataset.delete(facility['view_name'], log_level=None)
     facility['oid_id_map'] = values.oid_field_value_map(
         'closest/Facilities', 'facility_id')
     # Load dataset locations.
     dataset_info = {
         'view_name': dataset.create_view(
             helpers.unique_name('dataset_view'), dataset_path,
-            dataset_where_sql=kwargs['dataset_where_sql']),
+            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None),
         'id_field': metadata.field_metadata(dataset_path, id_field_name)
         }
     arcpy.na.AddFieldToAnalysisLayer(
@@ -100,7 +100,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         field_mappings='dataset_id {} #'.format(id_field_name),
         append=False, snap_to_position_along_network=False,
         exclude_restricted_elements=True)
-    dataset.delete(dataset_info['view_name'])
+    dataset.delete(dataset_info['view_name'], log_level=None)
     dataset_info['oid_id_map'] = values.oid_field_value_map(
         'closest/Incidents', 'dataset_id')
     arcpy.na.Solve(in_network_analysis_layer='closest',
@@ -114,5 +114,5 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
                 'dataset_id': dataset_info['oid_id_map'][incident_oid],
                 'facility_id': facility['oid_id_map'][facility_oid],
                 'cost': cost, 'geometry': geometry}
-    dataset.delete('closest')
+    dataset.delete('closest', log_level=None)
     LOG.log(log_level, "End: Generate.")

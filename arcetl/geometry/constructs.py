@@ -61,7 +61,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
                                                      dataset_path)
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     toggle_arc_extension('Network', toggle_on=True)
     arcpy.na.MakeServiceAreaLayer(
@@ -89,12 +89,12 @@ def generate_service_areas(dataset_path, output_path, network_path,
         append='clear', snap_to_position_along_network='no_snap',
         exclude_restricted_elements=True
         )
-    dataset.delete(dataset_view_name)
+    dataset.delete(dataset_view_name, log_level=None)
     arcpy.na.Solve(in_network_analysis_layer="service_area",
                    ignore_invalids=True, terminate_on_solve_error=True)
     toggle_arc_extension('Network', toggle_off=True)
-    dataset.copy('service_area/Polygons', output_path)
-    dataset.delete('service_area')
+    dataset.copy('service_area/Polygons', output_path, log_level=None)
+    dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
         id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
         dataset.add_field_from_metadata(output_path, id_field_meta,
@@ -157,7 +157,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
                                                      dataset_path)
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     toggle_arc_extension('Network', toggle_on=True)
     arcpy.na.MakeServiceAreaLayer(
@@ -187,12 +187,12 @@ def generate_service_rings(dataset_path, output_path, network_path,
         append='clear', snap_to_position_along_network='no_snap',
         exclude_restricted_elements=True
         )
-    dataset.delete(dataset_view_name)
+    dataset.delete(dataset_view_name, log_level=None)
     arcpy.na.Solve(in_network_analysis_layer="service_area",
                    ignore_invalids=True, terminate_on_solve_error=True)
     toggle_arc_extension('Network', toggle_off=True)
-    dataset.copy('service_area/Polygons', output_path)
-    dataset.delete('service_area')
+    dataset.copy('service_area/Polygons', output_path, log_level=None)
+    dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
         id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
         dataset.add_field_from_metadata(output_path, id_field_meta,

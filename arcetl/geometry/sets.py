@@ -4,9 +4,9 @@ import logging
 
 import arcpy
 
-from .. import fields, helpers, values
+from .. import helpers, values
 from arcetl import attributes, dataset, features
-from arcetl.metadata import dataset_metadata, feature_count
+from arcetl.metadata import dataset_metadata
 
 
 CHUNK_WHERE_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"
@@ -37,14 +37,13 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Clip features in %s where overlapping %s.",
             dataset_path, clip_dataset_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     clip_dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), clip_dataset_path,
-        dataset_where_sql=kwargs['clip_where_sql']
+        dataset_where_sql=kwargs['clip_where_sql'], log_level=None
         )
     temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.analysis.Clip(
@@ -52,13 +51,12 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
         out_feature_class=temp_output_path,
         cluster_tolerance=kwargs['tolerance']
         )
-    dataset.delete(clip_dataset_view_name)
+    dataset.delete(clip_dataset_view_name, log_level=None)
     # Load back into the dataset.
-    features.delete(dataset_view_name)
-    dataset.delete(dataset_view_name)
-    features.insert_from_path(dataset_path, temp_output_path)
-    dataset.delete(temp_output_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    features.delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    features.insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Clip.")
     return dataset_path
 
@@ -89,13 +87,12 @@ def dissolve_features(dataset_path, dissolve_field_names=None, **kwargs):
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if kwargs['tolerance']:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.management.Dissolve(
         in_features=dataset_view_name, out_feature_class=temp_output_path,
@@ -105,12 +102,11 @@ def dissolve_features(dataset_path, dissolve_field_names=None, **kwargs):
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
     # Delete undissolved features that are now dissolved (in the temp).
-    features.delete(dataset_view_name)
-    dataset.delete(dataset_view_name)
+    features.delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
     # Copy the dissolved features (in the temp) to the dataset.
-    features.insert_from_path(dataset_path, temp_output_path)
-    dataset.delete(temp_output_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    features.insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Dissolve.")
     return dataset_path
 
@@ -137,14 +133,13 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Erase features in %s where overlapping %s.",
             dataset_path, erase_dataset_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     erase_dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), erase_dataset_path,
-        dataset_where_sql=kwargs['erase_where_sql']
+        dataset_where_sql=kwargs['erase_where_sql'], log_level=None
         )
     temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.analysis.Erase(
@@ -152,13 +147,12 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         out_feature_class=temp_output_path,
         cluster_tolerance=kwargs['tolerance']
         )
-    dataset.delete(erase_dataset_view_name)
+    dataset.delete(erase_dataset_view_name, log_level=None)
     # Load back into the dataset.
-    features.delete(dataset_view_name)
-    dataset.delete(dataset_view_name)
-    features.insert_from_path(dataset_path, temp_output_path)
-    dataset.delete(temp_output_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    features.delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    features.insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Erase.")
     return dataset_path
 
@@ -201,7 +195,6 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
                     " using features in %s's field %s."),
         dataset_path, field_name, identity_dataset_path, identity_field_name
         )
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if kwargs['replacement_value'] is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
@@ -210,10 +203,11 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         update_function = (lambda x: None if x == '' else x)
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = dataset.copy(
-        identity_dataset_path, helpers.unique_temp_dataset_path('overlay')
+        identity_dataset_path, helpers.unique_temp_dataset_path('overlay'),
+        log_level=None
         )
     # Avoid field name collisions with neutral holding field.
-    temp_overlay_field_name = fields.duplicate_field(
+    temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, identity_field_name,
         new_field_name=helpers.unique_name(identity_field_name), log_level=None
         )
@@ -243,7 +237,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             chunk_sql += " and ({})".format(kwargs['dataset_where_sql'])
         chunk_view_name = dataset.create_view(
             helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=chunk_sql
+            dataset_where_sql=chunk_sql, log_level=None
             )
         # Create temporary dataset with the identity values.
         temp_output_path = helpers.unique_temp_dataset_path('output')
@@ -259,12 +253,12 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             arg_field_names=[temp_overlay_field_name], log_level=None
             )
         # Replace original chunk features with identity features.
-        features.delete(chunk_view_name)
-        dataset.delete(chunk_view_name)
-        features.insert_from_path(dataset_path, temp_output_path)
-        dataset.delete(temp_output_path)
-    dataset.delete(temp_overlay_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+        features.delete(chunk_view_name, log_level=None)
+        dataset.delete(chunk_view_name, log_level=None)
+        features.insert_from_path(dataset_path, temp_output_path,
+                                  log_level=None)
+        dataset.delete(temp_output_path, log_level=None)
+    dataset.delete(temp_overlay_path, log_level=None)
     LOG.log(log_level, "End: Identity.")
     return dataset_path
 
@@ -291,14 +285,13 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
         log_level, "Start: Keep features in %s by locations overlapping %s.",
         dataset_path, location_dataset_path
         )
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     location_dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), location_dataset_path,
-        dataset_where_sql=kwargs['location_where_sql']
+        dataset_where_sql=kwargs['location_where_sql'], log_level=None
         )
     arcpy.management.SelectLayerByLocation(
         in_layer=dataset_view_name, overlap_type='intersect',
@@ -308,10 +301,9 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     # Switch selection for non-overlapping features (to delete).
     arcpy.management.SelectLayerByLocation(in_layer=dataset_view_name,
                                            selection_type='switch_selection')
-    dataset.delete(location_dataset_view_name)
-    features.delete(dataset_view_name)
-    dataset.delete(dataset_view_name)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    dataset.delete(location_dataset_view_name, log_level=None)
+    features.delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Keep.")
     return dataset_path
 
@@ -364,7 +356,6 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
                     " using features in %s's field %s."),
         dataset_path, field_name, overlay_dataset_path, overlay_field_name
         )
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     # Check flags & set details for spatial join call.
     if kwargs['overlay_most_coincident']:
         raise NotImplementedError(
@@ -384,10 +375,11 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         update_function = (lambda x: x)
     # Create temporary copy of overlay dataset.
     temp_overlay_path = dataset.copy(
-        overlay_dataset_path, helpers.unique_temp_dataset_path('overlay')
+        overlay_dataset_path, helpers.unique_temp_dataset_path('overlay'),
+        log_level=None
         )
     # Avoid field name collisions with neutral holding field.
-    temp_overlay_field_name = fields.duplicate_field(
+    temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, overlay_field_name,
         new_field_name=helpers.unique_name(overlay_field_name), log_level=None
         )
@@ -416,7 +408,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             chunk_sql += " and ({})".format(kwargs['dataset_where_sql'])
         chunk_view_name = dataset.create_view(
             helpers.unique_name('view'), dataset_path,
-            dataset_where_sql=chunk_sql
+            dataset_where_sql=chunk_sql, log_level=None
             )
         # Create the temp output of the overlay.
         if kwargs['tolerance']:
@@ -436,12 +428,12 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
             arg_field_names=[temp_overlay_field_name], log_level=None
             )
         # Replace original chunk features with overlay features.
-        features.delete(chunk_view_name)
-        dataset.delete(chunk_view_name)
-        features.insert_from_path(dataset_path, temp_output_path)
-        dataset.delete(temp_output_path)
-    dataset.delete(temp_overlay_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+        features.delete(chunk_view_name, log_level=None)
+        dataset.delete(chunk_view_name, log_level=None)
+        features.insert_from_path(dataset_path, temp_output_path,
+                                  log_level=None)
+        dataset.delete(temp_output_path, log_level=None)
+    dataset.delete(temp_overlay_path, log_level=None)
     LOG.log(log_level, "End: Overlay.")
     return dataset_path
 
@@ -478,7 +470,6 @@ def union_features(dataset_path, field_name, union_dataset_path,
                     " using features in %s's field %s."),
         dataset_path, field_name, union_dataset_path, union_field_name
         )
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if kwargs['replacement_value'] is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
@@ -487,10 +478,11 @@ def union_features(dataset_path, field_name, union_dataset_path,
         update_function = (lambda x: None if x == '' else x)
     # Create a temporary copy of the union dataset.
     temp_union_path = dataset.copy(
-        union_dataset_path, helpers.unique_temp_dataset_path('union')
+        union_dataset_path, helpers.unique_temp_dataset_path('union'),
+        log_level=None
         )
     # Avoid field name collisions with neutral holding field.
-    temp_union_field_name = fields.duplicate_field(
+    temp_union_field_name = dataset.duplicate_field(
         temp_union_path, union_field_name,
         new_field_name=helpers.unique_name(union_field_name), log_level=None
         )
@@ -518,7 +510,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
             chunk_sql += " and ({})".format(kwargs['dataset_where_sql'])
         chunk_view_name = dataset.create_view(
             helpers.unique_name('chunk_view'), dataset_path,
-            dataset_where_sql=chunk_sql
+            dataset_where_sql=chunk_sql, log_level=None
             )
         # Create the temp output of the union.
         temp_output_path = helpers.unique_temp_dataset_path('output')
@@ -534,11 +526,11 @@ def union_features(dataset_path, field_name, union_dataset_path,
             log_level=None
             )
         # Replace original chunk features with union features.
-        features.delete(chunk_view_name)
-        dataset.delete(chunk_view_name)
-        features.insert_from_path(dataset_path, temp_output_path)
-        dataset.delete(temp_output_path)
-    dataset.delete(temp_union_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+        features.delete(chunk_view_name, log_level=None)
+        dataset.delete(chunk_view_name, log_level=None)
+        features.insert_from_path(dataset_path, temp_output_path,
+                                  log_level=None)
+        dataset.delete(temp_output_path, log_level=None)
+    dataset.delete(temp_union_path, log_level=None)
     LOG.log(log_level, "End: Union.")
     return dataset_path

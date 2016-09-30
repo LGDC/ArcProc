@@ -7,7 +7,7 @@ import arcpy
 
 from arcetl import dataset
 from arcetl.helpers import LOG_LEVEL_MAP, unique_name
-from arcetl.metadata import dataset_metadata, feature_count
+from arcetl.metadata import dataset_metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ def delete(dataset_path, **kwargs):
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     truncate_type_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
         'ERROR 000187',
@@ -42,7 +41,7 @@ def delete(dataset_path, **kwargs):
         )
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql']
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     # Can use (faster) truncate when no sub-selection
     run_truncate = kwargs.get('dataset_where_sql') is None
@@ -59,10 +58,8 @@ def delete(dataset_path, **kwargs):
             else:
                 raise
     if not run_truncate:
-        with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-            arcpy.management.DeleteRows(in_rows=dataset_view_name)
-    dataset.delete(dataset_view_name)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+        arcpy.management.DeleteRows(in_rows=dataset_view_name)
+    dataset.delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Delete.")
     return dataset_path
 
@@ -85,14 +82,11 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-            for feature in insert_features:
-                cursor.insertRow([feature[name] for name in field_names])
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+        for feature in insert_features:
+            cursor.insertRow([feature[name] for name in field_names])
     LOG.log(log_level, "End: Insert.")
     return dataset_path
 
@@ -115,14 +109,11 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
-        with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-            for row in insert_features:
-                cursor.insertRow(row)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+        for row in insert_features:
+            cursor.insertRow(row)
     LOG.log(log_level, "End: Insert.")
     return dataset_path
 
@@ -147,14 +138,13 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     dataset_meta = dataset_metadata(dataset_path)
     insert_dataset_meta = dataset_metadata(insert_dataset_path)
     insert_dataset_view_name = dataset.create_view(
         unique_name('view'), insert_dataset_path,
         dataset_where_sql=kwargs['insert_where_sql'],
         # Insert view must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not dataset_meta['is_spatial'])
+        force_nonspatial=(not dataset_meta['is_spatial']), log_level=None
         )
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
@@ -181,12 +171,10 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
-    with arcpy.da.Editor(dataset_meta['workspace_path']):
-        arcpy.management.Append(
-            inputs=insert_dataset_view_name, target=dataset_path,
-            schema_type='no_test', field_mapping=field_maps
+    arcpy.management.Append(
+        inputs=insert_dataset_view_name, target=dataset_path,
+        schema_type='no_test', field_mapping=field_maps
         )
-    dataset.delete(insert_dataset_view_name)
-    LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
+    dataset.delete(insert_dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Insert.")
     return dataset_path

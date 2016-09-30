@@ -14,7 +14,7 @@ from .geometry.transformations import (
     eliminate_interior_rings, planarize_features, project
     )
 from .fields import (
-    duplicate_field, join_field, rename_field
+    join_field, rename_field
     )
 from .helpers import (
     sexagesimal_angle_to_decimal, toggle_arc_extension, unique_ids,

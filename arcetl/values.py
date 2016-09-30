@@ -103,10 +103,10 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
         kwargs.setdefault(*kwarg_default)
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'])
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     near_dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), near_dataset_path,
-        dataset_where_sql=kwargs['near_where_sql'])
+        dataset_where_sql=kwargs['near_where_sql'], log_level=None)
     temp_near_path = helpers.unique_temp_dataset_path('near')
     arcpy.analysis.GenerateNearTable(
         in_features=dataset_view_name, near_features=near_dataset_view_name,
@@ -115,10 +115,10 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
         method='geodesic')
     dataset_oid_id_map = oid_field_value_map(
         dataset_view_name, dataset_id_field_name)
-    dataset.delete(dataset_view_name)
+    dataset.delete(dataset_view_name, log_level=None)
     near_oid_id_map = oid_field_value_map(
         near_dataset_view_name, near_id_field_name)
-    dataset.delete(near_dataset_view_name)
+    dataset.delete(near_dataset_view_name, log_level=None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         in_table=temp_near_path,
@@ -134,7 +134,7 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'angle': row_info['near_angle'],
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
-    dataset.delete(temp_near_path)
+    dataset.delete(temp_near_path, log_level=None)
 
 
 def oid_field_values(dataset_path, field_name, **kwargs):

@@ -7,7 +7,7 @@ import arcpy
 
 from arcetl import arcobj
 from arcetl.helpers import LOG_LEVEL_MAP, unique_name
-from arcetl.metadata import dataset_metadata
+from arcetl.metadata import dataset_metadata, field_metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def add_field_from_metadata(dataset_path, metadata, **kwargs):
                       'is_nullable', 'is_required']
     add_kwargs = {'field_{}'.format(kw): metadata[kw]
                   for kw in field_keywords if kw in metadata}
-    add_field(dataset_path, **add_kwargs)
+    add_field(dataset_path, log_level=None, **add_kwargs)
     LOG.log(log_level, "End: Add.")
     return metadata['name']
 
@@ -165,7 +165,8 @@ def copy(dataset_path, output_path, **kwargs):
     dataset_view_name = create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=("0=1" if kwargs['schema_only']
-                           else kwargs['dataset_where_sql'])
+                           else kwargs['dataset_where_sql']),
+        log_level=None
         )
     if kwargs['sort_field_names']:
         copy_function = arcpy.management.Sort
@@ -189,9 +190,9 @@ def copy(dataset_path, output_path, **kwargs):
     else:
         raise ValueError("{} unsupported dataset type.".format(dataset_path))
     if kwargs['overwrite'] and arcpy.Exists(output_path):
-        delete(output_path)
+        delete(output_path, log_level=None)
     copy_function(**copy_kwargs)
-    delete(dataset_view_name)
+    delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Copy.")
     return output_path
 
@@ -228,7 +229,7 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     create_function(**create_kwargs)
     if field_metadata_list:
         for metadata in field_metadata_list:
-            arcwrap.add_field(**metadata)
+            add_field_from_metadata(dataset_path, metadata, log_level=None)
     LOG.log(log_level, "End: Create.")
     return dataset_path
 
@@ -308,6 +309,34 @@ def delete_field(dataset_path, field_name, **kwargs):
     arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
     LOG.log(log_level, "End: Delete.")
     return field_name
+
+
+def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
+    """Create new field as a duplicate of another.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+        new_field_name (str): Field name to call duplicate.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
+            field_name, new_field_name, dataset_path)
+    field_meta = field_metadata(dataset_path, field_name)
+    field_meta['name'] = new_field_name
+    # Cannot add OID-type field, so change to long.
+    if field_meta['type'].lower() == 'oid':
+        field_meta['type'] = 'long'
+    add_field_from_metadata(dataset_path, field_meta, log_level=None)
+    LOG.log(log_level, "End: Duplicate.")
+    return new_field_name
 
 
 def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,

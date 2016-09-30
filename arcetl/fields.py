@@ -12,35 +12,6 @@ LOG = logging.getLogger(__name__)
 
 
 @helpers.log_function
-def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
-    """Create new field as a duplicate of another.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        new_field_name (str): Field name to call duplicate.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
-            field_name, new_field_name, dataset_path)
-    field_meta = metadata.field_metadata(dataset_path, field_name)
-    field_meta['name'] = new_field_name
-    # Cannot add OID-type field, so push to a long-type.
-    if field_meta['type'].lower() == 'oid':
-        field_meta['type'] = 'long'
-    dataset.add_field_from_metadata(dataset_path, field_meta, log_level=None)
-    LOG.log(log_level, "End: Duplicate.")
-    return new_field_name
-
-
-@helpers.log_function
 def join_field(dataset_path, join_dataset_path, join_field_name,
                on_field_name, on_join_field_name, **kwargs):
     """Add field and its values from join-dataset.
