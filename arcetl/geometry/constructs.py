@@ -4,8 +4,9 @@ import logging
 
 import arcpy
 
+from arcetl.attributes import update_by_function
 from ..arcwrap import copy_dataset, create_dataset_view, delete_dataset
-from ..fields import add_fields_from_metadata_list, update_field_by_function
+from ..fields import add_fields_from_metadata_list
 from ..helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
 from ..metadata import field_metadata, linear_unit_as_string
 
@@ -100,7 +101,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
         id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
         add_fields_from_metadata_list(output_path, [id_field_meta],
                                       log_level=None)
-        update_field_by_function(
+        update_by_function(
             output_path, kwargs['id_field_name'],
             function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
             field_as_first_arg=False, arg_field_names=['Name'], log_level=None
@@ -198,7 +199,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
         id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
         add_fields_from_metadata_list(output_path, [id_field_meta],
                                       log_level=None)
-        update_field_by_function(
+        update_by_function(
             output_path, kwargs['id_field_name'],
             function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
             field_as_first_arg=False, arg_field_names=['Name'], log_level=None

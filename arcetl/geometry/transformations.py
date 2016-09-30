@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, fields, helpers, metadata
+from .. import arcwrap, attributes, fields, helpers, metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
                 fields.add_fields_from_metadata_list(
                     output_path, metadata_list=[side_meta['id_field']],
                     log_level=None)
-                fields.update_field_by_joined_value(
+                attributes.update_by_joined_value(
                     dataset_path=output_path,
                     field_name=side_meta['id_field']['name'],
                     join_dataset_path=dataset_path,

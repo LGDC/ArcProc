@@ -7,6 +7,7 @@ import logging
 import arcpy
 
 from . import arcwrap, fields, helpers
+from arcetl.attributes import update_by_function
 from .metadata import dataset_metadata, feature_count
 
 
@@ -67,7 +68,7 @@ def adjust_features_for_shapefile(dataset_path, **kwargs):
     with arcpy.da.Editor(dataset_meta['workspace_path']):
         for field in dataset_meta['fields']:
             if field['type'].lower() in type_function_map:
-                fields.update_field_by_function(
+                update_by_function(
                     dataset_path, field['name'],
                     function=type_function_map[field['type'].lower()],
                     log_level=None

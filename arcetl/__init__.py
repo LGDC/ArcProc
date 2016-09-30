@@ -19,12 +19,7 @@ from .features import (
     )
 from .fields import (
     add_field, add_fields_from_metadata_list, add_index, delete_field,
-    duplicate_field, join_field, rename_field, update_field_by_domain_code,
-    update_field_by_expression, update_field_by_feature_match,
-    update_field_by_function, update_field_by_geometry,
-    update_field_by_instance_method, update_field_by_joined_value,
-    update_field_by_near_feature, update_field_by_overlay,
-    update_field_by_unique_id, update_geometry_node_id_fields
+    duplicate_field, join_field, rename_field
     )
 from .helpers import (
     sexagesimal_angle_to_decimal, toggle_arc_extension, unique_ids,

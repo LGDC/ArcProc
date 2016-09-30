@@ -5,10 +5,11 @@ import logging
 import arcpy
 
 from .. import arcwrap, fields, helpers, values
+from arcetl.attributes import update_by_function
 from ..metadata import dataset_metadata, feature_count
 
 
-CHUNK_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"
+CHUNK_WHERE_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"
 LOG = logging.getLogger(__name__)
 
 
@@ -230,7 +231,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         oids = oids[kwargs['chunk_size']:]
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
-        chunk_sql = CHUNK_SQL_TEMPLATE.format(
+        chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
             field=dataset_metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
@@ -248,7 +249,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             cluster_tolerance=kwargs['tolerance'], relationship=False
             )
         # Push identity (or replacement) value from temp to update field.
-        fields.update_field_by_function(
+        update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False,
             arg_field_names=[temp_overlay_field_name], log_level=None
@@ -399,7 +400,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         oids = oids[kwargs['chunk_size']:]
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
-        chunk_sql = CHUNK_SQL_TEMPLATE.format(
+        chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
             field=dataset_metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
@@ -421,7 +422,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         if kwargs['tolerance']:
             arcpy.env.XYTolerance = old_tolerance
         # Push overlay (or replacement) value from temp to update field.
-        fields.update_field_by_function(
+        update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False,
             arg_field_names=[temp_overlay_field_name], log_level=None
@@ -497,7 +498,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
         oids = oids[kwargs['chunk_size']:]
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
-        chunk_sql = CHUNK_SQL_TEMPLATE.format(
+        chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
             field=dataset_metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
@@ -515,7 +516,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
             cluster_tolerance=kwargs['tolerance'], gaps=False
             )
         # Push union (or replacement) value from temp to update field.
-        fields.update_field_by_function(
+        update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False, arg_field_names=[temp_union_field_name],
             log_level=None
