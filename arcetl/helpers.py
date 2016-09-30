@@ -16,6 +16,7 @@ LOG_LEVEL_MAP = {
     'critical': logging.CRITICAL}
 
 
+##TODO: Rename log_function_call.
 def log_function(function):
     """Decorator to log details of an function or method when called."""
     @functools.wraps(function)
