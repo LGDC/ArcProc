@@ -4,7 +4,8 @@ import logging
 
 import arcpy
 
-from . import arcwrap, helpers, metadata, values
+from . import helpers, metadata, values
+from arcetl import dataset
 
 
 LOG = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         hierarchy='no_hierarchy', output_path_shape='true_lines_with_measures')
     # Load facilities.
     facility = {
-        'view_name': arcwrap.create_dataset_view(
+        'view_name': dataset.create_view(
             helpers.unique_name('facility_view'), facility_path,
             dataset_where_sql=kwargs['facility_where_sql']),
         'id_field': metadata.field_metadata(
@@ -76,30 +77,31 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         in_table=facility['view_name'],
         field_mappings='facility_id {} #'.format(facility_id_field_name),
         append=False, exclude_restricted_elements=True)
-    arcwrap.delete_dataset(facility['view_name'])
+    dataset.delete(facility['view_name'])
     facility['oid_id_map'] = values.oid_field_value_map(
         'closest/Facilities', 'facility_id')
     # Load dataset locations.
-    dataset = {
-        'view_name': arcwrap.create_dataset_view(
+    dataset_info = {
+        'view_name': dataset.create_view(
             helpers.unique_name('dataset_view'), dataset_path,
             dataset_where_sql=kwargs['dataset_where_sql']),
-        'id_field': metadata.field_metadata(dataset_path, id_field_name)}
+        'id_field': metadata.field_metadata(dataset_path, id_field_name)
+        }
     arcpy.na.AddFieldToAnalysisLayer(
         in_network_analysis_layer='closest', sub_layer='Incidents',
-        field_name='dataset_id', field_type=dataset['id_field']['type'],
-        field_precision=dataset['id_field']['precision'],
-        field_scale=dataset['id_field']['scale'],
-        field_length=dataset['id_field']['length'],
+        field_name='dataset_id', field_type=dataset_info['id_field']['type'],
+        field_precision=dataset_info['id_field']['precision'],
+        field_scale=dataset_info['id_field']['scale'],
+        field_length=dataset_info['id_field']['length'],
         field_is_nullable=True)
     arcpy.na.AddLocations(
         in_network_analysis_layer='closest', sub_layer='Incidents',
-        in_table=dataset['view_name'],
+        in_table=dataset_info['view_name'],
         field_mappings='dataset_id {} #'.format(id_field_name),
         append=False, snap_to_position_along_network=False,
         exclude_restricted_elements=True)
-    arcwrap.delete_dataset(dataset['view_name'])
-    dataset['oid_id_map'] = values.oid_field_value_map(
+    dataset.delete(dataset_info['view_name'])
+    dataset_info['oid_id_map'] = values.oid_field_value_map(
         'closest/Incidents', 'dataset_id')
     arcpy.na.Solve(in_network_analysis_layer='closest',
                    ignore_invalids=True, terminate_on_solve_error=True)
@@ -109,8 +111,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
     with arcpy.da.SearchCursor('closest/Routes', cursor_field_names) as cursor:
         for facility_oid, incident_oid, cost, geometry in cursor:
             yield {
-                'dataset_id': dataset['oid_id_map'][incident_oid],
+                'dataset_id': dataset_info['oid_id_map'][incident_oid],
                 'facility_id': facility['oid_id_map'][facility_oid],
                 'cost': cost, 'geometry': geometry}
-    arcwrap.delete_dataset('closest')
+    dataset.delete('closest')
     LOG.log(log_level, "End: Generate.")

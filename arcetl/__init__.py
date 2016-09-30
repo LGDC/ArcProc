@@ -14,7 +14,6 @@ from .geometry.transformations import (
     eliminate_interior_rings, planarize_features, project
     )
 from .fields import (
-    add_field, add_fields_from_metadata_list, add_index, delete_field,
     duplicate_field, join_field, rename_field
     )
 from .helpers import (
@@ -33,10 +32,8 @@ from .values import (
     sorted_feature_dicts, sorted_feature_iters
     )
 from .workspace import (
-    build_locator, build_network, compress_geodatabase, copy_dataset,
-    create_dataset, create_dataset_view, create_file_geodatabase,
-    create_geodatabase_xml_backup, delete_dataset, execute_sql_statement,
-    set_dataset_privileges, write_rows_to_csvfile
+    build_locator, build_network, compress_geodatabase, create_file_geodatabase,
+    create_geodatabase_xml_backup, execute_sql_statement, write_rows_to_csvfile
     )
 
 

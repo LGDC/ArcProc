@@ -4,8 +4,8 @@ import logging
 
 import funcsigs
 
-from arcetl import features
-from . import arcwrap, helpers, metadata
+from arcetl import dataset, features
+from . import helpers, metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -31,14 +31,14 @@ class ArcETL(object):
         # Clear the transform dataset.
         if all([self.transform_path,
                 metadata.is_valid_dataset(self.transform_path)]):
-            arcwrap.delete_dataset(self.transform_path)
+            dataset.delete(self.transform_path)
             self.transform_path = None
         LOG.info("Closed.")
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
         """Extract features to transform workspace."""
         LOG.info("Start: Extract %s.", extract_path)
-        self.transform_path = arcwrap.copy_dataset(
+        self.transform_path = dataset.copy(
             dataset_path=extract_path,
             output_path=helpers.unique_temp_dataset_path('extract'),
             dataset_where_sql=extract_where_sql, schema_only=schema_only)
@@ -58,7 +58,7 @@ class ArcETL(object):
                                       insert_where_sql=load_where_sql)
         else:
             # Load to a new dataset.
-            arcwrap.copy_dataset(
+            dataset.copy(
                 dataset_path=self.transform_path, output_path=load_path,
                 dataset_where_sql=load_where_sql)
         LOG.info("End: Load.")
@@ -83,6 +83,6 @@ class ArcETL(object):
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
             if metadata.is_valid_dataset(self.transform_path):
-                arcwrap.delete_dataset(self.transform_path)
+                dataset.delete(self.transform_path)
             self.transform_path = result
         return result

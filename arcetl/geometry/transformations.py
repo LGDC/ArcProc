@@ -4,8 +4,8 @@ import logging
 
 import arcpy
 
-from .. import arcwrap, attributes, fields, helpers, metadata
-from arcetl import features
+from .. import helpers, metadata
+from arcetl import attributes, dataset, features
 
 
 LOG = logging.getLogger(__name__)
@@ -42,9 +42,9 @@ def convert_dataset_to_spatial(dataset_path, output_path, x_field_name,
         spatial_reference=(
             arcpy.SpatialReference(kwargs['spatial_reference_id'])
             if kwargs.get('spatial_reference_id') else None))
-    arcwrap.copy_dataset(dataset_view_name, output_path,
+    dataset.copy(dataset_view_name, output_path,
                          dataset_where_sql=kwargs['dataset_where_sql'])
-    arcwrap.delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     LOG.log(log_level, "End: Convert.")
     LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
@@ -93,7 +93,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
         dataset_path, output_path)
     LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
     dataset_meta = metadata.dataset_metadata(dataset_path)
-    dataset_view_name = arcwrap.create_dataset_view(
+    dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
     if kwargs['tolerance']:
@@ -104,7 +104,7 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
         neighbor_option=kwargs['topological'])
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
-    arcwrap.delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     if kwargs['topological']:
         for side in ('left', 'right'):
             side_meta = {'oid_field_name': '{}_FID'.format(side.upper())}
@@ -116,9 +116,9 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
                 # Cannot create an OID-type field, so force to long.
                 if side_meta['id_field']['type'].lower() == 'oid':
                     side_meta['id_field']['type'] = 'long'
-                fields.add_fields_from_metadata_list(
-                    output_path, metadata_list=[side_meta['id_field']],
-                    log_level=None)
+                dataset.add_field_from_metadata(
+                    output_path, side_meta['id_field'], log_level=None
+                    )
                 attributes.update_by_joined_value(
                     dataset_path=output_path,
                     field_name=side_meta['id_field']['name'],
@@ -127,10 +127,10 @@ def convert_polygons_to_lines(dataset_path, output_path, **kwargs):
                     on_field_pairs=[(side_meta['oid_field_name'],
                                      dataset_meta['oid_field_name'])],
                     log_level=None)
-            fields.delete_field(
-                output_path, side_meta['oid_field_name'], log_level=None)
+            dataset.delete_field(output_path, side_meta['oid_field_name'],
+                                 log_level=None)
     else:
-        fields.delete_field(output_path, 'ORIG_FID', log_level=None)
+        dataset.delete_field(output_path, 'ORIG_FID', log_level=None)
     LOG.log(log_level, "End: Convert.")
     LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
@@ -169,7 +169,7 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         kwargs['condition'] = 'percent'
     log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Eliminate interior rungs in %s.", dataset_path)
-    dataset_view_name = arcwrap.create_dataset_view(
+    dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
     temp_output_path = helpers.unique_temp_dataset_path('output')
@@ -180,10 +180,10 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         part_option='contained_only')
     # Delete un-eliminated features that are now eliminated (in the temp).
     features.delete(dataset_view_name)
-    arcwrap.delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     # Copy the dissolved features (in the temp) to the dataset.
     features.insert_from_path(dataset_path, temp_output_path)
-    arcwrap.delete_dataset(temp_output_path)
+    dataset.delete(temp_output_path)
     LOG.log(log_level, "End: Eliminate.")
     return dataset_path
 
@@ -216,13 +216,13 @@ def planarize_features(dataset_path, output_path, **kwargs):
         log_level, "Start: Planarize features in %s to line features in %s.",
         dataset_path, output_path)
     LOG.log(log_level, "%s features.", metadata.feature_count(dataset_path))
-    dataset_view_name = arcwrap.create_dataset_view(
+    dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
     arcpy.management.FeatureToLine(
         in_features=dataset_view_name, out_feature_class=output_path,
         cluster_tolerance=kwargs['tolerance'], attributes=True)
-    arcwrap.delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     LOG.log(log_level, "End: Planarize.")
     LOG.log(log_level, "%s features.", metadata.feature_count(output_path))
     return output_path
@@ -256,14 +256,14 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     # specifically states: "The in_memory workspace is not supported as a
     # location to write the output dataset." To avoid all this ado, using
     # create a clone dataset & copy features.
-    arcwrap.create_dataset(
+    dataset.create(
         output_path,
         field_metadata_list=[
             field for field in dataset_meta['fields']
             if field['type'].lower() not in ('geometry ', 'oid')],
         geometry_type=dataset_meta['geometry_type'],
         spatial_reference_id=spatial_reference_id)
-    arcwrap.copy_dataset(dataset_path, output_path,
+    dataset.copy(dataset_path, output_path,
                          dataset_where_sql=kwargs['dataset_where_sql'])
     LOG.log(log_level, "End: Project.")
     return output_path

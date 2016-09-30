@@ -4,17 +4,14 @@ import logging
 
 import arcpy
 
-from arcetl import features
+from arcetl import dataset, features
 from arcetl.arcobj import FIELD_TYPE_AS_PYTHON
-from arcetl.arcwrap import create_dataset_view, copy_dataset, delete_dataset
-from arcetl.fields import (
-    add_fields_from_metadata_list, duplicate_field, join_field
-    )
+from .fields import duplicate_field, join_field
 from arcetl.helpers import (
     LOG_LEVEL_MAP, unique_ids, unique_name, unique_temp_dataset_path
     )
 from arcetl.metadata import dataset_metadata, domain_metadata, field_metadata
-from arcetl.values import features_as_iters
+from .values import features_as_iters
 
 
 LOG = logging.getLogger(__name__)
@@ -75,7 +72,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by expression: ```%s```.",
             field_name, dataset_path, expression)
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql']
         )
@@ -84,7 +81,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
             in_table=dataset_view_name, field=field_name,
             expression=expression, expression_type='python_9.3'
             )
-    delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -369,19 +366,24 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by near feature values in %s on %s."),
             field_name, dataset_path, near_field_name, near_dataset_path)
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql']
         )
     # Create a temporary copy of near dataset.
-    temp_near_path = copy_dataset(
-        near_dataset_path, unique_temp_dataset_path('near'))
+    temp_near_path = dataset.copy(near_dataset_path,
+                                  unique_temp_dataset_path('near'))
     # Avoid field name collisions with neutral holding field.
     temp_near_field_name = duplicate_field(
         temp_near_path, near_field_name,
-        new_field_name=unique_name(near_field_name),
-        duplicate_values=True, log_level=None)
-    # Create the temp output of the near features.
+        new_field_name=unique_name(near_field_name), log_level=None
+        )
+    update_by_function(
+        temp_near_path, temp_near_field_name, function=(lambda x: x),
+        field_as_first_arg=False, arg_field_names=[near_field_name],
+        log_level=None
+        )
+    # Create the temp output of the near features.`
     temp_output_path = unique_temp_dataset_path('output')
     arcpy.analysis.GenerateNearTable(
         in_features=dataset_view_name,
@@ -393,7 +395,8 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
         angle=any([kwargs['angle_field_name']]),
         closest='all', closest_count=kwargs['near_rank'],
         # Would prefer geodesic, but that forces XY values to lon-lat.
-        method='planar')
+        method='planar'
+        )
     # Remove near rows not matching chosen rank.
     features.delete(
         dataset_path=temp_output_path,
@@ -404,12 +407,12 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
         dataset_path=temp_output_path, join_dataset_path=temp_near_path,
         join_field_name=temp_near_field_name, on_field_name='near_fid',
         on_join_field_name=dataset_metadata(temp_near_path)['oid_field_name'],
-        log_level=None)
-    delete_dataset(temp_near_path)
+        log_level=None
+        )
+    dataset.delete(temp_near_path)
     # Add update field to output.
-    add_fields_from_metadata_list(
-        dataset_path=temp_output_path,
-        metadata_list=[field_metadata(dataset_path, field_name)],
+    dataset.add_field_from_metadata(
+        temp_output_path, field_metadata(dataset_path, field_name),
         log_level=None
         )
     # Push overlay (or replacement) value from temp to update field.
@@ -439,8 +442,8 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
                 ],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
             )
-    delete_dataset(dataset_view_name)
-    delete_dataset(temp_output_path)
+    dataset.delete(dataset_view_name)
+    dataset.delete(temp_output_path)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -503,20 +506,24 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         join_kwargs = {'join_operation': 'join_one_to_many',
                        'join_type': 'keep_all',
                        'match_option': 'intersect'}
-    dataset_view_name = create_dataset_view(
+    dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql']
         )
     # Create temporary copy of overlay dataset.
-    temp_overlay_path = copy_dataset(
+    temp_overlay_path = dataset.copy(
         overlay_dataset_path, unique_temp_dataset_path('overlay'),
         dataset_where_sql=kwargs['overlay_where_sql']
         )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = duplicate_field(
         temp_overlay_path, overlay_field_name,
-        new_field_name=unique_name(overlay_field_name),
-        duplicate_values=True, log_level=None
+        new_field_name=unique_name(overlay_field_name), log_level=None
+        )
+    update_by_function(
+        temp_overlay_path, temp_overlay_field_name, function=(lambda x: x),
+        field_as_first_arg=False, arg_field_names=[overlay_field_name],
+        log_level=None
         )
     # Create temp output of the overlay.
     if kwargs['tolerance']:
@@ -529,7 +536,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         )
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
-    delete_dataset(temp_overlay_path)
+    dataset.delete(temp_overlay_path)
     # Push overlay (or replacement) value from temp to update field.
     if kwargs['replacement_value'] is not None:
         function = (lambda x: kwargs['replacement_value'] if x else None)
@@ -548,8 +555,8 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
             ],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
-    delete_dataset(dataset_view_name)
-    delete_dataset(temp_output_path)
+    dataset.delete(dataset_view_name)
+    dataset.delete(temp_output_path)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -695,4 +702,3 @@ def update_node_ids_by_geometry(dataset_path, from_id_field_name,
                     cursor.updateRow([oid, new_fnode_id, new_tnode_id])
     LOG.log(log_level, "End: Update.")
     return (from_id_field_name, to_id_field_name)
-

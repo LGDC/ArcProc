@@ -5,7 +5,7 @@ import logging
 
 import arcpy
 
-from arcetl import workspace
+from arcetl import dataset
 from arcetl.helpers import LOG_LEVEL_MAP, unique_name
 from arcetl.metadata import dataset_metadata, feature_count
 
@@ -40,7 +40,7 @@ def delete(dataset_path, **kwargs):
         # dataset.
         'ERROR 001395'
         )
-    dataset_view_name = workspace.create_dataset_view(
+    dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql']
         )
@@ -61,7 +61,7 @@ def delete(dataset_path, **kwargs):
     if not run_truncate:
         with arcpy.da.Editor(dataset_metadata(dataset_path)['workspace_path']):
             arcpy.management.DeleteRows(in_rows=dataset_view_name)
-    workspace.delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Delete.")
     return dataset_path
@@ -150,7 +150,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     dataset_meta = dataset_metadata(dataset_path)
     insert_dataset_meta = dataset_metadata(insert_dataset_path)
-    insert_dataset_view_name = workspace.create_dataset_view(
+    insert_dataset_view_name = dataset.create_view(
         unique_name('view'), insert_dataset_path,
         dataset_where_sql=kwargs['insert_where_sql'],
         # Insert view must be nonspatial to append to nonspatial table.
@@ -186,7 +186,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
             inputs=insert_dataset_view_name, target=dataset_path,
             schema_type='no_test', field_mapping=field_maps
         )
-    workspace.delete_dataset(insert_dataset_view_name)
+    dataset.delete(insert_dataset_view_name)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Insert.")
     return dataset_path

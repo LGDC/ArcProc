@@ -5,7 +5,8 @@ import operator
 
 import arcpy
 
-from . import arcwrap, helpers
+from . import helpers
+from arcetl import dataset
 
 
 LOG = logging.getLogger(__name__)
@@ -100,10 +101,10 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
             ('dataset_where_sql', None), ('max_near_distance', None),
             ('near_where_sql', None), ('only_closest', False)]:
         kwargs.setdefault(*kwarg_default)
-    dataset_view_name = arcwrap.create_dataset_view(
+    dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'])
-    near_dataset_view_name = arcwrap.create_dataset_view(
+    near_dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), near_dataset_path,
         dataset_where_sql=kwargs['near_where_sql'])
     temp_near_path = helpers.unique_temp_dataset_path('near')
@@ -114,10 +115,10 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
         method='geodesic')
     dataset_oid_id_map = oid_field_value_map(
         dataset_view_name, dataset_id_field_name)
-    arcwrap.delete_dataset(dataset_view_name)
+    dataset.delete(dataset_view_name)
     near_oid_id_map = oid_field_value_map(
         near_dataset_view_name, near_id_field_name)
-    arcwrap.delete_dataset(near_dataset_view_name)
+    dataset.delete(near_dataset_view_name)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         in_table=temp_near_path,
@@ -133,7 +134,7 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'angle': row_info['near_angle'],
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
-    arcwrap.delete_dataset(temp_near_path)
+    dataset.delete(temp_near_path)
 
 
 def oid_field_values(dataset_path, field_name, **kwargs):

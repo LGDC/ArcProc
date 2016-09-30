@@ -8,7 +8,7 @@ import tempfile
 
 import arcpy
 
-from . import arcwrap, helpers
+from . import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -114,91 +114,6 @@ def compress_geodatabase(geodatabase_path, **kwargs):
 
 
 @helpers.log_function
-def copy_dataset(dataset_path, output_path, **kwargs):
-    """Copy features into a new dataset.
-
-    Wraps arcwrap.copy_dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        output_path (str): Path of output dataset.
-    Kwargs:
-        schema_only (bool): Flag to copy only the schema, omitting the data.
-        overwrite (bool): Flag to overwrite an existing dataset at the path.
-        sort_field_names (iter): Iterable of field names to sort on, in order.
-        sort_reversed_field_names (iter): Iterable of field names (present in
-            sort_field_names) to sort values in reverse-order.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    # Other kwarg defaults set in the wrapped function.
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(
-        log_level, "Start: Copy dataset %s to %s.", dataset_path, output_path)
-    result = arcwrap.copy_dataset(dataset_path, output_path, **kwargs)
-    LOG.log(log_level, "End: Copy.")
-    return result
-
-
-@helpers.log_function
-def create_dataset(dataset_path, field_metadata_list=None, **kwargs):
-    """Create new dataset.
-
-    Wraps arcwrap.create_dataset.
-
-    Args:
-        dataset_path (str): Path of dataset to create.
-        field_metadata_list (iter): Iterable of field metadata dicts.
-    Kwargs:
-        geometry_type (str): Type of geometry, if a spatial dataset.
-        spatial_reference_id (int): EPSG code for spatial reference, if a
-            spatial dataset.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    # Other kwarg defaults set in the wrapped function.
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Create dataset %s.", dataset_path)
-    result = arcwrap.create_dataset(dataset_path, field_metadata_list, **kwargs)
-    LOG.log(log_level, "End: Create.")
-    return result
-
-
-@helpers.log_function
-def create_dataset_view(view_name, dataset_path, **kwargs):
-    """Create new view of dataset.
-
-    Wraps arcwrap.create_dataset_view.
-
-    Args:
-        view_name (str): Name of view to create.
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        force_nonspatial (bool): Flag ensure view is nonspatial.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    # Other kwarg defaults set in the wrapped function.
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Create view %s of dataset %s.",
-            view_name, dataset_path)
-    result = arcwrap.create_dataset_view(view_name, dataset_path, **kwargs)
-    LOG.log(log_level, "End: Create.")
-    return result
-
-
-@helpers.log_function
 def create_file_geodatabase(geodatabase_path, **kwargs):
     """Create new file geodatabase.
 
@@ -264,29 +179,6 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
 
 
 @helpers.log_function
-def delete_dataset(dataset_path, **kwargs):
-    """Delete dataset.
-
-    Wraps arcwrap.delete_dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    # Other kwarg defaults set in the wrapped function.
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Delete dataset %s.", dataset_path)
-    result = arcwrap.delete_dataset(dataset_path)
-    LOG.log(log_level, "End: Delete.")
-    return result
-
-
-@helpers.log_function
 def execute_sql_statement(statement, database_path, **kwargs):
     """Runs a SQL statement via SDE's SQL execution interface.
 
@@ -313,37 +205,6 @@ def execute_sql_statement(statement, database_path, **kwargs):
         del conn  # Yeah, what can you do?
     LOG.log(log_level, "End: Execute.")
     return result
-
-
-@helpers.log_function
-def set_dataset_privileges(dataset_path, user_name, allow_view=None,
-                           allow_edit=None, **kwargs):
-    """Set privileges for dataset in enterprise geodatabase.
-
-    For the allow-flags, True = grant; False = revoke; None = as is.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        allow_view (bool): Flag to allow or revoke view privileges.
-        allow_edit (bool): Flag to allow or revoke edit privileges.
-    Kwargs:
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
-    privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
-    view_arg, edit_arg = privilege_map[allow_view], privilege_map[allow_edit]
-    LOG.log(
-        log_level,
-        "Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
-        dataset_path, user_name, view_arg, edit_arg)
-    arcpy.management.ChangePrivileges(
-        in_dataset=dataset_path, user=user_name, View=view_arg, Edit=edit_arg)
-    LOG.log(log_level, "End: Set.")
-    return dataset_path
 
 
 @helpers.log_function
