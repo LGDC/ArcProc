@@ -5,6 +5,7 @@ import logging
 import arcpy
 
 from .. import arcwrap, attributes, fields, helpers, metadata
+from arcetl import features
 
 
 LOG = logging.getLogger(__name__)
@@ -178,10 +179,10 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         part_area_percent=kwargs['max_percent_total_area'],
         part_option='contained_only')
     # Delete un-eliminated features that are now eliminated (in the temp).
-    arcwrap.delete_features(dataset_view_name)
+    features.delete(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
     # Copy the dissolved features (in the temp) to the dataset.
-    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+    features.insert_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "End: Eliminate.")
     return dataset_path

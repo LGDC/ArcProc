@@ -4,6 +4,7 @@ import logging
 
 import funcsigs
 
+from arcetl import features
 from . import arcwrap, helpers, metadata
 
 
@@ -51,11 +52,10 @@ class ArcETL(object):
             # Load to an existing dataset.
             # Unless preserving features, initialize target dataset.
             if not preserve_features:
-                arcwrap.delete_features(load_path)
-            arcwrap.insert_features_from_path(
-                dataset_path=load_path,
-                insert_dataset_path=self.transform_path,
-                insert_where_sql=load_where_sql)
+                features.delete(load_path)
+            features.insert_from_path(dataset_path=load_path,
+                                      insert_dataset_path=self.transform_path,
+                                      insert_where_sql=load_where_sql)
         else:
             # Load to a new dataset.
             arcwrap.copy_dataset(

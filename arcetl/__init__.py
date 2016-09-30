@@ -13,10 +13,6 @@ from .geometry.transformations import (
     convert_dataset_to_spatial, convert_polygons_to_lines,
     eliminate_interior_rings, planarize_features, project
     )
-from .features import (
-    adjust_features_for_shapefile, delete_features, insert_features_from_dicts,
-    insert_features_from_iters, insert_features_from_path
-    )
 from .fields import (
     add_field, add_fields_from_metadata_list, add_index, delete_field,
     duplicate_field, join_field, rename_field

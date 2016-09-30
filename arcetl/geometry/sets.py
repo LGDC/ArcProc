@@ -5,7 +5,7 @@ import logging
 import arcpy
 
 from .. import arcwrap, fields, helpers, values
-from arcetl.attributes import update_by_function
+from arcetl import attributes, features
 from ..metadata import dataset_metadata, feature_count
 
 
@@ -54,9 +54,9 @@ def clip_features(dataset_path, clip_dataset_path, **kwargs):
         )
     arcwrap.delete_dataset(clip_dataset_view_name)
     # Load back into the dataset.
-    arcwrap.delete_features(dataset_view_name)
+    features.delete(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
-    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+    features.insert_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Clip.")
@@ -105,10 +105,10 @@ def dissolve_features(dataset_path, dissolve_field_names=None, **kwargs):
     if kwargs['tolerance']:
         arcpy.env.XYTolerance = old_tolerance
     # Delete undissolved features that are now dissolved (in the temp).
-    arcwrap.delete_features(dataset_view_name)
+    features.delete(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
     # Copy the dissolved features (in the temp) to the dataset.
-    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+    features.insert_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Dissolve.")
@@ -154,9 +154,9 @@ def erase_features(dataset_path, erase_dataset_path, **kwargs):
         )
     arcwrap.delete_dataset(erase_dataset_view_name)
     # Load back into the dataset.
-    arcwrap.delete_features(dataset_view_name)
+    features.delete(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
-    arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+    features.insert_from_path(dataset_path, temp_output_path)
     arcwrap.delete_dataset(temp_output_path)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Erase.")
@@ -249,15 +249,15 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
             cluster_tolerance=kwargs['tolerance'], relationship=False
             )
         # Push identity (or replacement) value from temp to update field.
-        update_by_function(
+        attributes.update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False,
             arg_field_names=[temp_overlay_field_name], log_level=None
             )
         # Replace original chunk features with identity features.
-        arcwrap.delete_features(chunk_view_name)
+        features.delete(chunk_view_name)
         arcwrap.delete_dataset(chunk_view_name)
-        arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+        features.insert_from_path(dataset_path, temp_output_path)
         arcwrap.delete_dataset(temp_output_path)
     arcwrap.delete_dataset(temp_overlay_path)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
@@ -305,7 +305,7 @@ def keep_features_by_location(dataset_path, location_dataset_path, **kwargs):
     arcpy.management.SelectLayerByLocation(in_layer=dataset_view_name,
                                            selection_type='switch_selection')
     arcwrap.delete_dataset(location_dataset_view_name)
-    arcwrap.delete_features(dataset_view_name)
+    features.delete(dataset_view_name)
     arcwrap.delete_dataset(dataset_view_name)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
     LOG.log(log_level, "End: Keep.")
@@ -422,15 +422,15 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         if kwargs['tolerance']:
             arcpy.env.XYTolerance = old_tolerance
         # Push overlay (or replacement) value from temp to update field.
-        update_by_function(
+        attributes.update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False,
             arg_field_names=[temp_overlay_field_name], log_level=None
             )
         # Replace original chunk features with overlay features.
-        arcwrap.delete_features(chunk_view_name)
+        features.delete(chunk_view_name)
         arcwrap.delete_dataset(chunk_view_name)
-        arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+        features.insert_from_path(dataset_path, temp_output_path)
         arcwrap.delete_dataset(temp_output_path)
     arcwrap.delete_dataset(temp_overlay_path)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))
@@ -516,15 +516,15 @@ def union_features(dataset_path, field_name, union_dataset_path,
             cluster_tolerance=kwargs['tolerance'], gaps=False
             )
         # Push union (or replacement) value from temp to update field.
-        update_by_function(
+        attributes.update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False, arg_field_names=[temp_union_field_name],
             log_level=None
             )
         # Replace original chunk features with union features.
-        arcwrap.delete_features(chunk_view_name)
+        features.delete(chunk_view_name)
         arcwrap.delete_dataset(chunk_view_name)
-        arcwrap.insert_features_from_path(dataset_path, temp_output_path)
+        features.insert_from_path(dataset_path, temp_output_path)
         arcwrap.delete_dataset(temp_output_path)
     arcwrap.delete_dataset(temp_union_path)
     LOG.log(log_level, "%s features in dataset.", feature_count(dataset_path))

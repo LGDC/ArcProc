@@ -4,10 +4,9 @@ import logging
 
 import arcpy
 
+from arcetl import features
 from arcetl.arcobj import FIELD_TYPE_AS_PYTHON
-from arcetl.arcwrap import (
-    create_dataset_view, copy_dataset, delete_dataset, delete_features
-    )
+from arcetl.arcwrap import create_dataset_view, copy_dataset, delete_dataset
 from arcetl.fields import (
     add_fields_from_metadata_list, duplicate_field, join_field
     )
@@ -396,9 +395,10 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
         # Would prefer geodesic, but that forces XY values to lon-lat.
         method='planar')
     # Remove near rows not matching chosen rank.
-    delete_features(
+    features.delete(
         dataset_path=temp_output_path,
-        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank']))
+        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank'])
+        )
     # Join ID values to the near output & rename facility_geofeature_id.
     join_field(
         dataset_path=temp_output_path, join_dataset_path=temp_near_path,
