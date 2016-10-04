@@ -4,23 +4,10 @@ import logging
 
 import arcpy
 
-from arcetl.arcobj import (dataset_as_metadata, domain_as_metadata,
-                           field_as_metadata, spatial_reference_as_metadata)
+from arcetl import arcobj, dataset
 
 
 LOG = logging.getLogger(__name__)
-
-
-def dataset_metadata(dataset_path):
-    """Return dictionary of dataset metadata.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Returns:
-        dict.
-    """
-    metadata = dataset_as_metadata(arcpy.Describe(dataset_path))
-    return metadata
 
 
 def domain_metadata(domain_name, workspace_path):
@@ -31,64 +18,11 @@ def domain_metadata(domain_name, workspace_path):
     Returns:
         dict.
     """
-    metadata = domain_as_metadata(
+    meta = arcobj.domain_as_metadata(
         next(domain for domain in arcpy.da.ListDomains(workspace_path)
              if domain.name.lower() == domain_name.lower())
         )
-    return metadata
-
-
-def feature_count(dataset_path, **kwargs):
-    """Return number of features in dataset.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-    Returns:
-        int.
-    """
-    kwargs.setdefault('dataset_where_sql', None)
-    with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=['oid@'],
-        where_clause=kwargs['dataset_where_sql']) as cursor:
-        count = len([None for _ in cursor])
-    return count
-
-
-def field_metadata(dataset_path, field_name):
-    """Return dictionary of field metadata.
-
-    Field name is case-insensitive.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-    Returns:
-        dict.
-    """
-    try:
-        metadata = field_as_metadata(
-            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
-            )
-    except IndexError:
-        raise AttributeError(
-            "Field {} not present on {}".format(field_name, dataset_path)
-            )
-    return metadata
-
-
-def is_valid_dataset(dataset_path):
-    """Check whether dataset exists/is valid.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Returns:
-        bool.
-    """
-    is_valid = all([dataset_path is not None, arcpy.Exists(dataset_path),
-                    dataset_metadata(dataset_path)['is_table']])
-    return is_valid
+    return meta
 
 
 def linear_unit_as_string(measure, spatial_reference):
@@ -109,10 +43,10 @@ def spatial_reference_metadata(spatial_reference):
     """
     if isinstance(spatial_reference, int):
         reference_object = arcpy.SpatialReference(spatial_reference)
-    elif is_valid_dataset(spatial_reference):
+    elif dataset.is_valid(spatial_reference):
         reference_object = arcpy.Describe(spatial_reference).spatialReference
-    metadata = spatial_reference_as_metadata(reference_object)
-    return metadata
+    meta = arcobj.spatial_reference_as_metadata(reference_object)
+    return meta
 
 
 def workspace_dataset_names(workspace_path, **kwargs):

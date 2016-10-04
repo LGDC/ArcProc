@@ -6,7 +6,7 @@ import arcpy
 
 from arcetl import attributes, dataset
 from arcetl.helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
-from arcetl.metadata import field_metadata, linear_unit_as_string
+from arcetl.metadata import linear_unit_as_string
 from arcetl.values import oid_field_value_map
 
 
@@ -74,7 +74,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             unique_name('facility_view'), facility_path,
             dataset_where_sql=kwargs['facility_where_sql'], log_level=None
             ),
-        'id_field': field_metadata(facility_path, facility_id_field_name),
+        'id_field': dataset.field_metadata(facility_path,
+                                           facility_id_field_name),
         }
     arcpy.na.AddFieldToAnalysisLayer(
         in_network_analysis_layer='closest', sub_layer='Facilities',
@@ -99,7 +100,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             unique_name('dataset_view'), dataset_path,
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
             ),
-        'id_field': field_metadata(dataset_path, id_field_name),
+        'id_field': dataset.field_metadata(dataset_path, id_field_name),
         }
     arcpy.na.AddFieldToAnalysisLayer(
         in_network_analysis_layer='closest', sub_layer='Incidents',
@@ -211,7 +212,8 @@ def generate_service_areas(dataset_path, output_path, network_path,
     dataset.copy('service_area/Polygons', output_path, log_level=None)
     dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
-        id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
+        id_field_meta = dataset.field_metadata(dataset_path,
+                                               kwargs['id_field_name'])
         dataset.add_field_from_metadata(output_path, id_field_meta,
                                         log_level=None)
         attributes.update_by_function(
@@ -306,7 +308,8 @@ def generate_service_rings(dataset_path, output_path, network_path,
     dataset.copy('service_area/Polygons', output_path, log_level=None)
     dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
-        id_field_meta = field_metadata(dataset_path, kwargs['id_field_name'])
+        id_field_meta = dataset.field_metadata(dataset_path,
+                                               kwargs['id_field_name'])
         dataset.add_field_from_metadata(output_path, id_field_meta,
                                         log_level=None)
         attributes.update_by_function(

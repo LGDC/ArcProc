@@ -7,10 +7,24 @@ import arcpy
 
 from arcetl import dataset
 from arcetl.helpers import LOG_LEVEL_MAP, unique_name
-from arcetl.metadata import dataset_metadata
 
 
 LOG = logging.getLogger(__name__)
+
+
+def count(dataset_path, **kwargs):
+    """Return number of features in dataset.
+
+    Wraps dataset.feature_count.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+    Returns:
+        int.
+    """
+    return dataset.feature_count(dataset_path, **kwargs)
 
 
 def delete(dataset_path, **kwargs):
@@ -138,8 +152,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
-    dataset_meta = dataset_metadata(dataset_path)
-    insert_dataset_meta = dataset_metadata(insert_dataset_path)
+    dataset_meta = dataset.metadata(dataset_path)
+    insert_dataset_meta = dataset.metadata(insert_dataset_path)
     insert_dataset_view_name = dataset.create_view(
         unique_name('view'), insert_dataset_path,
         dataset_where_sql=kwargs['insert_where_sql'],

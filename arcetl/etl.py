@@ -6,7 +6,6 @@ import funcsigs
 
 from arcetl import dataset, features
 from arcetl.helpers import unique_temp_dataset_path
-from arcetl.metadata import is_valid_dataset
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class ArcETL(object):
         """Clean up instance."""
         LOG.info("Closing ArcETL instance for %s.", self.name)
         # Clear the transform dataset.
-        if all([self.transform_path, is_valid_dataset(self.transform_path)]):
+        if all([self.transform_path, dataset.is_valid(self.transform_path)]):
             dataset.delete(self.transform_path, log_level=None)
             self.transform_path = None
         LOG.info("Closed.")
@@ -50,7 +49,7 @@ class ArcETL(object):
         """Load features from transform- to load-dataset."""
         LOG.info("Start: Load %s.", load_path)
         # Load to an existing dataset.
-        if is_valid_dataset(load_path):
+        if dataset.is_valid(load_path):
             if not preserve_features:
                 features.delete(load_path, log_level=None)
             features.insert_from_path(dataset_path=load_path,
@@ -82,7 +81,7 @@ class ArcETL(object):
         result = transformation(**kwargs)
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
-            if is_valid_dataset(self.transform_path):
+            if dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path, log_level=None)
             self.transform_path = result
         return result

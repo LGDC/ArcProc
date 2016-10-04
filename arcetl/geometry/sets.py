@@ -6,7 +6,6 @@ import arcpy
 
 from .. import helpers, values
 from arcetl import attributes, dataset, features
-from arcetl.metadata import dataset_metadata
 
 
 CHUNK_WHERE_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"
@@ -230,7 +229,7 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
         chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
-            field=dataset_metadata(dataset_path)['oid_field_name'],
+            field=dataset.metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
         if kwargs['dataset_where_sql']:
@@ -401,7 +400,7 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
         chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
-            field=dataset_metadata(dataset_path)['oid_field_name'],
+            field=dataset.metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
         if kwargs['dataset_where_sql']:
@@ -503,7 +502,7 @@ def union_features(dataset_path, field_name, union_dataset_path,
         LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
         # ArcPy where clauses cannot use 'between'.
         chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
-            field=dataset_metadata(dataset_path)['oid_field_name'],
+            field=dataset.metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
         if kwargs['dataset_where_sql']:

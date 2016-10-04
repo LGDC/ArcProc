@@ -9,7 +9,7 @@ from arcetl import dataset, features
 from arcetl.arcobj import FIELD_TYPE_AS_PYTHON
 from arcetl.helpers import (LOG_LEVEL_MAP, unique_ids, unique_name,
                             unique_temp_dataset_path)
-from arcetl.metadata import dataset_metadata, domain_metadata, field_metadata
+from arcetl.metadata import domain_metadata
 from arcetl.values import features_as_iters
 
 
@@ -177,7 +177,7 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
                            **kwargs):
     """Update attribute values by finding them in a function-created mapping.
 
-    wraps update_by_function.
+    Wraps update_by_function.
 
     Args:
         dataset_path (str): Path of dataset.
@@ -281,7 +281,7 @@ def update_by_instance_method(dataset_path, field_name, instance_class,
                               method_name, **kwargs):
     """Update attribute values by passing them to an instanced class method.
 
-    wraps update_by_function.
+    Wraps update_by_function.
 
     Args:
         dataset_path (str): Path of dataset.
@@ -442,13 +442,13 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
     dataset.join_field(
         dataset_path=temp_output_path, join_dataset_path=temp_near_path,
         join_field_name=temp_near_field_name, on_field_name='near_fid',
-        on_join_field_name=dataset_metadata(temp_near_path)['oid_field_name'],
+        on_join_field_name=dataset.metadata(temp_near_path)['oid_field_name'],
         log_level=None
         )
     dataset.delete(temp_near_path, log_level=None)
     # Add update field to output.
     dataset.add_field_from_metadata(
-        temp_output_path, field_metadata(dataset_path, field_name),
+        temp_output_path, dataset.field_metadata(dataset_path, field_name),
         log_level=None
         )
     # Push overlay (or replacement) value from temp to update field.
@@ -474,7 +474,7 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
             dataset_view_name, field_name=name, join_field_name=join_name,
             join_dataset_path=temp_output_path,
             on_field_pairs=[
-                (dataset_metadata(dataset_path)['oid_field_name'], 'in_fid')
+                (dataset.metadata(dataset_path)['oid_field_name'], 'in_fid')
                 ],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
             )
@@ -587,7 +587,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         dataset_view_name, field_name,
         join_dataset_path=temp_output_path, join_field_name=field_name,
         on_field_pairs=[
-            (dataset_metadata(dataset_path)['oid_field_name'], 'target_fid')
+            (dataset.metadata(dataset_path)['oid_field_name'], 'target_fid')
             ],
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
@@ -615,7 +615,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by assigning unique IDs.",
             field_name, dataset_path)
-    field_meta = field_metadata(dataset_path, field_name)
+    field_meta = dataset.field_metadata(dataset_path, field_name)
     unique_id_pool = unique_ids(
         data_type=FIELD_TYPE_AS_PYTHON[field_meta['type']],
         string_length=field_meta.get('length', 16)
@@ -649,7 +649,7 @@ def update_node_ids_by_geometry(dataset_path, from_id_field_name,
     LOG.log(log_level,
             "Start: Update node ID attributes in %s & %s on %s by geometry.",
             from_id_field_name, to_id_field_name, dataset_path)
-    field_meta = field_metadata(dataset_path, from_id_field_name)
+    field_meta = dataset.field_metadata(dataset_path, from_id_field_name)
     used_ids = set(list(features_as_iters(dataset_path, [from_id_field_name]))
                    + list(features_as_iters(dataset_path, [to_id_field_name])))
     open_ids = (i for i in unique_ids(

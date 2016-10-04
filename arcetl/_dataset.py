@@ -7,7 +7,6 @@ import arcpy
 
 from arcetl import arcobj
 from arcetl.helpers import LOG_LEVEL_MAP, unique_name
-from arcetl.metadata import dataset_metadata, field_metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -107,8 +106,7 @@ def add_index(dataset_path, field_names, **kwargs):
     LOG.log(log_level, "Start: Add index to field(s) %s on %s.",
             field_names, dataset_path)
     index_types = {
-        field['type'].lower()
-        for field in dataset_metadata(dataset_path)['fields']
+        field['type'].lower() for field in metadata(dataset_path)['fields']
         if field['name'].lower() in (name.lower() for name in field_names)
         }
     if 'geometry' in index_types:
@@ -118,8 +116,7 @@ def add_index(dataset_path, field_names, **kwargs):
         add_kwargs = {'in_features': dataset_path}
     else:
         add_function = arcpy.management.AddIndex
-        add_kwargs = {'in_table': dataset_path,
-                      'fields': field_names,
+        add_kwargs = {'in_table': dataset_path, 'fields': field_names,
                       'index_name': kwargs['index_name'],
                       'unique': kwargs['is_unique'],
                       'ascending': kwargs['is_ascending']}
@@ -161,7 +158,7 @@ def copy(dataset_path, output_path, **kwargs):
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Copy dataset %s to %s.",
             dataset_path, output_path)
-    dataset_meta = dataset_metadata(dataset_path)
+    dataset_meta = metadata(dataset_path)
     dataset_view_name = create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=("0=1" if kwargs['schema_only']
@@ -228,8 +225,8 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
         create_function = arcpy.management.CreateTable
     create_function(**create_kwargs)
     if field_metadata_list:
-        for metadata in field_metadata_list:
-            add_field_from_metadata(dataset_path, metadata, log_level=None)
+        for field_meta in field_metadata_list:
+            add_field_from_metadata(dataset_path, field_meta, log_level=None)
     LOG.log(log_level, "End: Create.")
     return dataset_path
 
@@ -253,7 +250,7 @@ def create_view(view_name, dataset_path, **kwargs):
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Create view %s of dataset %s.",
             view_name, dataset_path)
-    dataset_meta = dataset_metadata(dataset_path)
+    dataset_meta = metadata(dataset_path)
     create_kwargs = {'where_clause': kwargs['dataset_where_sql'],
                      'workspace':  dataset_meta['workspace_path']}
     if dataset_meta['is_spatial'] and not kwargs['force_nonspatial']:
@@ -339,6 +336,59 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     return new_field_name
 
 
+def feature_count(dataset_path, **kwargs):
+    """Return number of features in dataset.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+    Returns:
+        int.
+    """
+    kwargs.setdefault('dataset_where_sql', None)
+    with arcpy.da.SearchCursor(
+        in_table=dataset_path, field_names=['oid@'],
+        where_clause=kwargs['dataset_where_sql']
+        ) as cursor:
+        count = len([None for _ in cursor])
+    return count
+
+
+def field_metadata(dataset_path, field_name):
+    """Return dictionary of field metadata.
+
+    Field name is case-insensitive.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+    Returns:
+        dict.
+    """
+    try:
+        metadata = arcobj.field_as_metadata(
+            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
+            )
+    except IndexError:
+        raise AttributeError(
+            "Field {} not present on {}".format(field_name, dataset_path)
+            )
+    return metadata
+
+
+def is_valid(dataset_path):
+    """Check whether dataset exists/is valid.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        bool.
+    """
+    return all([dataset_path is not None, arcpy.Exists(dataset_path),
+                metadata(dataset_path)['is_table']])
+
+
 def join_field(dataset_path, join_dataset_path, join_field_name,
                on_field_name, on_join_field_name, **kwargs):
     """Add field and its values from join-dataset.
@@ -366,6 +416,17 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
         )
     LOG.log(log_level, "End: Join.")
     return join_field_name
+
+
+def metadata(dataset_path):
+    """Return dictionary of dataset metadata.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        dict.
+    """
+    return arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
 
 
 def rename_field(dataset_path, field_name, new_field_name, **kwargs):
