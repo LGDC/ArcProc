@@ -8,10 +8,3 @@ from arcetl._dataset import (  # pylint: disable=unused-import
     )
 
 LOG = logging.getLogger(__name__)
-
-# Replace references in LCOG_ETL with call to singleton.
-def add_fields_from_metadata_list(dataset_path, metadata_list, **kwargs):
-    """Temp wrapper."""
-    for metadata in metadata_list:
-        result = add_field_from_metadata(dataset_path, metadata, **kwargs)
-    return result
