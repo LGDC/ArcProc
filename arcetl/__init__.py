@@ -13,9 +13,6 @@ from .geometry.transformations import (
     convert_dataset_to_spatial, convert_polygons_to_lines,
     eliminate_interior_rings, planarize_features, project
     )
-from .fields import (
-    join_field, rename_field
-    )
 from .helpers import (
     sexagesimal_angle_to_decimal, toggle_arc_extension, unique_ids,
     unique_name, unique_temp_dataset_path

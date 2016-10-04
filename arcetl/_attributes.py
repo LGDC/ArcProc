@@ -7,12 +7,10 @@ import arcpy
 
 from arcetl import dataset, features
 from arcetl.arcobj import FIELD_TYPE_AS_PYTHON
-from .fields import join_field
-from arcetl.helpers import (
-    LOG_LEVEL_MAP, unique_ids, unique_name, unique_temp_dataset_path
-    )
+from arcetl.helpers import (LOG_LEVEL_MAP, unique_ids, unique_name,
+                            unique_temp_dataset_path)
 from arcetl.metadata import dataset_metadata, domain_metadata, field_metadata
-from .values import features_as_iters
+from arcetl.values import features_as_iters
 
 
 LOG = logging.getLogger(__name__)
@@ -441,7 +439,7 @@ def update_by_near_feature(dataset_path, field_name, near_dataset_path,
         log_level=None
         )
     # Join ID values to the near output & rename facility_geofeature_id.
-    join_field(
+    dataset.join_field(
         dataset_path=temp_output_path, join_dataset_path=temp_near_path,
         join_field_name=temp_near_field_name, on_field_name='near_fid',
         on_join_field_name=dataset_metadata(temp_near_path)['oid_field_name'],
