@@ -1,14 +1,10 @@
 # -*- coding=utf-8 -*-
 """Feature operations."""
-import datetime##
 import logging
 
 from arcetl._features import (  # pylint: disable=unused-import
     delete, insert_from_dicts, insert_from_iters, insert_from_path
     )
-
-from arcetl.helpers import LOG_LEVEL_MAP##TODO
-from arcetl.metadata import dataset_metadata##TODO
 
 
 LOG = logging.getLogger(__name__)
@@ -37,7 +33,10 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     Returns:
         str.
     """
-    from arcetl import attributes##TODO
+    import datetime
+    from arcetl import attributes
+    from arcetl.helpers import LOG_LEVEL_MAP
+    from arcetl.metadata import dataset_metadata
     for kwarg_default in [
             ('datetime_null_replacement', datetime.date.min),
             ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),

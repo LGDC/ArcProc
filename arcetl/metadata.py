@@ -4,7 +4,8 @@ import logging
 
 import arcpy
 
-from . import arcobj
+from arcetl.arcobj import (dataset_as_metadata, domain_as_metadata,
+                           field_as_metadata, spatial_reference_as_metadata)
 
 
 LOG = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ def dataset_metadata(dataset_path):
     Returns:
         dict.
     """
-    return arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
+    metadata = dataset_as_metadata(arcpy.Describe(dataset_path))
+    return metadata
 
 
 def domain_metadata(domain_name, workspace_path):
@@ -29,11 +31,11 @@ def domain_metadata(domain_name, workspace_path):
     Returns:
         dict.
     """
-    return arcobj.domain_as_metadata(next(
-        #pylint: disable=no-member
-        domain for domain in arcpy.da.ListDomains(workspace_path)
-        #pylint: enable=no-member
-        if domain.name.lower() == domain_name.lower()))
+    metadata = domain_as_metadata(
+        next(domain for domain in arcpy.da.ListDomains(workspace_path)
+             if domain.name.lower() == domain_name.lower())
+        )
+    return metadata
 
 
 def feature_count(dataset_path, **kwargs):
@@ -47,12 +49,11 @@ def feature_count(dataset_path, **kwargs):
         int.
     """
     kwargs.setdefault('dataset_where_sql', None)
-    #pylint: disable=no-member
     with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
         in_table=dataset_path, field_names=['oid@'],
         where_clause=kwargs['dataset_where_sql']) as cursor:
-        return len([None for _ in cursor])
+        count = len([None for _ in cursor])
+    return count
 
 
 def field_metadata(dataset_path, field_name):
@@ -67,11 +68,14 @@ def field_metadata(dataset_path, field_name):
         dict.
     """
     try:
-        return arcobj.field_as_metadata(
-            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0])
+        metadata = field_as_metadata(
+            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
+            )
     except IndexError:
         raise AttributeError(
-            "Field {} not present on {}".format(field_name, dataset_path))
+            "Field {} not present on {}".format(field_name, dataset_path)
+            )
+    return metadata
 
 
 def is_valid_dataset(dataset_path):
@@ -82,8 +86,9 @@ def is_valid_dataset(dataset_path):
     Returns:
         bool.
     """
-    return (dataset_path is not None and arcpy.Exists(dataset_path)
-            and dataset_metadata(dataset_path)['is_table'])
+    is_valid = all([dataset_path is not None, arcpy.Exists(dataset_path),
+                    dataset_metadata(dataset_path)['is_table']])
+    return is_valid
 
 
 def linear_unit_as_string(measure, spatial_reference):
@@ -106,7 +111,8 @@ def spatial_reference_metadata(spatial_reference):
         reference_object = arcpy.SpatialReference(spatial_reference)
     elif is_valid_dataset(spatial_reference):
         reference_object = arcpy.Describe(spatial_reference).spatialReference
-    return arcobj.spatial_reference_as_metadata(reference_object)
+    metadata = spatial_reference_as_metadata(reference_object)
+    return metadata
 
 
 def workspace_dataset_names(workspace_path, **kwargs):
