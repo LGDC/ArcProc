@@ -4,18 +4,19 @@ import logging
 import uuid
 
 
+LOG = logging.getLogger(__name__)
+
 FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
 FIELD_TYPE_AS_PYTHON = {
     'double': float, 'single': float,
     'integer': int, 'long': int, 'short': int, 'smallinteger': int,
     'guid': uuid.UUID,
     'string': str, 'text': str}
-LOG = logging.getLogger(__name__)
 
 
 def dataset_as_metadata(describe_object):
     """Return dictionary of dataset metadata from an ArcPy describe object."""
-    return {
+    metadata = {
         'name': getattr(describe_object, 'name'),
         'path': getattr(describe_object, 'catalogPath'),
         'data_type': getattr(describe_object, 'dataType'),
@@ -24,22 +25,24 @@ def dataset_as_metadata(describe_object):
         'is_table': hasattr(describe_object, 'hasOID'),
         'is_versioned': getattr(describe_object, 'isVersioned', False),
         'oid_field_name': getattr(describe_object, 'OIDFieldName', None),
-        'field_names': [
-            field.name for field in getattr(describe_object, 'fields', [])],
+        'field_names': [field.name for field
+                        in getattr(describe_object, 'fields', [])],
         'fields': [field_as_metadata(field) for field
                    in getattr(describe_object, 'fields', [])],
         'is_spatial': hasattr(describe_object, 'shapeType'),
         'geometry_type': getattr(describe_object, 'shapeType', None),
         'spatial_reference_id': (
             getattr(describe_object, 'spatialReference').factoryCode
-            if hasattr(describe_object, 'spatialReference') else None),
-        'geometry_field_name': getattr(
-            describe_object, 'shapeFieldName', None)}
+            if hasattr(describe_object, 'spatialReference') else None
+            ),
+        'geometry_field_name': getattr(describe_object, 'shapeFieldName', None),
+        }
+    return metadata
 
 
 def domain_as_metadata(domain_object):
     """Return dictionary of metadata from an ArcPy domain object."""
-    return {
+    metadata = {
         'name': getattr(domain_object, 'name'),
         'description': getattr(domain_object, 'description'),
         'owner': getattr(domain_object, 'owner'),
@@ -50,28 +53,32 @@ def domain_as_metadata(domain_object):
         #'split_policy': getattr(domain_object, 'splitPolicy'),
         'code_description_map': getattr(domain_object, 'codedValues', {}),
         'range': getattr(domain_object, 'range', tuple()),
-        'type': getattr(domain_object, 'type')}
+        'type': getattr(domain_object, 'type'),
+        }
+    return metadata
 
 
 def field_as_metadata(field_object):
     """Return dictionary of metadata from an ArcPy field object."""
-    return {
+    metadata = {
         'name': getattr(field_object, 'name'),
         'alias_name': getattr(field_object, 'aliasName'),
         'base_name': getattr(field_object, 'baseName'),
         'type': getattr(field_object, 'type').lower(),
         'length': getattr(field_object, 'length'),
         'precision': getattr(field_object, 'precision'),
-        'scale': getattr(field_object, 'scale')}
+        'scale': getattr(field_object, 'scale'),
+        }
+    return metadata
 
 
 def spatial_reference_as_metadata(reference_object):
     """Return dictionary of metadata from an ArcPy spatial reference object."""
     ##TODO: Finish stub.
     ##http://desktop.arcgis.com/en/arcmap/latest/analyze/arcpy-classes/spatialreference.htm
-    metadata = {}
-    metadata['spatial_reference_id'] = reference_object.factoryCode
-    metadata['angular_unit'] = getattr(
-        reference_object, 'angularUnitName', None)
-    metadata['linear_unit'] = getattr(reference_object, 'linearUnitName', None)
+    metadata = {
+        'spatial_reference_id': reference_object.factoryCode,
+        'angular_unit': getattr(reference_object, 'angularUnitName', None),
+        'linear_unit': getattr(reference_object, 'linearUnitName', None),
+        }
     return metadata
