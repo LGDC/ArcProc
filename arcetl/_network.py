@@ -105,8 +105,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         append=False, exclude_restricted_elements=True
         )
     dataset.delete(facility['view_name'], log_level=None)
-    facility['oid_id_map'] = values.oid_field_value_map('closest/Facilities',
-                                                        'facility_id')
+    facility['oid_id_map'] = attributes.id_map('closest/Facilities',
+                                               'facility_id')
     # Load dataset locations.
     dataset_info = {
         'view_name': dataset.create_view(
@@ -131,9 +131,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         exclude_restricted_elements=True
         )
     dataset.delete(dataset_info['view_name'], log_level=None)
-    dataset_info['oid_id_map'] = values.oid_field_value_map(
-        'closest/Incidents', 'dataset_id'
-        )
+    dataset_info['oid_id_map'] = attributes.id_map('closest/Incidents',
+                                                   'dataset_id')
     arcpy.na.Solve(in_network_analysis_layer='closest',
                    ignore_invalids=True, terminate_on_solve_error=True)
     toggle_arc_extension('Network', toggle_off=True)

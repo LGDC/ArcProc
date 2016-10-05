@@ -216,11 +216,9 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         )
     # Get an iterable of all object IDs in the dataset.
     # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(
-        oid for oid, in values.features_as_iters(
-            dataset_path, field_names=['oid@'],
-            dataset_where_sql=kwargs['dataset_where_sql'])
-        )
+    oids = sorted(oid for oid, in attributes.as_iters(
+        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
+        ))
     while oids:
         # Get subset OIDs & remove them from full set.
         chunk = oids[:kwargs['chunk_size']]
@@ -388,11 +386,9 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         )
     # Get an iterable of all object IDs in the dataset.
     # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(
-        oid for (oid,) in values.features_as_iters(
-            dataset_path, ['oid@'],
-            dataset_where_sql=kwargs['dataset_where_sql'])
-        )
+    oids = sorted(oid for (oid,) in attributes.as_iters(
+        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
+        ))
     while oids:
         chunk = oids[:kwargs['chunk_size']]
         oids = oids[kwargs['chunk_size']:]
@@ -490,11 +486,9 @@ def union_features(dataset_path, field_name, union_dataset_path,
         log_level=None
         )
     # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(
-        oid for (oid,) in values.features_as_iters(
-            dataset_path, ['oid@'],
-            dataset_where_sql=kwargs['dataset_where_sql'])
-        )
+    oids = sorted(oid for (oid,) in attributes.as_iters(
+        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
+        ))
     while oids:
         chunk = oids[:kwargs['chunk_size']]
         oids = oids[kwargs['chunk_size']:]

@@ -5,12 +5,129 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj, dataset, features, values, workspace
+from arcetl import arcobj, dataset, features, workspace
 from arcetl.helpers import (LOG_LEVEL_MAP, unique_ids, unique_name,
                             unique_temp_dataset_path)
 
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)  # pylint: disable=redefined-builtin,invalid-name
+
 
 LOG = logging.getLogger(__name__)
+
+
+def as_dicts(dataset_path, field_names=None, **kwargs):
+    """Generator for dictionaries of feature attributes.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_names (iter): Iterable of field names.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_id (int): EPSG code indicating the spatial reference
+            output geometry will be in.
+    Yields:
+        dict.
+    """
+    for kwarg_default in [('dataset_where_sql', None),
+                          ('spatial_reference_id', None)]:
+        kwargs.setdefault(*kwarg_default)
+    with arcpy.da.SearchCursor(
+        in_table=dataset_path, field_names=field_names if field_names else '*',
+        where_clause=kwargs['dataset_where_sql'],
+        spatial_reference=arcobj.spatial_reference_as_arc(
+            kwargs['spatial_reference_id']
+            )
+        ) as cursor:
+        for feature in cursor:
+            yield dict(zip(cursor.fields, feature))
+
+
+def as_iters(dataset_path, field_names=None, **kwargs):
+    """Generator for iterables of feature attributes.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_names (iter): Iterable of field names.
+    Kwargs:
+        iter_type (object): Python iterable type to yield.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_id (int): EPSG code indicating the spatial reference
+            output geometry will be in.
+    Yields:
+        iter.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('iter_type', tuple),
+                          ('spatial_reference_id', None)]:
+        kwargs.setdefault(*kwarg_default)
+    with arcpy.da.SearchCursor(
+        in_table=dataset_path, field_names=field_names if field_names else '*',
+        where_clause=kwargs['dataset_where_sql'],
+        spatial_reference=arcobj.spatial_reference_as_arc(
+            kwargs['spatial_reference_id']
+            )
+        ) as cursor:
+        for feature in cursor:
+            yield kwargs['iter_type'](feature)
+
+
+def id_geometry_map(dataset_path, **kwargs):
+    """Return dictionary mapping of geometry for each feature ID.
+
+    Wraps attributes.id_map.
+    There is no guarantee that the ID field is unique.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        id_field_name (str): Name of ID field. Defaults to feature OID.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_id (int): EPSG code indicating the spatial reference
+            output geometry will be in.
+    Returns:
+        dict.
+    """
+    # Kwarg defaults set in id_map.
+    return id_map(dataset_path, field_names=['shape@'], **kwargs)
+
+
+def id_map(dataset_path, field_names, **kwargs):
+    """Return dictionary mapping of field attribute for each feature ID.
+
+    There is no guarantee that the ID field is unique.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+    Kwargs:
+        id_field_name (str): Name of ID field. Defaults to feature OID.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_id (int): EPSG code indicating the spatial reference
+            output geometry will be in.
+    Returns:
+        dict.
+    """
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('id_field_name', 'oid@'),
+            ('spatial_reference_id', None)
+        ]:
+        kwargs.setdefault(*kwarg_default)
+    if isinstance(field_names, basestring):
+        field_names = [field_names]
+    with arcpy.da.SearchCursor(
+        dataset_path, field_names=[kwargs['id_field_name']] + field_names,
+        where_clause=kwargs['dataset_where_sql'],
+        spatial_reference=arcobj.spatial_reference_as_arc(
+            kwargs['spatial_reference_id']
+            )
+        ) as cursor:
+        if len(field_names) == 1:
+            result = {row[0]: row[1] for row in cursor}
+        else:
+            result = {row[0]: row[1:] for row in cursor}
+    return result
 
 
 def update_by_domain_code(dataset_path, field_name, code_field_name,
@@ -343,13 +460,15 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     # Build join-reference.
     join_value_map = {
         tuple(feature[1:]): feature[0]
-        for feature in values.features_as_iters(
-            join_dataset_path,
-            field_names=[join_field_name] + [p[1] for p in on_field_pairs])}
+        for feature in as_iters(join_dataset_path,
+                                field_names=[join_field_name]
+                                + [p[1] for p in on_field_pairs])
+        }
     with arcpy.da.UpdateCursor(
         in_table=dataset_path,
         field_names=[field_name] + [p[0] for p in on_field_pairs],
-        where_clause=kwargs.get('dataset_where_sql')) as cursor:
+        where_clause=kwargs['dataset_where_sql']
+        ) as cursor:
         for row in cursor:
             new_value = join_value_map.get(tuple(row[1:]))
             if row[0] != new_value:
@@ -647,19 +766,16 @@ def update_node_ids_by_geometry(dataset_path, from_id_field_name,
             "Start: Update node ID attributes in %s & %s on %s by geometry.",
             from_id_field_name, to_id_field_name, dataset_path)
     field_meta = dataset.field_metadata(dataset_path, from_id_field_name)
-    used_ids = set(
-        list(values.features_as_iters(dataset_path, [from_id_field_name]))
-        + list(values.features_as_iters(dataset_path, [to_id_field_name]))
-        )
+    used_ids = set(list(as_iters(dataset_path, [from_id_field_name]))
+                   + list(as_iters(dataset_path, [to_id_field_name])))
     open_ids = (i for i in unique_ids(
         data_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['type']],
         string_length=field_meta['length']
         ) if i not in used_ids)
     # Build node XY mapping.
-    oid_fid_tid_geoms = values.features_as_iters(
-        dataset_path, field_names=['oid@', from_id_field_name,
-                                   to_id_field_name, 'shape@']
-        )
+    oid_fid_tid_geoms = as_iters(dataset_path,
+                                 field_names=['oid@', from_id_field_name,
+                                              to_id_field_name, 'shape@'])
     node_xy_map = {}
     # {node_xy: {'node_id': {id}, 'f_oids': set(), 't_oids': set()}}
     for oid, fid, tid, geom in oid_fid_tid_geoms:

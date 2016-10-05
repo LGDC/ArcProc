@@ -5,64 +5,10 @@ import operator
 
 import arcpy
 
-from arcetl import arcobj, dataset, helpers
+from arcetl import arcobj, attributes, dataset, helpers
 
 
 LOG = logging.getLogger(__name__)
-
-
-def features_as_dicts(dataset_path, field_names=None, **kwargs):
-    """Generator for dictionaries of feature attributes.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_names (iter): Iterable of field names.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Yields:
-        dict.
-    """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
-    with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=field_names if field_names else '*',
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference
-        ) as cursor:
-        for feature in cursor:
-            yield dict(zip(cursor.fields, feature))
-
-
-def features_as_iters(dataset_path, field_names=None, **kwargs):
-    """Generator for iterables of feature attributes.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_names (iter): Iterable of field names.
-    Kwargs:
-        iter_type (object): Python iterable type to yield.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Yields:
-        iter.
-    """
-    for kwarg_default in [('dataset_where_sql', None), ('iter_type', tuple),
-                          ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=field_names if field_names else '*',
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference) as cursor:
-        for feature in cursor:
-            yield kwargs['iter_type'](feature)
 
 
 def near_features_as_dicts(dataset_path, dataset_id_field_name,
@@ -109,11 +55,11 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
         out_table=temp_near_path, search_radius=kwargs['max_near_distance'],
         location=True, angle=True, closest=kwargs['only_closest'],
         method='geodesic')
-    dataset_oid_id_map = oid_field_value_map(
-        dataset_view_name, dataset_id_field_name)
+    dataset_oid_id_map = attributes.id_map(dataset_view_name,
+                                           dataset_id_field_name)
     dataset.delete(dataset_view_name, log_level=None)
-    near_oid_id_map = oid_field_value_map(
-        near_dataset_view_name, near_id_field_name)
+    near_oid_id_map = attributes.id_map(near_dataset_view_name,
+                                        near_id_field_name)
     dataset.delete(near_dataset_view_name, log_level=None)
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
@@ -131,110 +77,6 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
     dataset.delete(temp_near_path, log_level=None)
-
-
-def oid_field_values(dataset_path, field_name, **kwargs):
-    """Generator for tuples of (OID, field_value).
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Yields:
-        tuple.
-    """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=['oid@', field_name],
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference) as cursor:
-        for oid, value in cursor:
-            yield (oid, value)
-
-
-def oid_field_value_map(dataset_path, field_name, **kwargs):
-    """Return dictionary mapping of field value for the feature OID.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Returns:
-        dict.
-    """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=['oid@', field_name],
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference) as cursor:
-        return {oid: value for oid, value in cursor}
-
-
-def oid_geometries(dataset_path, **kwargs):
-    """Generator for tuples of (OID, geometry).
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Yields:
-        tuple.
-    """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=['oid@', 'shape@'],
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference) as cursor:
-        for oid, geom in cursor:
-            yield (oid, geom)
-
-
-def oid_geometry_map(dataset_path, **kwargs):
-    """Return dictionary mapping of geometry for the feature OID.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Returns:
-        dict.
-    """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('spatial_reference_id', None)]:
-        kwargs.setdefault(*kwarg_default)
-    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
-    #pylint: disable=no-member
-    with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
-        in_table=dataset_path, field_names=['oid@', 'shape@'],
-        where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference) as cursor:
-        return {oid: geom for oid, geom in cursor}
 
 
 def sorted_feature_dicts(features, sort_field_names, **kwargs):
