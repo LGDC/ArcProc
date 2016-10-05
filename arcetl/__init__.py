@@ -14,9 +14,7 @@ from .helpers import (
     sexagesimal_angle_to_decimal, toggle_arc_extension, unique_ids,
     unique_name, unique_temp_dataset_path
     )
-from .values import (
-    near_features_as_dicts, sorted_feature_dicts, sorted_feature_iters
-    )
+from .values import near_features_as_dicts
 
 
 __version__ = '1.0'

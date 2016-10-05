@@ -1,11 +1,10 @@
 # -*- coding=utf-8 -*-
 """Dataset values objects."""
 import logging
-import operator
 
 import arcpy
 
-from arcetl import arcobj, attributes, dataset, helpers
+from arcetl import attributes, dataset, helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -77,78 +76,3 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
     dataset.delete(temp_near_path, log_level=None)
-
-
-def sorted_feature_dicts(features, sort_field_names, **kwargs):
-    """Return sorted features as an iterable of attribute dictionaries.
-
-    Args:
-        features (iter): Iterable of feature attribute dictionaries.
-        sort_field_names (iter): Iterable of field names to sort on, in order.
-    Kwargs:
-        sort_reversed_field_names (iter): Iterable of field names (present in
-            sort_field_names) to sort values in reverse-order.
-    Returns:
-        list.
-    """
-    kwargs.setdefault('sort_reversed_field_names', [])
-    features_type = features.__class__
-    # Lists are the only sortable iterable. Convert if not already a list.
-    if not isinstance(features, list):
-        features = list(features)
-    # To loop-sort, need to sort from back or order.
-    for name in reversed(sort_field_names):
-        sort_kwargs = {'reverse': name in kwargs['sort_reversed_field_names']}
-        # Currently, we're just sorting geometry by the distance from its
-        # centroid to the spatial reference zero point.
-        if name == 'shape@':
-            sort_kwargs['key'] = (
-                lambda f: f['shape@'].centroid.distanceTo(
-                    arcpy.Geometry('point', arcpy.Point(0, 0),
-                                   getattr(f['shape@'], 'spatialReference'))))
-        else:
-            sort_kwargs['key'] = operator.itemgetter(name)
-        features.sort(**sort_kwargs)
-    # Convert features back to original iterable type if necessary.
-    if not isinstance(features, features_type):
-        return features_type(features)
-    else:
-        return features
-
-
-def sorted_feature_iters(features, sort_field_names, **kwargs):
-    """Return sorted features as an iterable of attribute iterables.
-
-    Args:
-        features (iter): Iterable of feature attribute dictionaries.
-        sort_field_names (iter): Iterable of field names to sort on, in order.
-    Kwargs:
-        sort_reversed_field_names (iter): Iterable of field names (present in
-            sort_field_names) to sort values in reverse-order.
-    Returns:
-        list.
-    """
-    kwargs.setdefault('sort_reversed_field_names', [])
-    features_type = features.__class__
-    # Lists are the only sortable iterable. Convert if not already a list.
-    if not isinstance(features, list):
-        features = list(features)
-    # To loop-sort, need to sort from back or order.
-    for name in reversed(sort_field_names):
-        idx = sort_field_names.index(name)
-        sort_kwargs = {'reverse': name in kwargs['sort_reversed_field_names']}
-        # Currently, we're just sorting geometry by the distance from its
-        # centroid to the spatial reference zero point.
-        if name == 'shape@':
-            sort_kwargs['key'] = (
-                lambda f, i=idx: f[i].centroid.distanceTo(
-                    arcpy.Geometry(
-                        'point', arcpy.Point(0, 0), getattr(f[i], 'spatialReference'))))
-        else:
-            sort_kwargs['key'] = operator.itemgetter(idx)
-        features.sort(**sort_kwargs)
-    # Convert features back to original iterable type if necessary.
-    if not isinstance(features, features_type):
-        return features_type(features)
-    else:
-        return features
