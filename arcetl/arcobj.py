@@ -144,8 +144,6 @@ def workspace_as_metadata(describe_object):
         'is_enterprise_database': 'SdeWorkspace' in prog_id,
         'is_personal_geodatabase': 'AccessWorkspace' in prog_id,
         'is_in_memory': 'InMemoryWorkspace' in prog_id,
+        'domain_names': getattr(describe_object, 'domains', []),
         }
-    for domain in getattr(describe_object, 'domains', []):
-        meta['domain_names'].append(domain.name)
-        meta['domains'].append(domain_as_metadata(domain))
     return meta
