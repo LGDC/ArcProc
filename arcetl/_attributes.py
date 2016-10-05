@@ -420,8 +420,8 @@ def update_by_instance_method(dataset_path, field_name, instance_class,
             ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Update attributes in %s on %s"
-            " by method %s of instanced %s.",
+    LOG.log(log_level, ("Start: Update attributes in %s on %s"
+                        " by method %s of instanced %s."),
             field_name, dataset_path, method_name, instance_class)
     update_by_function(
         dataset_path, field_name,

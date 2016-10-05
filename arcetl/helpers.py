@@ -11,7 +11,6 @@ import arcpy
 
 LOG = logging.getLogger(__name__)
 
-CHUNK_WHERE_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"
 LOG_LEVEL_MAP = {
     None: 0, 'debug': logging.DEBUG, 'info': logging.INFO,
     'warning': logging.WARNING, 'error': logging.ERROR,

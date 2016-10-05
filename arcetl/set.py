@@ -1,20 +1,19 @@
 # -*- coding=utf-8 -*-
-"""Geometric set operations."""
+"""Set-theoretic based operations."""
 import logging
 
 import arcpy
 
-from arcetl import attributes, dataset, features
-from arcetl.helpers import (CHUNK_WHERE_SQL_TEMPLATE, LOG_LEVEL_MAP,
-                            unique_name, unique_temp_dataset_path)
+from arcetl import attributes, combo, dataset, features
+from arcetl.helpers import LOG_LEVEL_MAP, unique_name, unique_temp_dataset_path
 
 
 LOG = logging.getLogger(__name__)
 
 
-def identity_features(dataset_path, field_name, identity_dataset_path,
-                      identity_field_name, **kwargs):
-    """Assign unique identity value to features, splitting where necessary.
+def identity(dataset_path, field_name, identity_dataset_path,
+             identity_field_name, **kwargs):
+    """Assign identity attribute, splitting feature where necessary.
 
     replacement_value is a value that will substitute as the identity
     value.
@@ -38,18 +37,14 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     Returns:
         str.
     """
-    for kwarg_default in [
-            ('chunk_size', 4096), ('dataset_where_sql', None),
-            ('log_level', 'info'), ('replacement_value', None),
-            ('tolerance', None)
-        ]:
+    for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
+                          ('log_level', 'info'), ('replacement_value', None),
+                          ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(
-        log_level, ("Start: Identity-overlay features in %s's field %s"
-                    " using features in %s's field %s."),
-        dataset_path, field_name, identity_dataset_path, identity_field_name
-        )
+    LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
+                        " by overlay values in %s on %s."), field_name,
+            dataset_path, identity_field_name, identity_dataset_path)
     if kwargs['replacement_value'] is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
@@ -71,43 +66,25 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
         field_as_first_arg=False, arg_field_names=[identity_field_name],
         log_level=None
         )
-    # Get an iterable of all object IDs in the dataset.
-    # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(oid for oid, in attributes.as_iters(
-        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
-        ))
-    while oids:
-        # Get subset OIDs & remove them from full set.
-        chunk = oids[:kwargs['chunk_size']]
-        oids = oids[kwargs['chunk_size']:]
-        LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
-        # ArcPy where clauses cannot use 'between'.
-        chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
-            field=dataset.metadata(dataset_path)['oid_field_name'],
-            from_oid=chunk[0], to_oid=chunk[-1]
-            )
-        if kwargs['dataset_where_sql']:
-            chunk_sql += " and ({})".format(kwargs['dataset_where_sql'])
-        chunk_view_name = dataset.create_view(
-            unique_name('view'), dataset_path,
-            dataset_where_sql=chunk_sql, log_level=None
-            )
-        # Create temporary dataset with the identity values.
+    for view_name in combo.view_chunks(
+            dataset_path, kwargs['chunk_size'],
+            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        ):
         temp_output_path = unique_temp_dataset_path('output')
         arcpy.analysis.Identity(
-            in_features=chunk_view_name, identity_features=temp_overlay_path,
+            in_features=view_name, identity_features=temp_overlay_path,
             out_feature_class=temp_output_path, join_attributes='all',
             cluster_tolerance=kwargs['tolerance'], relationship=False
             )
         # Push identity (or replacement) value from temp to update field.
         attributes.update_by_function(
             temp_output_path, field_name, update_function,
-            field_as_first_arg=False,
-            arg_field_names=[temp_overlay_field_name], log_level=None
+            field_as_first_arg=False, arg_field_names=[temp_overlay_field_name],
+            log_level=None
             )
         # Replace original chunk features with identity features.
-        features.delete(chunk_view_name, log_level=None)
-        dataset.delete(chunk_view_name, log_level=None)
+        features.delete(view_name, log_level=None)
+        dataset.delete(view_name, log_level=None)
         features.insert_from_path(dataset_path, temp_output_path,
                                   log_level=None)
         dataset.delete(temp_output_path, log_level=None)
@@ -116,8 +93,8 @@ def identity_features(dataset_path, field_name, identity_dataset_path,
     return dataset_path
 
 
-def overlay_features(dataset_path, field_name, overlay_dataset_path,
-                     overlay_field_name, **kwargs):
+def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
+            **kwargs):
     """Assign overlay value to features, splitting where necessary.
 
     Please note that only one overlay flag at a time can be used. If
@@ -159,11 +136,9 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         ]:
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(
-        log_level, ("Start: Overlay features in %s's field %s"
-                    " using features in %s's field %s."),
-        dataset_path, field_name, overlay_dataset_path, overlay_field_name
-        )
+    LOG.log(log_level, ("Start: Overlay-set attributes in %s on %s"
+                        " by overlay values in %s on %s."),
+            field_name, dataset_path, overlay_field_name, overlay_dataset_path)
     # Check flags & set details for spatial join call.
     if kwargs['overlay_most_coincident']:
         raise NotImplementedError(
@@ -181,11 +156,13 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
         update_function = (lambda x: x)
+    if kwargs['tolerance']:
+        old_tolerance = arcpy.env.XYTolerance
+        arcpy.env.XYTolerance = kwargs['tolerance']
     # Create temporary copy of overlay dataset.
-    temp_overlay_path = dataset.copy(
-        overlay_dataset_path, unique_temp_dataset_path('overlay'),
-        log_level=None
-        )
+    temp_overlay_path = dataset.copy(overlay_dataset_path,
+                                     unique_temp_dataset_path('overlay'),
+                                     log_level=None)
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, overlay_field_name,
@@ -196,57 +173,35 @@ def overlay_features(dataset_path, field_name, overlay_dataset_path,
         field_as_first_arg=False, arg_field_names=[overlay_field_name],
         log_level=None
         )
-    # Get an iterable of all object IDs in the dataset.
-    # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(oid for (oid,) in attributes.as_iters(
-        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
-        ))
-    while oids:
-        chunk = oids[:kwargs['chunk_size']]
-        oids = oids[kwargs['chunk_size']:]
-        LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
-        # ArcPy where clauses cannot use 'between'.
-        chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
-            field=dataset.metadata(dataset_path)['oid_field_name'],
-            from_oid=chunk[0], to_oid=chunk[-1]
-            )
-        if kwargs['dataset_where_sql']:
-            chunk_sql += " and ({})".format(kwargs['dataset_where_sql'])
-        chunk_view_name = dataset.create_view(
-            unique_name('view'), dataset_path,
-            dataset_where_sql=chunk_sql, log_level=None
-            )
-        # Create the temp output of the overlay.
-        if kwargs['tolerance']:
-            old_tolerance = arcpy.env.XYTolerance
-            arcpy.env.XYTolerance = kwargs['tolerance']
+    for view_name in combo.view_chunks(
+            dataset_path, kwargs['chunk_size'],
+            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        ):
         temp_output_path = unique_temp_dataset_path('output')
         arcpy.analysis.SpatialJoin(
-            target_features=chunk_view_name, join_features=temp_overlay_path,
+            target_features=view_name, join_features=temp_overlay_path,
             out_feature_class=temp_output_path, **join_kwargs
             )
-        if kwargs['tolerance']:
-            arcpy.env.XYTolerance = old_tolerance
-        # Push overlay (or replacement) value from temp to update field.
         attributes.update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False,
             arg_field_names=[temp_overlay_field_name], log_level=None
             )
-        # Replace original chunk features with overlay features.
-        features.delete(chunk_view_name, log_level=None)
-        dataset.delete(chunk_view_name, log_level=None)
+        features.delete(view_name, log_level=None)
+        dataset.delete(view_name, log_level=None)
         features.insert_from_path(dataset_path, temp_output_path,
                                   log_level=None)
         dataset.delete(temp_output_path, log_level=None)
     dataset.delete(temp_overlay_path, log_level=None)
+    if kwargs['tolerance']:
+        arcpy.env.XYTolerance = old_tolerance
     LOG.log(log_level, "End: Overlay.")
     return dataset_path
 
 
-def union_features(dataset_path, field_name, union_dataset_path,
-                   union_field_name, **kwargs):
-    """Assign unique union value to features, splitting where necessary.
+def union(dataset_path, field_name, union_dataset_path, union_field_name,
+          **kwargs):
+    """Assign union value to features, splitting where necessary.
 
     replacement_value is a value that will substitute as the union value.
 
@@ -271,11 +226,9 @@ def union_features(dataset_path, field_name, union_dataset_path,
         ]:
         kwargs.setdefault(kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(
-        log_level, ("Start: Union-overlay features in %s's field %s"
-                    " using features in %s's field %s."),
-        dataset_path, field_name, union_dataset_path, union_field_name
-        )
+    LOG.log(log_level, ("Start: Union-set attributes in %s on %s"
+                        " by overlay values in %s on %s."),
+            field_name, dataset_path, union_field_name, union_dataset_path)
     if kwargs['replacement_value'] is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
@@ -297,41 +250,23 @@ def union_features(dataset_path, field_name, union_dataset_path,
         field_as_first_arg=False, arg_field_names=[union_field_name],
         log_level=None
         )
-    # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(oid for (oid,) in attributes.as_iters(
-        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
-        ))
-    while oids:
-        chunk = oids[:kwargs['chunk_size']]
-        oids = oids[kwargs['chunk_size']:]
-        LOG.debug("Chunk: Feature OIDs %s to %s", chunk[0], chunk[-1])
-        # ArcPy where clauses cannot use 'between'.
-        chunk_sql = CHUNK_WHERE_SQL_TEMPLATE.format(
-            field=dataset.metadata(dataset_path)['oid_field_name'],
-            from_oid=chunk[0], to_oid=chunk[-1]
-            )
-        if kwargs['dataset_where_sql']:
-            chunk_sql += " and ({})".format(kwargs['dataset_where_sql'])
-        chunk_view_name = dataset.create_view(
-            unique_name('chunk_view'), dataset_path,
-            dataset_where_sql=chunk_sql, log_level=None
-            )
-        # Create the temp output of the union.
+    for view_name in combo.view_chunks(
+            dataset_path, kwargs['chunk_size'],
+            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        ):
         temp_output_path = unique_temp_dataset_path('output')
         arcpy.analysis.Union(
-            in_features=[chunk_view_name, temp_union_path],
+            in_features=[view_name, temp_union_path],
             out_feature_class=temp_output_path, join_attributes='all',
             cluster_tolerance=kwargs['tolerance'], gaps=False
             )
-        # Push union (or replacement) value from temp to update field.
         attributes.update_by_function(
             temp_output_path, field_name, update_function,
             field_as_first_arg=False, arg_field_names=[temp_union_field_name],
             log_level=None
             )
-        # Replace original chunk features with union features.
-        features.delete(chunk_view_name, log_level=None)
-        dataset.delete(chunk_view_name, log_level=None)
+        features.delete(view_name, log_level=None)
+        dataset.delete(view_name, log_level=None)
         features.insert_from_path(dataset_path, temp_output_path,
                                   log_level=None)
         dataset.delete(temp_output_path, log_level=None)
