@@ -219,8 +219,9 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
         create_function = arcpy.management.CreateFeatureclass
         create_kwargs['geometry_type'] = kwargs['geometry_type']
         # Default to EPSG 4326 (unprojected WGS 84).
-        create_kwargs['spatial_reference'] = arcpy.SpatialReference(
-            kwargs['spatial_reference_id'])
+        create_kwargs['spatial_reference'] = arcobj.spatial_reference_as_arc(
+            kwargs['spatial_reference_id']
+            )
     else:
         create_function = arcpy.management.CreateTable
     create_function(**create_kwargs)
@@ -385,8 +386,8 @@ def is_valid(dataset_path):
     Returns:
         bool.
     """
-    return all([dataset_path is not None, arcpy.Exists(dataset_path),
-                metadata(dataset_path)['is_table']])
+    return (dataset_path is not None and arcpy.Exists(dataset_path)
+            and metadata(dataset_path)['is_table'])
 
 
 def join_field(dataset_path, join_dataset_path, join_field_name,

@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from arcetl import attributes, dataset, metadata, values, workspace
+from arcetl import arcobj, attributes, dataset, values, workspace
 from arcetl.helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
 
 
@@ -187,7 +187,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
     LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
-        kwargs['trim_value'] = metadata.linear_unit_as_string(
+        kwargs['trim_value'] = arcobj.linear_unit_as_string(
             kwargs['trim_value'], dataset_path
             )
     dataset_view_name = dataset.create_view(
@@ -281,7 +281,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
     LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
-        kwargs['trim_value'] = metadata.linear_unit_as_string(
+        kwargs['trim_value'] = arcobj.linear_unit_as_string(
             kwargs['trim_value'], dataset_path
             )
     dataset_view_name = dataset.create_view(

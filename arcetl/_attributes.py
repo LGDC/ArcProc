@@ -236,8 +236,6 @@ def update_by_geometry(dataset_path, field_name, geometry_property_cascade,
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by geometry properties %s."),
             field_name, dataset_path, geometry_property_cascade)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
     property_as_cascade = {
         'area': ['area'],
         'centroid': ['centroid'],
@@ -256,7 +254,9 @@ def update_by_geometry(dataset_path, field_name, geometry_property_cascade,
     with arcpy.da.UpdateCursor(
         in_table=dataset_path, field_names=[field_name, 'shape@'],
         where_clause=kwargs.get('dataset_where_sql'),
-        spatial_reference=spatial_reference
+        spatial_reference=arcobj.spatial_reference_as_arc(
+            kwargs['spatial_reference_id']
+            )
         ) as cursor:
         for field_value, geometry in cursor:
             if geometry is None:

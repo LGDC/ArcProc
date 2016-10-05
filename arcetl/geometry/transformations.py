@@ -4,7 +4,8 @@ import logging
 
 import arcpy
 
-from arcetl import attributes, dataset, features, helpers
+from arcetl import arcobj, attributes, dataset, features, helpers
+
 
 LOG = logging.getLogger(__name__)
 
@@ -36,9 +37,10 @@ def convert_dataset_to_spatial(dataset_path, output_path, x_field_name,
         table=dataset_path, out_layer=dataset_view_name,
         in_x_field=x_field_name, in_y_field=y_field_name,
         in_z_field=z_field_name,
-        spatial_reference=(
-            arcpy.SpatialReference(kwargs['spatial_reference_id'])
-            if kwargs.get('spatial_reference_id') else None))
+        spatial_reference=arcobj.spatial_reference_as_arc(
+            kwargs['spatial_reference_id']
+            )
+        )
     dataset.copy(dataset_view_name, output_path,
                  dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)
     dataset.delete(dataset_view_name, log_level=None)

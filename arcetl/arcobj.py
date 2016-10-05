@@ -3,6 +3,8 @@
 import logging
 import uuid
 
+import arcpy
+
 
 LOG = logging.getLogger(__name__)
 
@@ -73,6 +75,13 @@ def field_as_metadata(field_object):
     return meta
 
 
+def linear_unit_as_string(measure, spatial_reference):
+    """Return unit of measure as a linear unit string."""
+    linear_unit = getattr(spatial_reference_as_arc(spatial_reference),
+                          'linearUnitName', 'Unknown'),
+    return '{} {}'.format(measure, linear_unit)
+
+
 def spatial_reference_as_metadata(reference_object):
     """Return dictionary of metadata from an ArcPy spatial reference object."""
     ##TODO: Finish stub.
@@ -83,6 +92,38 @@ def spatial_reference_as_metadata(reference_object):
         'linear_unit': getattr(reference_object, 'linearUnitName', None),
         }
     return meta
+
+
+def spatial_reference_as_arc(spatial_reference):
+    """Return ArcPy spatial reference object from a Python reference.
+
+    Args:
+        spatial_reference (int): Spatial reference ID.
+                          (str): Path of reference dataset/file.
+                          (arcpy.Geometry): Reference geometry object.
+    Returns:
+        arcpy.SpatialReference.
+    """
+    try:
+        describe_object = arcpy.Describe(spatial_reference)
+    except AttributeError:
+        if spatial_reference is None:
+            arc_object = None
+        else:
+            raise
+    except IOError:
+        if isinstance(spatial_reference, int):
+            arc_object = arcpy.SpatialReference(spatial_reference)
+        else:
+            raise
+    except RuntimeError:
+        if isinstance(spatial_reference, arcpy.Geometry):
+            arc_object = getattr(spatial_reference, 'spatialReference')
+        else:
+            raise
+    else:
+        arc_object = getattr(describe_object, 'spatialReference')
+    return arc_object
 
 
 def workspace_as_metadata(describe_object):

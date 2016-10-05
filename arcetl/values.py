@@ -5,7 +5,7 @@ import operator
 
 import arcpy
 
-from arcetl import dataset, helpers
+from arcetl import arcobj, dataset, helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -27,14 +27,12 @@ def features_as_dicts(dataset_path, field_names=None, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
-    #pylint: disable=no-member
+    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
     with arcpy.da.SearchCursor(
-        #pylint: enable=no-member
         in_table=dataset_path, field_names=field_names if field_names else '*',
         where_clause=kwargs['dataset_where_sql'],
-        spatial_reference=spatial_reference) as cursor:
+        spatial_reference=spatial_reference
+        ) as cursor:
         for feature in cursor:
             yield dict(zip(cursor.fields, feature))
 
@@ -56,8 +54,7 @@ def features_as_iters(dataset_path, field_names=None, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('iter_type', tuple),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
+    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
@@ -152,8 +149,7 @@ def oid_field_values(dataset_path, field_name, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
+    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
@@ -180,8 +176,7 @@ def oid_field_value_map(dataset_path, field_name, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
+    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
@@ -206,8 +201,7 @@ def oid_geometries(dataset_path, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
+    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
@@ -233,8 +227,7 @@ def oid_geometry_map(dataset_path, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    spatial_reference = (arcpy.SpatialReference(kwargs['spatial_reference_id'])
-                         if kwargs.get('spatial_reference_id') else None)
+    spatial_reference=arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
     #pylint: disable=no-member
     with arcpy.da.SearchCursor(
         #pylint: enable=no-member
@@ -270,7 +263,7 @@ def sorted_feature_dicts(features, sort_field_names, **kwargs):
             sort_kwargs['key'] = (
                 lambda f: f['shape@'].centroid.distanceTo(
                     arcpy.Geometry('point', arcpy.Point(0, 0),
-                                   f['shape@'].spatialReference)))
+                                   getattr(f['shape@'], 'spatialReference'))))
         else:
             sort_kwargs['key'] = operator.itemgetter(name)
         features.sort(**sort_kwargs)
@@ -308,7 +301,7 @@ def sorted_feature_iters(features, sort_field_names, **kwargs):
             sort_kwargs['key'] = (
                 lambda f, i=idx: f[i].centroid.distanceTo(
                     arcpy.Geometry(
-                        'point', arcpy.Point(0, 0), f[i].spatialReference)))
+                        'point', arcpy.Point(0, 0), getattr(f[i], 'spatialReference'))))
         else:
             sort_kwargs['key'] = operator.itemgetter(idx)
         features.sort(**sort_kwargs)
