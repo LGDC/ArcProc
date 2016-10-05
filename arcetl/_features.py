@@ -169,6 +169,58 @@ def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
     return dataset_path
 
 
+def eliminate_interior_rings(dataset_path, **kwargs):
+    """Eliminate interior rings in polygon features.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Kwargs:
+        max_area (float, str): Maximum area under which parts are eliminated.
+            Numeric area will be in dataset's units. String area will be
+            formatted as '{number} {unit}'.
+        max_percent_total_area (float): Maximum percent of total area under
+            which parts are eliminated. Default is 100.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
+                          ('max_area', None), ('max_percent_total_area', None)]:
+        kwargs.setdefault(*kwarg_default)
+    # Only set max_percent_total_area default if neither it or area defined.
+    if all([kwargs['max_area'] is None,
+            kwargs['max_percent_total_area'] is None]):
+        kwargs['max_percent_total_area'] = 99.9999
+        kwargs['condition'] = 'percent'
+    elif all([kwargs['max_area'] is not None,
+              kwargs['max_percent_total_area'] is not None]):
+        kwargs['condition'] = 'area_or_percent'
+    elif kwargs['max_area'] is not None:
+        kwargs['condition'] = 'area'
+    else:
+        kwargs['condition'] = 'percent'
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Eliminate interior rings in %s.", dataset_path)
+    dataset_view_name = dataset.create_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        )
+    temp_output_path = unique_temp_dataset_path('output')
+    arcpy.management.EliminatePolygonPart(
+        in_features=dataset_view_name, out_feature_class=temp_output_path,
+        condition=kwargs['condition'], part_area=kwargs['max_area'],
+        part_area_percent=kwargs['max_percent_total_area'],
+        part_option='contained_only'
+        )
+    delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
+    LOG.log(log_level, "End: Eliminate.")
+    return dataset_path
+
+
 def erase(dataset_path, erase_dataset_path, **kwargs):
     """Erase feature geometry where overlaps erase dataset geometry.
 

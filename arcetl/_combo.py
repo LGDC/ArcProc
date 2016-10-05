@@ -109,4 +109,3 @@ def view_chunks(dataset_path, chunk_size, **kwargs):
             from_oid=chunk[0], to_oid=chunk[-1]
             )
         yield dataset.create_view(unique_name('chunk'), dataset_path, **kwargs)
-

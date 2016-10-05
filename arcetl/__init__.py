@@ -2,10 +2,6 @@
 """ETL framework library based on ArcGIS/ArcPy."""
 #pylint: disable=unused-import
 from arcetl.etl import ArcETL
-from .geometry.transformations import (
-    convert_dataset_to_spatial, convert_polygons_to_lines,
-    eliminate_interior_rings, planarize_features, project
-    )
 from .helpers import (
     sexagesimal_angle_to_decimal, toggle_arc_extension, unique_ids,
     unique_name, unique_temp_dataset_path
@@ -89,46 +85,3 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
     dataset.delete(temp_near_path, log_level=None)
-
-
-def write_rows_to_csvfile(rows, output_path, field_names, **kwargs):
-    """Write collected of rows to a CSV-file.
-
-    The rows can be represented by either a dictionary or iterable.
-    Args:
-        rows (iter): Iterable of obejcts representing rows (iterables or
-            dictionaries).
-        output_path (str): Path of output dataset.
-        field_names (iter): Iterable of field names, in the desired order.
-    Kwargs:
-        header (bool): Flag indicating whether to write a header to the output.
-        file_mode (str): Code indicating the file mode for writing.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    import collections
-    import csv
-    from arcetl.helpers import LOG_LEVEL_MAP
-    for kwarg_default in [('file_mode', 'wb'), ('header', False),
-                          ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, "Start: Write iterable of row objects to CSVfile %s.",
-            output_path)
-    with open(output_path, kwargs['file_mode']) as csvfile:
-        for index, row in enumerate(rows):
-            if index == 0:
-                if isinstance(row, dict):
-                    writer = csv.DictWriter(csvfile, field_names)
-                    if kwargs['header']:
-                        writer.writeheader()
-                elif isinstance(row, collections.Sequence):
-                    writer = csv.writer(csvfile)
-                    if kwargs['header']:
-                        writer.writerow(field_names)
-                else:
-                    raise TypeError("Rows must be dictionaries or sequences.")
-            writer.writerow(row)
-    LOG.log(log_level, "End: Write.")
-    return output_path
