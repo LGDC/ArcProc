@@ -4,8 +4,7 @@ import logging
 
 import arcpy
 
-from .. import helpers
-from arcetl import attributes, dataset, features
+from arcetl import attributes, dataset, features, helpers
 
 LOG = logging.getLogger(__name__)
 

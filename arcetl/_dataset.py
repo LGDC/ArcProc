@@ -367,14 +367,14 @@ def field_metadata(dataset_path, field_name):
         dict.
     """
     try:
-        metadata = arcobj.field_as_metadata(
+        meta = arcobj.field_as_metadata(
             arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
             )
     except IndexError:
         raise AttributeError(
             "Field {} not present on {}".format(field_name, dataset_path)
             )
-    return metadata
+    return meta
 
 
 def is_valid(dataset_path):

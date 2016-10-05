@@ -5,12 +5,9 @@ import logging
 
 import arcpy
 
-from arcetl import dataset, features
-from arcetl.arcobj import FIELD_TYPE_AS_PYTHON
+from arcetl import arcobj, dataset, features, values, workspace
 from arcetl.helpers import (LOG_LEVEL_MAP, unique_ids, unique_name,
                             unique_temp_dataset_path)
-from arcetl.metadata import domain_metadata
-from arcetl.values import features_as_iters
 
 
 LOG = logging.getLogger(__name__)
@@ -41,7 +38,7 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
         field_name, dataset_path, code_field_name,
         domain_name, domain_workspace_path
         )
-    domain_meta = domain_metadata(domain_name, domain_workspace_path)
+    domain_meta = workspace.domain_metadata(domain_name, domain_workspace_path)
     update_by_function(
         dataset_path, field_name,
         function=domain_meta['code_description_map'].get,
@@ -346,7 +343,7 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     # Build join-reference.
     join_value_map = {
         tuple(feature[1:]): feature[0]
-        for feature in features_as_iters(
+        for feature in values.features_as_iters(
             join_dataset_path,
             field_names=[join_field_name] + [p[1] for p in on_field_pairs])}
     with arcpy.da.UpdateCursor(
@@ -617,7 +614,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
             field_name, dataset_path)
     field_meta = dataset.field_metadata(dataset_path, field_name)
     unique_id_pool = unique_ids(
-        data_type=FIELD_TYPE_AS_PYTHON[field_meta['type']],
+        data_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['type']],
         string_length=field_meta.get('length', 16)
         )
     with arcpy.da.UpdateCursor(dataset_path, [field_name],
@@ -650,14 +647,16 @@ def update_node_ids_by_geometry(dataset_path, from_id_field_name,
             "Start: Update node ID attributes in %s & %s on %s by geometry.",
             from_id_field_name, to_id_field_name, dataset_path)
     field_meta = dataset.field_metadata(dataset_path, from_id_field_name)
-    used_ids = set(list(features_as_iters(dataset_path, [from_id_field_name]))
-                   + list(features_as_iters(dataset_path, [to_id_field_name])))
+    used_ids = set(
+        list(values.features_as_iters(dataset_path, [from_id_field_name]))
+        + list(values.features_as_iters(dataset_path, [to_id_field_name]))
+        )
     open_ids = (i for i in unique_ids(
-        data_type=FIELD_TYPE_AS_PYTHON[field_meta['type']],
+        data_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['type']],
         string_length=field_meta['length']
         ) if i not in used_ids)
     # Build node XY mapping.
-    oid_fid_tid_geoms = features_as_iters(
+    oid_fid_tid_geoms = values.features_as_iters(
         dataset_path, field_names=['oid@', from_id_field_name,
                                    to_id_field_name, 'shape@']
         )

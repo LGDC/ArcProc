@@ -14,9 +14,6 @@ from .helpers import (
     sexagesimal_angle_to_decimal, toggle_arc_extension, unique_ids,
     unique_name, unique_temp_dataset_path
     )
-from arcetl.metadata import (
-    domain_metadata, workspace_dataset_names
-    )
 from .values import (
     features_as_dicts, features_as_iters, near_features_as_dicts,
     oid_field_value_map, oid_field_values, oid_geometries, oid_geometry_map,

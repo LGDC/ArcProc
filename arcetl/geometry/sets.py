@@ -4,8 +4,7 @@ import logging
 
 import arcpy
 
-from .. import helpers, values
-from arcetl import attributes, dataset, features
+from arcetl import attributes, dataset, features, helpers, values
 
 
 CHUNK_WHERE_SQL_TEMPLATE = "{field} >= {from_oid} and {field} <= {to_oid}"

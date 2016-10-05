@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 """Workspace operations."""
+import functools
 import logging
 import os
 
@@ -152,6 +153,68 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
         )
     LOG.log(log_level, "End: Create.")
     return output_path
+
+
+def dataset_names(workspace_path, **kwargs):
+    """Generator for workspace's dataset names.
+
+    wildcard requires an * to indicate where open; case insensitive.
+
+    Args:
+        workspace_path (str): Path of workspace.
+    Kwargs:
+        wildcard (str): String to indicate wildcard search.
+        include_feature_classes (bool): Flag to include feature class datasets.
+        include_rasters (bool): Flag to include raster datasets.
+        include_tables (bool): Flag to include nonspatial tables.
+        include_feature_datasets (bool): Flag to include contents of feature
+            datasets.
+    Yields:
+        str.
+    """
+    for kwarg_default in [
+            ('include_feature_classes', True),
+            ('include_feature_datasets', True), ('include_rasters', True),
+            ('include_tables', True), ('wildcard', None)
+        ]:
+        kwargs.setdefault(*kwarg_default)
+    old_workspace_path = arcpy.env.workspace
+    arcpy.env.workspace = workspace_path
+    listfuncs = []
+    if kwargs['include_feature_classes']:
+        list_fcs = functools.partial(arcpy.ListFeatureClasses,
+                                     wild_card=kwargs['wildcard'])
+        listfuncs.append(list_fcs)  # Root-level.
+        if kwargs['include_feature_datasets']:
+            for name in arcpy.ListDatasets():
+                listfuncs.append(list_fcs(feature_dataset=name))
+    if kwargs['include_rasters']:
+        listfuncs.append(
+            functools.partial(arcpy.ListRasters, wild_card=kwargs['wildcard'])
+            )
+    if kwargs['include_tables']:
+        listfuncs.append(
+            functools.partial(arcpy.ListTables, wild_card=kwargs['wildcard'])
+            )
+    for listfunc in listfuncs:
+        for name in listfunc():
+            yield name
+    arcpy.env.workspace = old_workspace_path
+
+
+def domain_metadata(domain_name, workspace_path):
+    """Return dictionary of dataset metadata.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        dict.
+    """
+    meta = arcobj.domain_as_metadata(
+        next(domain for domain in arcpy.da.ListDomains(workspace_path)
+             if domain.name.lower() == domain_name.lower())
+        )
+    return meta
 
 
 def execute_sql(statement, database_path, **kwargs):

@@ -5,8 +5,7 @@ import operator
 
 import arcpy
 
-from . import helpers
-from arcetl import dataset
+from arcetl import dataset, helpers
 
 
 LOG = logging.getLogger(__name__)

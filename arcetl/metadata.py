@@ -3,8 +3,7 @@
 import logging
 
 from arcetl._metadata import (  # pylint: disable=unused-import
-    domain_metadata, linear_unit_as_string,
-    spatial_reference_metadata, workspace_dataset_names
+    linear_unit_as_string, spatial_reference_metadata
     )
 
 

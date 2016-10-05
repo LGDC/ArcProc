@@ -4,10 +4,8 @@ import logging
 
 import arcpy
 
-from arcetl import attributes, dataset, workspace
+from arcetl import attributes, dataset, metadata, values, workspace
 from arcetl.helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
-from arcetl.metadata import linear_unit_as_string
-from arcetl.values import oid_field_value_map
 
 
 LOG = logging.getLogger(__name__)
@@ -107,8 +105,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         append=False, exclude_restricted_elements=True
         )
     dataset.delete(facility['view_name'], log_level=None)
-    facility['oid_id_map'] = oid_field_value_map('closest/Facilities',
-                                                 'facility_id')
+    facility['oid_id_map'] = values.oid_field_value_map('closest/Facilities',
+                                                        'facility_id')
     # Load dataset locations.
     dataset_info = {
         'view_name': dataset.create_view(
@@ -133,8 +131,9 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         exclude_restricted_elements=True
         )
     dataset.delete(dataset_info['view_name'], log_level=None)
-    dataset_info['oid_id_map'] = oid_field_value_map('closest/Incidents',
-                                                     'dataset_id')
+    dataset_info['oid_id_map'] = values.oid_field_value_map(
+        'closest/Incidents', 'dataset_id'
+        )
     arcpy.na.Solve(in_network_analysis_layer='closest',
                    ignore_invalids=True, terminate_on_solve_error=True)
     toggle_arc_extension('Network', toggle_off=True)
@@ -188,8 +187,9 @@ def generate_service_areas(dataset_path, output_path, network_path,
     LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
-        kwargs['trim_value'] = linear_unit_as_string(kwargs['trim_value'],
-                                                     dataset_path)
+        kwargs['trim_value'] = metadata.linear_unit_as_string(
+            kwargs['trim_value'], dataset_path
+            )
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
@@ -281,8 +281,9 @@ def generate_service_rings(dataset_path, output_path, network_path,
     LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
-        kwargs['trim_value'] = linear_unit_as_string(kwargs['trim_value'],
-                                                     dataset_path)
+        kwargs['trim_value'] = metadata.linear_unit_as_string(
+            kwargs['trim_value'], dataset_path
+            )
     dataset_view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
