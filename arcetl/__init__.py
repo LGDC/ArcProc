@@ -3,8 +3,7 @@
 #pylint: disable=unused-import
 from arcetl.etl import ArcETL
 from .geometry.sets import (
-    clip_features, dissolve_features, erase_features, identity_features,
-    keep_features_by_location, overlay_features, union_features
+    identity_features, overlay_features, union_features
     )
 from .geometry.transformations import (
     convert_dataset_to_spatial, convert_polygons_to_lines,
@@ -24,6 +23,7 @@ __version__ = '1.0'
 import logging
 
 LOG = logging.getLogger(__name__)
+
 
 def adjust_for_shapefile(dataset_path, **kwargs):
     """Adjust features to meet shapefile requirements.
@@ -120,7 +120,7 @@ def near_features_as_dicts(dataset_path, dataset_id_field_name,
     """
     import arcpy
     from arcetl import attributes, dataset
-    from helpers import unique_name, unique_temp_dataset_path
+    from arcetl.helpers import unique_name, unique_temp_dataset_path
     for kwarg_default in [
             ('dataset_where_sql', None), ('max_near_distance', None),
             ('near_where_sql', None), ('only_closest', False)]:

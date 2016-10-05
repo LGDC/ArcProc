@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj, attributes, dataset, values, workspace
+from arcetl import arcobj, attributes, dataset, workspace
 from arcetl.helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
 
 

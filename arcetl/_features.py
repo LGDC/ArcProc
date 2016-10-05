@@ -6,10 +6,53 @@ import logging
 import arcpy
 
 from arcetl import dataset
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name
+from arcetl.helpers import LOG_LEVEL_MAP, unique_name, unique_temp_dataset_path
 
 
 LOG = logging.getLogger(__name__)
+
+
+def clip(dataset_path, clip_dataset_path, **kwargs):
+    """Clip feature geometry where overlapping clip-geometry.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        clip_dataset_path (str): Path of dataset defining clip area.
+    Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        clip_where_sql (str): SQL where-clause for clip dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('clip_where_sql', None), ('dataset_where_sql', None),
+                          ('log_level', 'info'), ('tolerance', None)]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Clip features in %s where overlapping %s.",
+            dataset_path, clip_dataset_path)
+    dataset_view_name = dataset.create_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        )
+    clip_dataset_view_name = dataset.create_view(
+        unique_name('view'), clip_dataset_path,
+        dataset_where_sql=kwargs['clip_where_sql'], log_level=None
+        )
+    temp_output_path = unique_temp_dataset_path('output')
+    arcpy.analysis.Clip(
+        in_features=dataset_view_name, clip_features=clip_dataset_view_name,
+        out_feature_class=temp_output_path,
+        cluster_tolerance=kwargs['tolerance']
+        )
+    dataset.delete(clip_dataset_view_name, log_level=None)
+    delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
+    LOG.log(log_level, "End: Clip.")
+    return dataset_path
 
 
 def count(dataset_path, **kwargs):
@@ -75,6 +118,99 @@ def delete(dataset_path, **kwargs):
         arcpy.management.DeleteRows(in_rows=dataset_view_name)
     dataset.delete(dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Delete.")
+    return dataset_path
+
+
+def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
+    """Merge features that share values in given fields.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        dissolve_field_names (iter): Iterable of field names to dissolve on.
+    Kwargs:
+        multipart (bool): Flag indicating if dissolve should create multipart
+            features.
+        unsplit_lines (bool): Flag indicating if dissolving lines should merge
+            features when endpoints meet without a crossing feature.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('log_level', 'info'),
+            ('multipart', True), ('tolerance', 0.001), ('unsplit_lines', False)
+        ]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
+            dataset_path, dissolve_field_names)
+    if kwargs['tolerance']:
+        old_tolerance = arcpy.env.XYTolerance
+        arcpy.env.XYTolerance = kwargs['tolerance']
+    dataset_view_name = dataset.create_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        )
+    temp_output_path = unique_temp_dataset_path('output')
+    arcpy.management.Dissolve(
+        in_features=dataset_view_name, out_feature_class=temp_output_path,
+        dissolve_field=dissolve_field_names, multi_part=kwargs['multipart'],
+        unsplit_lines=kwargs['unsplit_lines']
+        )
+    if kwargs['tolerance']:
+        arcpy.env.XYTolerance = old_tolerance
+    delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
+    LOG.log(log_level, "End: Dissolve.")
+    return dataset_path
+
+
+def erase(dataset_path, erase_dataset_path, **kwargs):
+    """Erase feature geometry where overlaps erase dataset geometry.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        erase_dataset_path (str): Path of erase-dataset.
+    Kwargs:
+        tolerance (float): Tolerance for coincidence, in dataset's units.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        erase_where_sql (str): SQL where-clause for erase-dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('erase_where_sql', None),
+            ('log_level', 'info'), ('tolerance', None)
+        ]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Erase features in %s where overlapping %s.",
+            dataset_path, erase_dataset_path)
+    dataset_view_name = dataset.create_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        )
+    erase_dataset_view_name = dataset.create_view(
+        unique_name('view'), erase_dataset_path,
+        dataset_where_sql=kwargs['erase_where_sql'], log_level=None
+        )
+    temp_output_path = unique_temp_dataset_path('output')
+    arcpy.analysis.Erase(
+        in_features=dataset_view_name, erase_features=erase_dataset_view_name,
+        out_feature_class=temp_output_path,
+        cluster_tolerance=kwargs['tolerance']
+        )
+    dataset.delete(erase_dataset_view_name, log_level=None)
+    delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    dataset.delete(temp_output_path, log_level=None)
+    LOG.log(log_level, "End: Erase.")
     return dataset_path
 
 
@@ -191,4 +327,46 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
         )
     dataset.delete(insert_dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Insert.")
+    return dataset_path
+
+
+def keep_by_location(dataset_path, location_dataset_path, **kwargs):
+    """Keep features where geometry overlaps location feature geometry.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        location_dataset_path (str): Path of location-dataset.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        location_where_sql (str): SQL where-clause for location-dataset
+            subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None),
+                          ('location_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Keep features in %s where overlapping %s.",
+            dataset_path, location_dataset_path)
+    dataset_view_name = dataset.create_view(
+        unique_name('view'), dataset_path,
+        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        )
+    location_dataset_view_name = dataset.create_view(
+        unique_name('view'), location_dataset_path,
+        dataset_where_sql=kwargs['location_where_sql'], log_level=None
+        )
+    arcpy.management.SelectLayerByLocation(
+        in_layer=dataset_view_name, overlap_type='intersect',
+        select_features=location_dataset_view_name,
+        selection_type='new_selection'
+        )
+    arcpy.management.SelectLayerByLocation(in_layer=dataset_view_name,
+                                           selection_type='switch_selection')
+    dataset.delete(location_dataset_view_name, log_level=None)
+    delete(dataset_view_name, log_level=None)
+    dataset.delete(dataset_view_name, log_level=None)
+    LOG.log(log_level, "End: Keep.")
     return dataset_path
