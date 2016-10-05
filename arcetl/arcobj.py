@@ -16,7 +16,7 @@ FIELD_TYPE_AS_PYTHON = {
 
 def dataset_as_metadata(describe_object):
     """Return dictionary of dataset metadata from an ArcPy describe object."""
-    metadata = {
+    meta = {
         'name': getattr(describe_object, 'name'),
         'path': getattr(describe_object, 'catalogPath'),
         'data_type': getattr(describe_object, 'dataType'),
@@ -25,24 +25,25 @@ def dataset_as_metadata(describe_object):
         'is_table': hasattr(describe_object, 'hasOID'),
         'is_versioned': getattr(describe_object, 'isVersioned', False),
         'oid_field_name': getattr(describe_object, 'OIDFieldName', None),
-        'field_names': [field.name for field
-                        in getattr(describe_object, 'fields', [])],
-        'fields': [field_as_metadata(field) for field
-                   in getattr(describe_object, 'fields', [])],
         'is_spatial': hasattr(describe_object, 'shapeType'),
         'geometry_type': getattr(describe_object, 'shapeType', None),
-        'spatial_reference_id': (
-            getattr(describe_object, 'spatialReference').factoryCode
-            if hasattr(describe_object, 'spatialReference') else None
-            ),
         'geometry_field_name': getattr(describe_object, 'shapeFieldName', None),
+        'field_names': [], 'fields': [],
         }
-    return metadata
+    for field in getattr(describe_object, 'fields', []):
+        meta['field_names'].append(field.name)
+        meta['fields'].append(field_as_metadata(field))
+    if hasattr(describe_object, 'spatialReference'):
+        meta['spatial_reference_id'] = getattr(describe_object,
+                                               'spatialReference').factoryCode
+    else:
+        meta['spatial_reference_id'] = None
+    return meta
 
 
 def domain_as_metadata(domain_object):
     """Return dictionary of metadata from an ArcPy domain object."""
-    metadata = {
+    meta = {
         'name': getattr(domain_object, 'name'),
         'description': getattr(domain_object, 'description'),
         'owner': getattr(domain_object, 'owner'),
@@ -55,12 +56,12 @@ def domain_as_metadata(domain_object):
         'range': getattr(domain_object, 'range', tuple()),
         'type': getattr(domain_object, 'type'),
         }
-    return metadata
+    return meta
 
 
 def field_as_metadata(field_object):
     """Return dictionary of metadata from an ArcPy field object."""
-    metadata = {
+    meta = {
         'name': getattr(field_object, 'name'),
         'alias_name': getattr(field_object, 'aliasName'),
         'base_name': getattr(field_object, 'baseName'),
@@ -69,16 +70,41 @@ def field_as_metadata(field_object):
         'precision': getattr(field_object, 'precision'),
         'scale': getattr(field_object, 'scale'),
         }
-    return metadata
+    return meta
 
 
 def spatial_reference_as_metadata(reference_object):
     """Return dictionary of metadata from an ArcPy spatial reference object."""
     ##TODO: Finish stub.
-    ##http://desktop.arcgis.com/en/arcmap/latest/analyze/arcpy-classes/spatialreference.htm
-    metadata = {
+    ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
+    meta = {
         'spatial_reference_id': reference_object.factoryCode,
         'angular_unit': getattr(reference_object, 'angularUnitName', None),
         'linear_unit': getattr(reference_object, 'linearUnitName', None),
         }
-    return metadata
+    return meta
+
+
+def workspace_as_metadata(describe_object):
+    """Return dictionary of workspace metadata from an ArcPy describe object."""
+    ##TODO: Finish stub.
+    ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
+    prog_id = getattr(describe_object, 'workspaceFactoryProgID', '')
+    meta = {
+        'name': getattr(describe_object, 'name'),
+        'path': getattr(describe_object, 'catalogPath'),
+        'data_type': getattr(describe_object, 'dataType'),
+        'domain_names': [], 'domains': [],
+        'is_geodatabase': any(['AccessWorkspace' in prog_id,
+                               'FileGDBWorkspace' in prog_id,
+                               'SdeWorkspace' in prog_id]),
+        'is_folder': prog_id == '',
+        'is_file_geodatabase': 'FileGDBWorkspace' in prog_id,
+        'is_enterprise_database': 'SdeWorkspace' in prog_id,
+        'is_personal_geodatabase': 'AccessWorkspace' in prog_id,
+        'is_in_memory': 'InMemoryWorkspace' in prog_id,
+        }
+    for domain in getattr(describe_object, 'domains', []):
+        meta['domain_names'].append(domain.name)
+        meta['domains'].append(domain_as_metadata(domain))
+    return meta

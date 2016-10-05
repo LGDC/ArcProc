@@ -22,18 +22,17 @@ from .values import (
     oid_field_value_map, oid_field_values, oid_geometries, oid_geometry_map,
     sorted_feature_dicts, sorted_feature_iters
     )
-from .workspace import (
-    build_locator, build_network, compress_geodatabase, create_file_geodatabase,
-    create_geodatabase_xml_backup, execute_sql_statement, write_rows_to_csvfile
-    )
 
 
 __version__ = '1.0'
 
 
-##TODO: Find a home for this.
+##TODO: Find a home for these below.
+
 import logging
+
 LOG = logging.getLogger(__name__)
+
 def adjust_for_shapefile(dataset_path, **kwargs):
     """Adjust features to meet shapefile requirements.
 
@@ -97,3 +96,46 @@ def adjust_for_shapefile(dataset_path, **kwargs):
                 )
     LOG.log(log_level, "End: Adjust.")
     return dataset_path
+
+
+def write_rows_to_csvfile(rows, output_path, field_names, **kwargs):
+    """Write collected of rows to a CSV-file.
+
+    The rows can be represented by either a dictionary or iterable.
+    Args:
+        rows (iter): Iterable of obejcts representing rows (iterables or
+            dictionaries).
+        output_path (str): Path of output dataset.
+        field_names (iter): Iterable of field names, in the desired order.
+    Kwargs:
+        header (bool): Flag indicating whether to write a header to the output.
+        file_mode (str): Code indicating the file mode for writing.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    import collections
+    import csv
+    from arcetl.helpers import LOG_LEVEL_MAP
+    for kwarg_default in [('file_mode', 'wb'), ('header', False),
+                          ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Write iterable of row objects to CSVfile %s.",
+            output_path)
+    with open(output_path, kwargs['file_mode']) as csvfile:
+        for index, row in enumerate(rows):
+            if index == 0:
+                if isinstance(row, dict):
+                    writer = csv.DictWriter(csvfile, field_names)
+                    if kwargs['header']:
+                        writer.writeheader()
+                elif isinstance(row, collections.Sequence):
+                    writer = csv.writer(csvfile)
+                    if kwargs['header']:
+                        writer.writerow(field_names)
+                else:
+                    raise TypeError("Rows must be dictionaries or sequences.")
+            writer.writerow(row)
+    LOG.log(log_level, "End: Write.")
+    return output_path

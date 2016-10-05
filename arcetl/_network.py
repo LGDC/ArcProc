@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from arcetl import attributes, dataset
+from arcetl import attributes, dataset, workspace
 from arcetl.helpers import LOG_LEVEL_MAP, toggle_arc_extension, unique_name
 from arcetl.metadata import linear_unit_as_string
 from arcetl.values import oid_field_value_map
@@ -19,6 +19,21 @@ TYPE_ID_FUNCTION_MAP = {
     'single': (lambda x: float(x.split(' : ')[0]) if x else None),
     'string': (lambda x: x.split(' : ')[0] if x else None)
     }
+
+
+def build(network_path, **kwargs):
+    """Build network dataset.
+
+    Wraps workspace.build_network.
+
+    Args:
+        network_path (str): Path of network.
+    Kwargs:
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    return workspace.build_network(network_path, **kwargs)
 
 
 def closest_facility_route(dataset_path, id_field_name, facility_path,
