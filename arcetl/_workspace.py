@@ -187,7 +187,8 @@ def dataset_names(workspace_path, **kwargs):
         listfuncs.append(list_fcs)  # Root-level.
         if kwargs['include_feature_datasets']:
             for name in arcpy.ListDatasets():
-                listfuncs.append(list_fcs(feature_dataset=name))
+                listfuncs.append(functools.partial(list_fcs,
+                                                   feature_dataset=name))
     if kwargs['include_rasters']:
         listfuncs.append(
             functools.partial(arcpy.ListRasters, wild_card=kwargs['wildcard'])
