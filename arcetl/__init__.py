@@ -19,4 +19,4 @@ from arcetl.helpers import (
     )
 
 
-__version__ = '1.0'
+__version__ = '2016.10'
