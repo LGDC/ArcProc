@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 """Set-theoretic geometry operations."""
+
 import logging
 
 import arcpy

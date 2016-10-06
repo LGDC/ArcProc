@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 """Workspace operations."""
+
 import functools
 import logging
 import os

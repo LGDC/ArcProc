@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 """Attribute operations."""
+
 import functools
 import logging
 

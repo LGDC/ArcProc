@@ -1,5 +1,6 @@
 # -*- coding=utf-8 -*-
 """Analysis result operations."""
+
 import logging
 
 import arcpy
