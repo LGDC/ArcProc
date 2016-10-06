@@ -5,7 +5,7 @@ import logging
 import arcpy
 
 from arcetl import attributes, dataset
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name, unique_temp_dataset_path
+from arcetl.helpers import unique_name, unique_temp_dataset_path
 
 
 LOG = logging.getLogger(__name__)
@@ -80,4 +80,3 @@ def near_features_info(dataset_path, dataset_id_field_name,
                    'coordinates': (row_info['near_x'], row_info['near_y']),
                    'x': row_info['near_x'], 'y': row_info['near_y']}
     dataset.delete(temp_near_path, log_level=None)
-
