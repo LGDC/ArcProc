@@ -1,8 +1,8 @@
 # -*- coding=utf-8 -*-
-"""Set-theoretic based operations."""
+"""Set-theoretic geometry operations."""
 import logging
 
-from arcetl._set import (  # pylint: disable=unused-import
+from arcetl._geset import (  # pylint: disable=unused-import
     identity, overlay, union
     )
 
