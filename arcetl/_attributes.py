@@ -392,50 +392,6 @@ def update_by_geometry(dataset_path, field_name, geometry_property_cascade,
     return field_name
 
 
-def update_by_instance_method(dataset_path, field_name, instance_class,
-                              method_name, **kwargs):
-    """Update attribute values by passing them to an instanced class method.
-
-    Wraps update_by_function.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        instance_class (type): Class that will be instanced.
-        method_name (str): Name of method to get values from.
-    Kwargs:
-        field_as_first_arg (bool): Flag indicating the field value will be the
-            first argument for the method.
-        arg_field_names (iter): Iterable of field names whose values will be
-            the method arguments (not including the primary field).
-        kwarg_field_names (iter): Iterable of field names whose names & values
-            will be the method keyword arguments.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [
-            ('arg_field_names', []), ('dataset_where_sql', None),
-            ('field_as_first_arg', True), ('kwarg_field_names', []),
-            ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by method %s of instanced %s."),
-            field_name, dataset_path, method_name, instance_class)
-    update_by_function(
-        dataset_path, field_name,
-        function=getattr(instance_class(), method_name),
-        field_as_first_arg=kwargs['field_as_first_arg'],
-        arg_field_names=kwargs['arg_field_names'],
-        kwarg_field_names=kwargs['kwarg_field_names'],
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    LOG.log(log_level, "End: Update.")
-    return field_name
-
-
 def update_by_joined_value(dataset_path, field_name, join_dataset_path,
                            join_field_name, on_field_pairs, **kwargs):
     """Update attribute values by referencing a joinable field.
