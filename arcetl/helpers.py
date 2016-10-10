@@ -5,8 +5,6 @@ import logging
 import os
 import uuid
 
-import arcpy
-
 
 LOG = logging.getLogger(__name__)
 
@@ -40,6 +38,7 @@ def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
 
 def toggle_arc_extension(extension_code, toggle_on=True, toggle_off=False):
     """Toggle extension on or off for use in ArcPy."""
+    import arcpy
     if toggle_on:
         status = arcpy.CheckOutExtension(extension_code)
     if toggle_off:
@@ -69,13 +68,14 @@ def unique_ids(data_type=uuid.UUID, string_length=None):
             yield unique_id
     else:
         raise NotImplementedError(
-            "Unique IDs for {} type not implemented.".format(data_type))
+            "Unique IDs for {} type not implemented.".format(data_type)
+            )
 
 
 def unique_name(prefix='', suffix='', unique_length=4):
     """Generate unique name."""
-    return '{}{}{}'.format(
-        prefix, next(unique_ids(str, unique_length)), suffix)
+    return '{}{}{}'.format(prefix, next(unique_ids(str, unique_length)),
+                           suffix)
 
 
 def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,

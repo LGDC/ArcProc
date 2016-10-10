@@ -13,10 +13,8 @@ from arcetl import network
 from arcetl import proximity
 from arcetl import services
 from arcetl.etl import ArcETL
-from arcetl.helpers import (
-    sexagesimal_angle_to_decimal, unique_ids, unique_name,
-    unique_temp_dataset_path
-    )
+from arcetl.helpers import (sexagesimal_angle_to_decimal, unique_ids,
+                            unique_name, unique_temp_dataset_path)
 
 
 __version__ = '2016.10'
