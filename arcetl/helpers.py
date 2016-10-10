@@ -1,12 +1,10 @@
 # -*- coding=utf-8 -*-
 """Internal module helper objects."""
 
-import functools
 import logging
 import os
 import uuid
 
-import decorator
 import arcpy
 
 
@@ -16,18 +14,6 @@ LOG_LEVEL_MAP = {
     None: 0, 'debug': logging.DEBUG, 'info': logging.INFO,
     'warning': logging.WARNING, 'error': logging.ERROR,
     'critical': logging.CRITICAL}
-
-
-##TODO: Rename log_function_call.
-def log_function(function):
-    """Decorator to log details of an function or method when called."""
-    @functools.wraps(function)
-    def _wrapper(function, *args, **kwargs):
-        """Function wrapper for decorator."""
-        LOG.debug("@log_function - %s(*args=%s, **kwargs=%s)",
-                  function, args, kwargs)
-        return function(*args, **kwargs)
-    return decorator.decorator(_wrapper)(function)
 
 
 def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
