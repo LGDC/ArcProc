@@ -101,7 +101,7 @@ def id_map(dataset_path, field_names, **kwargs):
 
     Args:
         dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
+        field_names (iter, str): Name(s) of field.
     Kwargs:
         id_field_name (str): Name of ID field. Defaults to feature OID.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
