@@ -8,7 +8,7 @@ import os
 import arcpy
 
 from arcetl import arcobj
-from arcetl.helpers import LOG_LEVEL_MAP, toggle_arc_extension
+from arcetl.helpers import LOG_LEVEL_MAP
 
 
 LOG = logging.getLogger(__name__)
@@ -47,9 +47,8 @@ def build_network(network_path, **kwargs):
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Build network %s.", network_path)
-    toggle_arc_extension('Network', toggle_on=True)
-    arcpy.na.BuildNetwork(in_network_dataset=network_path)
-    toggle_arc_extension('Network', toggle_off=True)
+    with arcobj.ArcExtension('Network'):
+        arcpy.na.BuildNetwork(in_network_dataset=network_path)
     LOG.log(log_level, "End: Build.")
     return network_path
 

@@ -36,16 +36,6 @@ def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
     return absolute_decimal * sign_multiplier
 
 
-def toggle_arc_extension(extension_code, toggle_on=True, toggle_off=False):
-    """Toggle extension on or off for use in ArcPy."""
-    import arcpy
-    if toggle_on:
-        status = arcpy.CheckOutExtension(extension_code)
-    if toggle_off:
-        status = arcpy.CheckInExtension(extension_code)
-    return status in ('CheckedIn', 'CheckedOut')
-
-
 def unique_ids(data_type=uuid.UUID, string_length=None):
     """Generator for unique IDs."""
     if data_type in (float, int):
