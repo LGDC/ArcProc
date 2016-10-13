@@ -1,6 +1,8 @@
 # -*- coding=utf-8 -*-
 """Attribute operations."""
 
+import collections
+import copy
 import functools
 import logging
 
@@ -17,6 +19,59 @@ except NameError:
 
 
 LOG = logging.getLogger(__name__)
+
+
+def _updated_node_coord_info_map(node_coord_info_map, force_to_type=None):
+    """Return updated node coordinate info map with unique node IDs."""
+    def feature_count(ids):
+        """Count features on in the ID part of the coordinate info map."""
+        return len(ids['from'].union(ids['to']))
+    coord_info_map = copy.deepcopy(node_coord_info_map)
+    used_ids = {info['node_id'] for info in coord_info_map.values()
+                if info['node_id'] is not None}
+    data_type = next(iter(used_ids)) if force_to_type is None else force_to_type
+    string_length = (max(len(i) for i in used_ids)
+                     if isinstance(data_type, basestring) else None)
+    unused_ids = (i for i in unique_ids(data_type, string_length)
+                  if i not in used_ids)
+    id_coord_map = {}
+    for coord in coord_info_map:
+        node_id = coord_info_map[coord]['node_id']
+        count = feature_count(coord_info_map[coord]['ids'])
+        # Assign IDs where missing.
+        if coord_info_map[coord]['node_id'] is None:
+            node_id = next(unused_ids)
+            coord_info_map[coord]['node_id'] = node_id
+        # If ID duplicate, re-ID node with least features.
+        elif node_id in id_coord_map:
+            other_coord = id_coord_map[node_id]
+            other_count = feature_count(coord_info_map[other_coord]['ids'])
+            if count > other_count:
+                other_node_id = next(unused_ids)
+                coord_info_map[other_coord]['node_id'] = other_node_id
+                id_coord_map[other_node_id] = id_coord_map.pop(node_id)
+            else:
+                node_id = next(unused_ids)
+                coord_info_map[coord]['node_id'] = node_id
+        id_coord_map[node_id] = coord
+    return coord_info_map
+
+
+def _feature_id_node_map(node_coord_info_map,
+                         from_end_key='from', to_end_key='to'):
+    """Return feature ID/node IDs map."""
+    end_key_map = {'from': from_end_key, 'to': to_end_key}
+    feature_id_node_map = {
+        # <feature_id>: {'from': <id>, 'to': <id>}
+        }
+    for coord in node_coord_info_map:
+        node_id = node_coord_info_map[coord]['node_id']
+        for end in ['from', 'to']:
+            for feature_id in node_coord_info_map[coord]['ids'][end]:
+                if feature_id not in feature_id_node_map:
+                    feature_id_node_map[feature_id] = {}
+                feature_id_node_map[feature_id][end_key_map[end]] = node_id
+    return feature_id_node_map
 
 
 def as_dicts(dataset_path, field_names=None, **kwargs):
@@ -129,6 +184,76 @@ def id_map(dataset_path, field_names, **kwargs):
         else:
             result = {row[0]: row[1:] for row in cursor}
     return result
+
+
+def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
+                update_nodes=False, **kwargs):
+    """Return dictionary mapping of field node IDs for each feature ID.
+
+    From & to IDs must be the same attribute type.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        from_id_field_name (str): Name of from-ID field.
+        to_id_field_name (str): Name of to-ID field.
+        update_nodes (bool): Flag indicating whether to update the nodes
+            based on the feature geometries.
+    Kwargs:
+        id_field_name (str): Name of ID field. Defaults to feature OID.
+        field_names_as_keys (bool): Flag indicating use of dataset's node ID
+            field names as the ID field names in the map.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+    Returns:
+        dict.    """
+    for kwarg_default in [
+            ('dataset_where_sql', None), ('id_field_name', 'oid@'),
+            ('field_names_as_keys', False)
+        ]:
+        kwargs.setdefault(*kwarg_default)
+    field_meta = {
+        'from': dataset.field_metadata(dataset_path, from_id_field_name),
+        'to': dataset.field_metadata(dataset_path, to_id_field_name),
+        }
+    if field_meta['from']['type'] != field_meta['to']['type']:
+        raise ValueError("Fields %s & %s must be of same type.")
+    field_names = [kwargs['id_field_name'],
+                   from_id_field_name, to_id_field_name]
+    if update_nodes:
+        field_names.append('shape@')
+    coord_info_map = {
+        # <coord>: {'node_id': <id>, 'ids': {'from': set(), 'to': set()}}
+        }
+    for feature in as_dicts(dataset_path, field_names, **kwargs):
+        for end, node_id_key, geom_attr_name in [
+                ('from', from_id_field_name, 'firstPoint'),
+                ('to', to_id_field_name, 'lastPoint'),
+            ]:
+            geom = getattr(feature['shape@'], geom_attr_name)
+            coord = (geom.X, geom.Y)
+            if coord not in coord_info_map:
+                coord_info_map[coord] = {'node_id': feature[node_id_key],
+                                         'ids': collections.defaultdict(set)}
+            # Use lowest ID at coordinate.
+            if coord_info_map[coord]['node_id'] is None:
+                coord_info_map[coord]['node_id'] = feature[node_id_key]
+            elif feature[node_id_key] is not None:
+                coord_info_map[coord]['node_id'] = min(
+                    coord_info_map[coord]['node_id'], feature[node_id_key]
+                    )
+            # Add feature ID to end-ID set.
+            coord_info_map[coord]['ids'][end].add(
+                feature[kwargs['id_field_name']]
+                )
+    coord_info_map = _updated_node_coord_info_map(
+        coord_info_map,
+        force_to_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['from']['type']]
+        )
+    if kwargs['field_names_as_keys']:
+        map_kwargs = {'from_end_key': from_id_field_name,
+                      'to_end_key': to_id_field_name}
+    else:
+        map_kwargs = {}
+    return _feature_id_node_map(coord_info_map, **map_kwargs)
 
 
 def update_by_domain_code(dataset_path, field_name, code_field_name,
