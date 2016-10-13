@@ -12,12 +12,15 @@ from arcetl.helpers import unique_name, unique_temp_dataset_path
 LOG = logging.getLogger(__name__)
 
 
-def near_features_info(dataset_path, dataset_id_field_name,
-                       near_dataset_path, near_id_field_name, **kwargs):
-    """Generator for near-feature info dictionaries.
+def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
+                     near_id_field_name, **kwargs):
+    """Return mapping dictionary of feature IDs/near-feature info.
 
-    Yielded dictionary has the following keys:
-    {id, near_id, distance, rank, angle, coordinates, x, y}.
+    Mapping structure: {
+        <feature_id>: {'id': <>, 'near_id': <>, 'rank': int(),
+                       'distance': float(), 'angle': float(),
+                       'near_x': int(), 'near_y': int()}
+        }
     Setting max_near_distance to NoneType will generate every possible
     feature cross-reference.
     Setting only_closest to True will generate a cross reference only with
@@ -45,39 +48,36 @@ def near_features_info(dataset_path, dataset_id_field_name,
             ('near_where_sql', None), ('only_closest', False)
         ]:
         kwargs.setdefault(*kwarg_default)
-    dataset_view_name = dataset.create_view(
+    view_name = dataset.create_view(
         unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
-    near_dataset_view_name = dataset.create_view(
+    near_view_name = dataset.create_view(
         unique_name('view'), near_dataset_path,
         dataset_where_sql=kwargs['near_where_sql'], log_level=None
         )
     temp_near_path = unique_temp_dataset_path('near')
     arcpy.analysis.GenerateNearTable(
-        in_features=dataset_view_name, near_features=near_dataset_view_name,
+        in_features=view_name, near_features=near_view_name,
         out_table=temp_near_path, search_radius=kwargs['max_near_distance'],
         location=True, angle=True, closest=kwargs['only_closest'],
-        method='geodesic'
         )
-    dataset_oid_id_map = attributes.id_map(dataset_view_name,
-                                           dataset_id_field_name)
-    dataset.delete(dataset_view_name, log_level=None)
-    near_oid_id_map = attributes.id_map(near_dataset_view_name,
-                                        near_id_field_name)
-    dataset.delete(near_dataset_view_name, log_level=None)
-    with arcpy.da.SearchCursor(
-        in_table=temp_near_path,
-        field_names=['in_fid', 'near_fid', 'near_dist', 'near_rank',
-                     'near_angle', 'near_x', 'near_y']
-        ) as cursor:
-        for row in cursor:
-            row_info = dict(zip(cursor.fields, row))
-            yield {'id': dataset_oid_id_map[row_info['in_fid']],
-                   'near_id': near_oid_id_map[row_info['near_fid']],
-                   'distance': row_info['near_dist'],
-                   'rank': row_info['near_rank'],
-                   'angle': row_info['near_angle'],
-                   'coordinates': (row_info['near_x'], row_info['near_y']),
-                   'x': row_info['near_x'], 'y': row_info['near_y']}
+    oid_id_map = attributes.id_map(view_name, dataset_id_field_name)
+    dataset.delete(view_name, log_level=None)
+    near_oid_id_map = attributes.id_map(near_view_name, near_id_field_name)
+    dataset.delete(near_view_name, log_level=None)
+    field_names = ['in_fid', 'near_fid', 'near_dist', 'near_angle',
+                   'near_x', 'near_y']
+    if not kwargs['only_closest']:
+        field_names.append('near_rank')
+    near_info_map = {}
+    for near_info in attributes.as_dicts(temp_near_path, field_names):
+        near_info['id'] = oid_id_map[near_info.pop('in_fid')]
+        near_info['near_id'] = near_oid_id_map[near_info.pop('near_fid')]
+        near_info['rank'] = (1 if kwargs['only_closest']
+                             else near_info.pop('near_rank'))
+        near_info['distance'] = near_info.pop('near_dist')
+        near_info['angle'] = near_info.pop('near_angle')
+        near_info_map[near_info['id']] = near_info
     dataset.delete(temp_near_path, log_level=None)
+    return near_info_map
