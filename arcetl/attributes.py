@@ -16,5 +16,4 @@ from arcetl._attributes import (
     update_by_near_feature,
     update_by_overlay,
     update_by_unique_id,
-    update_node_ids_by_geometry
     )
