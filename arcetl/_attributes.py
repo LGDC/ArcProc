@@ -8,7 +8,7 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj, dataset, features, workspace
+from arcetl import arcobj, dataset, workspace
 from arcetl.helpers import (LOG_LEVEL_MAP, unique_ids, unique_name,
                             unique_temp_dataset_path)
 
@@ -555,129 +555,6 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
             new_value = join_value_map.get(tuple(row[1:]))
             if row[0] != new_value:
                 cursor.updateRow([new_value] + list(row[1:]))
-    LOG.log(log_level, "End: Update.")
-    return field_name
-
-
-def update_by_near_feature(dataset_path, field_name, near_dataset_path,
-                           near_field_name, **kwargs):
-    """Update attribute values by finding near-feature value.
-
-    One can optionally update ancillary fields with analysis properties by
-    indicating the following fields: distance_field_name, angle_field_name,
-    x_coordinate_field_name, y_coordinate_field_name.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        near_dataset_path (str): Path of near-dataset.
-        near_field_name (str): Name of near-field.
-    Kwargs:
-        replacement_value: Value to replace present near-field value with.
-        distance_field_name (str): Name of field to record distance.
-        angle_field_name (str): Name of field to record angle.
-        x_coordinate_field_name (str): Name of field to record x-coordinate.
-        y_coordinate_field_name (str): Name of field to record y-coordinate.
-        max_search_distance (float): Maximum distance to search for near-
-            features.
-        near_rank (int): Rank of near-feature to get field value from.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [
-            ('angle_field_name', None), ('dataset_where_sql', None),
-            ('distance_field_name', None), ('log_level', 'info'),
-            ('max_search_distance', None), ('near_rank', 1),
-            ('replacement_value', None), ('x_coordinate_field_name', None),
-            ('y_coordinate_field_name', None)
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by near feature values in %s on %s."),
-            field_name, dataset_path, near_field_name, near_dataset_path)
-    dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    # Create a temporary copy of near dataset.
-    temp_near_path = dataset.copy(
-        near_dataset_path, unique_temp_dataset_path('near'), log_level=None
-        )
-    # Avoid field name collisions with neutral holding field.
-    temp_near_field_name = dataset.duplicate_field(
-        temp_near_path, near_field_name,
-        new_field_name=unique_name(near_field_name), log_level=None
-        )
-    update_by_function(
-        temp_near_path, temp_near_field_name, function=(lambda x: x),
-        field_as_first_arg=False, arg_field_names=[near_field_name],
-        log_level=None
-        )
-    # Create the temp output of the near features.`
-    temp_output_path = unique_temp_dataset_path('output')
-    arcpy.analysis.GenerateNearTable(
-        in_features=dataset_view_name,
-        near_features=temp_near_path,
-        out_table=temp_output_path,
-        search_radius=kwargs['max_search_distance'],
-        location=any([kwargs['x_coordinate_field_name'],
-                      kwargs['y_coordinate_field_name']]),
-        angle=any([kwargs['angle_field_name']]),
-        closest='all', closest_count=kwargs['near_rank'],
-        # Would prefer geodesic, but that forces XY values to lon-lat.
-        method='planar'
-        )
-    # Remove near rows not matching chosen rank.
-    features.delete(
-        dataset_path=temp_output_path,
-        dataset_where_sql="near_rank <> {}".format(kwargs['near_rank']),
-        log_level=None
-        )
-    # Join ID values to the near output & rename facility_geofeature_id.
-    dataset.join_field(
-        dataset_path=temp_output_path, join_dataset_path=temp_near_path,
-        join_field_name=temp_near_field_name, on_field_name='near_fid',
-        on_join_field_name=dataset.metadata(temp_near_path)['oid_field_name'],
-        log_level=None
-        )
-    dataset.delete(temp_near_path, log_level=None)
-    # Add update field to output.
-    dataset.add_field_from_metadata(
-        temp_output_path, dataset.field_metadata(dataset_path, field_name),
-        log_level=None
-        )
-    # Push overlay (or replacement) value from temp to update field.
-    if kwargs['replacement_value'] is not None:
-        update_function = (lambda x: kwargs['replacement_value'] if x else None)
-    else:
-        update_function = (lambda x: x)
-    update_by_function(
-        temp_output_path, field_name, update_function,
-        field_as_first_arg=False, arg_field_names=[temp_near_field_name],
-        log_level=None
-        )
-    # Update values in original dataset.
-    field_join_map = {field_name: field_name}
-    for keyword, join_name in [('angle_field_name', 'near_angle'),
-                               ('distance_field_name', 'near_dist'),
-                               ('x_coordinate_field_name', 'near_x'),
-                               ('y_coordinate_field_name', 'near_y')]:
-        if kwargs[keyword]:
-            field_join_map[kwargs[keyword]] = join_name
-    for name, join_name in field_join_map.items():
-        update_by_joined_value(
-            dataset_view_name, field_name=name, join_field_name=join_name,
-            join_dataset_path=temp_output_path,
-            on_field_pairs=[
-                (dataset.metadata(dataset_path)['oid_field_name'], 'in_fid')
-                ],
-            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-            )
-    dataset.delete(dataset_view_name, log_level=None)
-    dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 

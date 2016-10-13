@@ -13,7 +13,6 @@ from arcetl._attributes import (
     update_by_function_map,
     update_by_geometry,
     update_by_joined_value,
-    update_by_near_feature,
     update_by_overlay,
     update_by_unique_id,
     )
