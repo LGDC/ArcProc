@@ -221,7 +221,7 @@ def domain_metadata(domain_name, workspace_path):
 def execute_sql(statement, database_path, **kwargs):
     """Executes a SQL statement via SDE's SQL execution interface.
 
-    Only works if path resolves to an actual SQL database.
+    Only works if database_path resolves to an actual SQL database.
 
     Args:
         dataset_path (str): Path of dataset.
