@@ -84,14 +84,22 @@ def dataset_as_metadata(describe_object):
         'geometry_type': getattr(describe_object, 'shapeType', None),
         'geometry_field_name': getattr(describe_object, 'shapeFieldName', None),
         'field_names': [], 'fields': [],
+        'user_field_names': [], 'user_fields': [],
         }
-    for field in getattr(describe_object, 'fields', []):
+    for field in getattr(describe_object, 'fields', ()):
         meta['field_names'].append(field.name)
         meta['fields'].append(field_as_metadata(field))
+        if all([field.name != meta['oid_field_name'],
+                '{}.'.format(meta['geometry_field_name']) not in field.name]):
+            meta['user_field_names'].append(field.name)
+            meta['user_fields'].append(field_as_metadata(field))
     if hasattr(describe_object, 'spatialReference'):
-        meta['spatial_reference_id'] = getattr(describe_object,
-                                               'spatialReference').factoryCode
+        meta['arc_spatial_reference'] = getattr(describe_object,
+                                                'spatialReference')
+        meta['spatial_reference_id'] = getattr(meta['arc_spatial_reference'],
+                                               'factoryCode')
     else:
+        meta['arc_spatial_reference'] = None
         meta['spatial_reference_id'] = None
     return meta
 
@@ -188,7 +196,6 @@ def workspace_as_metadata(describe_object):
         'name': getattr(describe_object, 'name'),
         'path': getattr(describe_object, 'catalogPath'),
         'data_type': getattr(describe_object, 'dataType'),
-        'domain_names': [], 'domains': [],
         'is_geodatabase': any(['AccessWorkspace' in prog_id,
                                'FileGDBWorkspace' in prog_id,
                                'SdeWorkspace' in prog_id]),
@@ -198,5 +205,6 @@ def workspace_as_metadata(describe_object):
         'is_personal_geodatabase': 'AccessWorkspace' in prog_id,
         'is_in_memory': 'InMemoryWorkspace' in prog_id,
         'domain_names': getattr(describe_object, 'domains', []),
+        'domains': [], ##TODO: Fill this out.
         }
     return meta
