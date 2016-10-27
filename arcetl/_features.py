@@ -287,11 +287,11 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
-        for feature in insert_features:
-            cursor.insertRow([feature[name] for name in field_names])
+    iters = ([feat[name] if name in feat else None for name in field_names]
+             for feat in insert_features)
+    result = insert_from_iters(dataset_path, iters, field_names, log_level=None)
     LOG.log(log_level, "End: Insert.")
-    return dataset_path
+    return result
 
 
 def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
@@ -357,10 +357,9 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     if field_names:
         field_names = [name.lower() for name in field_names]
     else:
-        field_names = [field['name'].lower()
-                       for field in dataset_meta['fields']]
-    insert_field_names = [field['name'].lower()
-                          for field in insert_dataset_meta['fields']]
+        field_names = [name.lower() for name in dataset_meta['field_names']]
+    insert_field_names = [name.lower() for name
+                          in insert_dataset_meta['field_names']]
     # Append takes care of geometry & OIDs independent of the field maps.
     for field_name_type in ['geometry_field_name', 'oid_field_name']:
         if dataset_meta.get(field_name_type):
@@ -374,10 +373,9 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
-    arcpy.management.Append(
-        inputs=insert_dataset_view_name, target=dataset_path,
-        schema_type='no_test', field_mapping=field_maps
-        )
+    arcpy.management.Append(inputs=insert_dataset_view_name,
+                            target=dataset_path, schema_type='no_test',
+                            field_mapping=field_maps)
     dataset.delete(insert_dataset_view_name, log_level=None)
     LOG.log(log_level, "End: Insert.")
     return dataset_path
