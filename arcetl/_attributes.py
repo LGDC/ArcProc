@@ -701,3 +701,30 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
             cursor.updateRow([next(unique_id_pool)])
     LOG.log(log_level, "End: Update.")
     return field_name
+
+
+def update_by_value(dataset_path, field_name, value, **kwargs):
+    """Update attribute values by assigning a given value.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+        value (types.FunctionType): Value to assign.
+    Kwargs:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level at which to log this function.
+    Returns:
+        str.
+    """
+    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
+        kwargs.setdefault(*kwarg_default)
+    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    LOG.log(log_level, "Start: Update attributes in %s on %s by given value.",
+            field_name, dataset_path)
+    with arcpy.da.UpdateCursor(dataset_path, [field_name],
+                               kwargs['dataset_where_sql']) as cursor:
+        for row in cursor:
+            if row[0] != value:
+                cursor.updateRow([value])
+    LOG.log(log_level, "End: Update.")
+    return field_name

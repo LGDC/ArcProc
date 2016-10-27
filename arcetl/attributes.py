@@ -15,4 +15,5 @@ from arcetl._attributes import (
     update_by_joined_value,
     update_by_overlay,
     update_by_unique_id,
+    update_by_value,
     )
