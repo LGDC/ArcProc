@@ -165,25 +165,15 @@ def spatial_reference_as_arc(spatial_reference):
     Returns:
         arcpy.SpatialReference.
     """
-    try:
-        describe_object = arcpy.Describe(spatial_reference)
-    except AttributeError:
-        if spatial_reference is None:
-            arc_object = None
-        else:
-            raise
-    except IOError:
-        if isinstance(spatial_reference, int):
-            arc_object = arcpy.SpatialReference(spatial_reference)
-        else:
-            raise
-    except RuntimeError:
-        if isinstance(spatial_reference, arcpy.Geometry):
-            arc_object = getattr(spatial_reference, 'spatialReference')
-        else:
-            raise
+    if spatial_reference is None:
+        arc_object = None
+    elif isinstance(spatial_reference, int):
+        arc_object = arcpy.SpatialReference(spatial_reference)
+    elif isinstance(spatial_reference, arcpy.Geometry):
+        arc_object = getattr(spatial_reference, 'spatialReference')
     else:
-        arc_object = getattr(describe_object, 'spatialReference')
+        arc_object = getattr(arcpy.Describe(spatial_reference),
+                             'spatialReference')
     return arc_object
 
 
