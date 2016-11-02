@@ -156,51 +156,58 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
 
 
 def dataset_names(workspace_path, **kwargs):
-    """Generator for workspace's dataset names.
-
-    wildcard requires an * to indicate where open; case insensitive.
+    """Generator for names of datasets in workspace.
 
     Args:
         workspace_path (str): Path of workspace.
     Kwargs:
-        wildcard (str): String to indicate wildcard search.
+        name_validator (function): Function to validate dataset names yielded.
         include_feature_classes (bool): Flag to include feature class datasets.
         include_rasters (bool): Flag to include raster datasets.
         include_tables (bool): Flag to include nonspatial tables.
-        include_feature_datasets (bool): Flag to include contents of feature
-            datasets.
+        only_top_level (bool): Flag to only list datasets at the top-level.
     Yields:
         str.
     """
     for kwarg_default in [
-            ('include_feature_classes', True),
-            ('include_feature_datasets', True), ('include_rasters', True),
-            ('include_tables', True), ('wildcard', None)
+            ('include_feature_classes', True), ('include_rasters', True),
+            ('include_tables', True), ('only_top_level', False),
+            ('name_validator', (lambda n: True)),
         ]:
         kwargs.setdefault(*kwarg_default)
-    old_workspace_path = arcpy.env.workspace
-    arcpy.env.workspace = workspace_path
-    listfuncs = []
-    if kwargs['include_feature_classes']:
-        list_fcs = functools.partial(arcpy.ListFeatureClasses,
-                                     wild_card=kwargs['wildcard'])
-        listfuncs.append(list_fcs)  # Root-level.
-        if kwargs['include_feature_datasets']:
-            for name in arcpy.ListDatasets():
-                listfuncs.append(functools.partial(list_fcs,
-                                                   feature_dataset=name))
-    if kwargs['include_rasters']:
-        listfuncs.append(
-            functools.partial(arcpy.ListRasters, wild_card=kwargs['wildcard'])
-            )
-    if kwargs['include_tables']:
-        listfuncs.append(
-            functools.partial(arcpy.ListTables, wild_card=kwargs['wildcard'])
-            )
-    for listfunc in listfuncs:
-        for name in listfunc():
-            yield name
-    arcpy.env.workspace = old_workspace_path
+    data_types = []
+    for flag, flag_data_types in (
+            ('include_feature_classes', ['FeatureClass']),
+            ('include_rasters', ['RasterCatalog', 'RasterDataset']),
+            ('include_tables', ['Table']),
+        ):
+        if kwargs[flag]:
+            data_types.extend(flag_data_types)
+    for root_path, _, names in arcpy.da.Walk(workspace_path,
+                                             datatype=data_types):
+        if kwargs['only_top_level'] and root_path != workspace_path:
+            continue
+        for name in names:
+            if kwargs['validator'](name):
+                yield name
+
+
+def dataset_paths(workspace_path, **kwargs):
+    """Generator for paths of datasets in workspace.
+
+    Args:
+        workspace_path (str): Path of workspace.
+    Kwargs:
+        name_validator (function): Function to validate dataset names yielded.
+        include_feature_classes (bool): Flag to include feature class datasets.
+        include_rasters (bool): Flag to include raster datasets.
+        include_tables (bool): Flag to include nonspatial tables.
+        only_top_level (bool): Flag to only list datasets at the top-level.
+    Yields:
+        str.
+    """
+    for name in dataset_names(workspace_path, **kwargs):
+        yield os.path.join(workspace_path, name)
 
 
 def domain_metadata(domain_name, workspace_path):
