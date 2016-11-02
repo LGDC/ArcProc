@@ -195,6 +195,10 @@ def workspace_as_metadata(describe_object):
         'is_personal_geodatabase': 'AccessWorkspace' in prog_id,
         'is_in_memory': 'InMemoryWorkspace' in prog_id,
         'domain_names': getattr(describe_object, 'domains', []),
-        'domains': [], ##TODO: Fill this out.
+        'arc_domains': [],
+        'domains': [],
         }
+    for domain_object in arcpy.da.ListDomains(meta['path']):
+        meta['arc_domains'].append(domain_object)
+        meta['domains'].append(domain_as_metadata(domain_object))
     return meta
