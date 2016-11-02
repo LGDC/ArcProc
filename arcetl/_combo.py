@@ -29,11 +29,13 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             numeric fields.
         string_null_replacement (str): Replacement value for nulls in string
             fields.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
     for kwarg_default in [
+            ('dataset_where_sql', None),
             ('datetime_null_replacement', datetime.date.min),
             ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
             ('string_null_replacement', ''), ('log_level', 'info')
@@ -66,6 +68,7 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             attributes.update_by_function(
                 dataset_path, field['name'],
                 function=type_function_map[field['type'].lower()],
+                dataset_where_sql=kwargs['dataset_where_sql'],
                 log_level=None
                 )
     LOG.log(log_level, "End: Adjust.")

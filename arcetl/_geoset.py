@@ -33,14 +33,16 @@ def identity(dataset_path, field_name, identity_dataset_path,
         tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present identity field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        identity_where_sql (str): SQL where-clause for identity dataset
+            subselection.
         chunk_size (int): Number of features to process per loop iteration.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
     for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
-                          ('log_level', 'info'), ('replacement_value', None),
-                          ('tolerance', None)]:
+                          ('identity_where_sql', None), ('log_level', 'info'),
+                          ('replacement_value', None), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
@@ -55,7 +57,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = dataset.copy(
         identity_dataset_path, unique_temp_dataset_path('overlay'),
-        log_level=None
+        dataset_where_sql=kwargs['identity_where_sql'], log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
@@ -124,6 +126,8 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present overlay-field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        overlay_where_sql (str): SQL where-clause for overlay dataset
+            subselection.
         chunk_size (int): Number of features to process per loop iteration.
         log_level (str): Level at which to log this function.
     Returns:
@@ -132,8 +136,8 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
     for kwarg_default in [
             ('chunk_size', 4096), ('dataset_where_sql', None),
             ('log_level', 'info'), ('overlay_central_coincident', False),
-            ('overlay_most_coincident', False), ('replacement_value', None),
-            ('tolerance', None)
+            ('overlay_most_coincident', False), ('overlay_where_sql', None),
+            ('replacement_value', None), ('tolerance', None)
         ]:
         kwargs.setdefault(*kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
@@ -161,9 +165,10 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
     # Create temporary copy of overlay dataset.
-    temp_overlay_path = dataset.copy(overlay_dataset_path,
-                                     unique_temp_dataset_path('overlay'),
-                                     log_level=None)
+    temp_overlay_path = dataset.copy(
+        overlay_dataset_path, unique_temp_dataset_path('overlay'),
+        dataset_where_sql=kwargs['overlay_where_sql'], log_level=None
+        )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, overlay_field_name,
@@ -215,16 +220,15 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         tolerance (float): Tolerance for coincidence, in dataset's units.
         replacement_value: Value to replace present union-field value with.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        union_where_sql (st): SQL where-clause for union dataset subselection.
         chunk_size (int): Number of features to process per loop iteration.
         log_level (str): Level at which to log this function.
     Returns:
         str.
     """
-    for kwarg_default in [
-            ('chunk_size', 4096), ('dataset_where_sql', None),
-            ('log_level', 'info'), ('replacement_value', None),
-            ('tolerance', None)
-        ]:
+    for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
+                          ('log_level', 'info'), ('replacement_value', None),
+                          ('tolerance', None), ('union_where_sql', None)]:
         kwargs.setdefault(kwarg_default)
     log_level = LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, ("Start: Union-set attributes in %s on %s"
@@ -239,7 +243,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
     # Create a temporary copy of the union dataset.
     temp_union_path = dataset.copy(
         union_dataset_path, unique_temp_dataset_path('union'),
-        log_level=None
+        dataset_where_sql=kwargs['union_where_sql'], log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_union_field_name = dataset.duplicate_field(
