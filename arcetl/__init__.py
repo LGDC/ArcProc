@@ -1,4 +1,3 @@
-# -*- coding=utf-8 -*-
 """ETL framework library based on ArcGIS/ArcPy."""
 
 from arcetl import arcobj
@@ -18,4 +17,4 @@ from arcetl.helpers import (sexagesimal_angle_to_decimal, unique_ids,
 
 
 __all__ = []
-__version__ = '2016.10'
+__version__ = '2016.11'

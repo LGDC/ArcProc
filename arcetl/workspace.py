@@ -1,4 +1,3 @@
-# -*- coding=utf-8 -*-
 """Workspace operations."""
 
 import logging

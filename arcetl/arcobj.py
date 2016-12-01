@@ -1,4 +1,3 @@
-# -*- coding=utf-8 -*-
 """Interfaces for ArcObjects."""
 
 import logging
