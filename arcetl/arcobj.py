@@ -173,7 +173,7 @@ def field_metadata(dataset_path, field_name):
     return meta
 
 
-def linear_unit_as_string(measure, spatial_reference_source):
+def linear_unit_string(measure, spatial_reference_source):
     """Return unit of measure as a linear unit string."""
     linear_unit = getattr(spatial_reference(spatial_reference_source),
                           'linearUnitName', 'Unknown'),
