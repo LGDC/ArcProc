@@ -37,8 +37,7 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Add field %s to %s.", field_name, dataset_path)
     arcpy.management.AddField(
-        in_table=dataset_path, field_name=field_name,
-        field_type=arcobj.FIELD_TYPE_AS_ARC.get(field_type.lower(), field_type),
+        in_table=dataset_path, field_name=field_name, field_type=field_type,
         field_length=kwargs['field_length'],
         field_precision=kwargs['field_precision'],
         field_scale=kwargs['field_scale'],

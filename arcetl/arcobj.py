@@ -9,8 +9,6 @@ from arcetl import helpers
 
 LOG = logging.getLogger(__name__)
 
-FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
-
 
 class ArcExtension(object):
     """Context manager for an ArcGIS extension."""
