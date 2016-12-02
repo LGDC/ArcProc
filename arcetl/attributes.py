@@ -239,7 +239,7 @@ def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
                 )
     coord_info_map = _updated_node_coord_info_map(
         coord_info_map,
-        force_to_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['from']['type']]
+        force_to_type=arcobj.python_field_type(field_meta['from']['type'])
         )
     if kwargs['field_names_as_keys']:
         map_kwargs = {'from_end_key': from_id_field_name,
@@ -681,7 +681,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
             field_name, dataset_path)
     field_meta = dataset.field_metadata(dataset_path, field_name)
     unique_id_pool = helpers.unique_ids(
-        data_type=arcobj.FIELD_TYPE_AS_PYTHON[field_meta['type']],
+        data_type=arcobj.python_field_type(field_meta['type']),
         string_length=field_meta.get('length', 16)
         )
     with arcpy.da.UpdateCursor(dataset_path, (field_name,),

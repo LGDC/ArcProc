@@ -10,12 +10,6 @@ from arcetl import helpers
 LOG = logging.getLogger(__name__)
 
 FIELD_TYPE_AS_ARC = {'string': 'text', 'integer': 'long'}
-FIELD_TYPE_AS_PYTHON = {
-    'double': float, 'single': float,
-    'integer': int, 'long': int, 'short': int, 'smallinteger': int,
-    'guid': uuid.UUID,
-    'string': str, 'text': str,
-    }
 
 
 class ArcExtension(object):
@@ -142,6 +136,17 @@ def linear_unit_as_string(measure, spatial_reference_source):
     linear_unit = getattr(spatial_reference(spatial_reference_source),
                           'linearUnitName', 'Unknown'),
     return '{} {}'.format(measure, linear_unit)
+
+
+def python_type(type_description):
+    """Return instance of Python type from Arc type description."""
+    instance = {
+        'double': float, 'single': float,
+        'integer': int, 'long': int, 'short': int, 'smallinteger': int,
+        'guid': uuid.UUID,
+        'string': str, 'text': str,
+        }
+    return instance[type_description]
 
 
 def spatial_reference_as_metadata(reference_object):
