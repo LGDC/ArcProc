@@ -62,8 +62,15 @@ class ArcExtension(object):
         return not self.activated
 
 
-def dataset_as_metadata(describe_object):
-    """Return dictionary of dataset metadata from an ArcPy describe object."""
+def dataset_metadata(dataset_path):
+    """Return dictionary of dataset metadata.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        dict.
+    """
+    describe_object = arcpy.Describe(dataset_path)
     meta = {
         'name': getattr(describe_object, 'name'),
         'path': getattr(describe_object, 'catalogPath'),

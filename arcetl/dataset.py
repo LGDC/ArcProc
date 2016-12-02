@@ -417,15 +417,7 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     return join_field_name
 
 
-def metadata(dataset_path):
-    """Return dictionary of dataset metadata.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Returns:
-        dict.
-    """
-    return arcobj.dataset_as_metadata(arcpy.Describe(dataset_path))
+metadata = arcobj.dataset_metadata  # pylint: disable=invalid-name
 
 
 def rename_field(dataset_path, field_name, new_field_name, **kwargs):
