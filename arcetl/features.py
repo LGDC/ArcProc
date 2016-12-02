@@ -1,12 +1,11 @@
 """Feature operations."""
-
 import inspect
 import logging
 
 import arcpy
 
 from arcetl import dataset
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name, unique_temp_dataset_path
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -29,18 +28,18 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     for kwarg_default in [('clip_where_sql', None), ('dataset_where_sql', None),
                           ('log_level', 'info'), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Clip features in %s where overlapping %s.",
             dataset_path, clip_dataset_path)
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     clip_dataset_view_name = dataset.create_view(
-        unique_name('view'), clip_dataset_path,
+        helpers.unique_name('view'), clip_dataset_path,
         dataset_where_sql=kwargs['clip_where_sql'], log_level=None
         )
-    temp_output_path = unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.analysis.Clip(
         in_features=dataset_view_name, clip_features=clip_dataset_view_name,
         out_feature_class=temp_output_path,
@@ -83,7 +82,7 @@ def delete(dataset_path, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
     truncate_type_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
@@ -97,7 +96,7 @@ def delete(dataset_path, **kwargs):
         'ERROR 001395'
         )
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     # Can use (faster) truncate when no sub-selection
@@ -143,17 +142,17 @@ def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
             ('multipart', True), ('tolerance', 0.001), ('unsplit_lines', False)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
     if kwargs['tolerance']:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
-    temp_output_path = unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.management.Dissolve(
         in_features=dataset_view_name, out_feature_class=temp_output_path,
         dissolve_field=dissolve_field_names, multi_part=kwargs['multipart'],
@@ -200,13 +199,13 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         kwargs['condition'] = 'area'
     else:
         kwargs['condition'] = 'percent'
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Eliminate interior rings in %s.", dataset_path)
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
-    temp_output_path = unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.management.EliminatePolygonPart(
         in_features=dataset_view_name, out_feature_class=temp_output_path,
         condition=kwargs['condition'], part_area=kwargs['max_area'],
@@ -240,18 +239,18 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
             ('log_level', 'info'), ('tolerance', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Erase features in %s where overlapping %s.",
             dataset_path, erase_dataset_path)
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     erase_dataset_view_name = dataset.create_view(
-        unique_name('view'), erase_dataset_path,
+        helpers.unique_name('view'), erase_dataset_path,
         dataset_where_sql=kwargs['erase_where_sql'], log_level=None
         )
-    temp_output_path = unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     arcpy.analysis.Erase(
         in_features=dataset_view_name, erase_features=erase_dataset_view_name,
         out_feature_class=temp_output_path,
@@ -281,7 +280,7 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
@@ -308,7 +307,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
@@ -337,13 +336,13 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     """
     for kwarg_default in [('insert_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
     dataset_meta = dataset.metadata(dataset_path)
     insert_dataset_meta = dataset.metadata(insert_dataset_path)
     insert_dataset_view_name = dataset.create_view(
-        unique_name('view'), insert_dataset_path,
+        helpers.unique_name('view'), insert_dataset_path,
         dataset_where_sql=kwargs['insert_where_sql'],
         # Insert view must be nonspatial to append to nonspatial table.
         force_nonspatial=(not dataset_meta['is_spatial']), log_level=None
@@ -397,15 +396,15 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None),
                           ('location_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Keep features in %s where overlapping %s.",
             dataset_path, location_dataset_path)
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     location_dataset_view_name = dataset.create_view(
-        unique_name('view'), location_dataset_path,
+        helpers.unique_name('view'), location_dataset_path,
         dataset_where_sql=kwargs['location_where_sql'], log_level=None
         )
     arcpy.management.SelectLayerByLocation(

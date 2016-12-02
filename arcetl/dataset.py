@@ -1,12 +1,11 @@
 """Dataset operations."""
-
 import logging
 import os
 
 import arcpy
 
 from arcetl import arcobj
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
             ('field_scale', None), ('log_level', 'info')
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Add field %s to %s.", field_name, dataset_path)
     arcpy.management.AddField(
         in_table=dataset_path, field_name=field_name,
@@ -63,7 +62,7 @@ def add_field_from_metadata(dataset_path, metadata, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Add field %s to %s.",
             metadata['name'], dataset_path)
     field_keywords = ['name', 'type', 'length', 'precision', 'scale',
@@ -102,7 +101,7 @@ def add_index(dataset_path, field_names, **kwargs):
             ('log_level', 'info')
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Add index to field(s) %s on %s.",
             field_names, dataset_path)
     index_types = {
@@ -155,12 +154,12 @@ def copy(dataset_path, output_path, **kwargs):
             ('sort_field_names', []), ('sort_reversed_field_names', [])
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Copy dataset %s to %s.",
             dataset_path, output_path)
     dataset_meta = metadata(dataset_path)
     dataset_view_name = create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=("0=1" if kwargs['schema_only']
                            else kwargs['dataset_where_sql']),
         log_level=None
@@ -211,7 +210,7 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     for kwarg_default in [('geometry_type', None), ('log_level', 'info'),
                           ('spatial_reference_id', 4326)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Create dataset %s.", dataset_path)
     create_kwargs = {'out_path': os.path.dirname(dataset_path),
                      'out_name': os.path.basename(dataset_path)}
@@ -248,7 +247,7 @@ def create_view(view_name, dataset_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None),
                           ('force_nonspatial', False), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Create view %s of dataset %s.",
             view_name, dataset_path)
     dataset_meta = metadata(dataset_path)
@@ -281,7 +280,7 @@ def delete(dataset_path, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Delete dataset %s.", dataset_path)
     arcpy.management.Delete(in_data=dataset_path)
     LOG.log(log_level, "End: Delete.")
@@ -301,7 +300,7 @@ def delete_field(dataset_path, field_name, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Delete field %s on %s.",
             field_name, dataset_path)
     arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
@@ -324,7 +323,7 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
             field_name, new_field_name, dataset_path)
     field_meta = field_metadata(dataset_path, field_name)
@@ -407,7 +406,7 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Join field %s on %s from %s.",
             join_field_name, dataset_path, join_dataset_path)
     arcpy.management.JoinField(
@@ -444,7 +443,7 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Rename field %s to %s on %s.",
             field_name, new_field_name, dataset_path)
     arcpy.management.AlterField(in_table=dataset_path, field=field_name,
@@ -470,7 +469,7 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
     view_arg, edit_arg = privilege_map[allow_view], privilege_map[allow_edit]
     LOG.log(log_level,

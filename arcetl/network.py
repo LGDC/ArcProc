@@ -1,11 +1,13 @@
 """Network analysis operations."""
-
 import logging
 
 import arcpy
 
-from arcetl import arcobj, attributes, dataset, workspace
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name
+from arcetl import arcobj
+from arcetl import attributes
+from arcetl import dataset
+from arcetl import helpers
+from arcetl import workspace
 
 
 LOG = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             ('restriction_attributes', []), ('travel_from_facility', False)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level,
             "Start: Generate closest facility in %s to locations in %s.",
             facility_path, dataset_path)
@@ -86,7 +88,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         # Load facilities.
         facility = {
             'view_name': dataset.create_view(
-                unique_name('facility_view'), facility_path,
+                helpers.unique_name('facility_view'), facility_path,
                 dataset_where_sql=kwargs['facility_where_sql'], log_level=None
                 ),
             'id_field': dataset.field_metadata(facility_path,
@@ -112,7 +114,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
         # Load dataset locations.
         dataset_info = {
             'view_name': dataset.create_view(
-                unique_name('dataset_view'), dataset_path,
+                helpers.unique_name('dataset_view'), dataset_path,
                 dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
                 ),
             'id_field': dataset.field_metadata(dataset_path, id_field_name),
@@ -184,7 +186,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
             ('travel_from_facility', False), ('trim_value', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
@@ -192,7 +194,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
             kwargs['trim_value'], dataset_path
             )
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     with arcobj.ArcExtension('Network'):
@@ -277,7 +279,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
             ('travel_from_facility', False), ('trim_value', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
@@ -285,7 +287,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
             kwargs['trim_value'], dataset_path
             )
     dataset_view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     with arcobj.ArcExtension('Network'):

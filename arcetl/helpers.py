@@ -1,5 +1,4 @@
 """Internal module helper objects."""
-
 import logging
 import os
 import uuid
@@ -10,7 +9,8 @@ LOG = logging.getLogger(__name__)
 LOG_LEVEL_MAP = {
     None: 0, 'debug': logging.DEBUG, 'info': logging.INFO,
     'warning': logging.WARNING, 'error': logging.ERROR,
-    'critical': logging.CRITICAL}
+    'critical': logging.CRITICAL,
+    }
 
 
 def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,

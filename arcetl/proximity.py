@@ -1,11 +1,11 @@
 """Analysis result operations."""
-
 import logging
 
 import arcpy
 
-from arcetl import attributes, dataset
-from arcetl.helpers import unique_name, unique_temp_dataset_path
+from arcetl import attributes
+from arcetl import dataset
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -48,14 +48,14 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
         ]:
         kwargs.setdefault(*kwarg_default)
     view_name = dataset.create_view(
-        unique_name('view'), dataset_path,
+        helpers.unique_name('view'), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     near_view_name = dataset.create_view(
-        unique_name('view'), near_dataset_path,
+        helpers.unique_name('view'), near_dataset_path,
         dataset_where_sql=kwargs['near_where_sql'], log_level=None
         )
-    temp_near_path = unique_temp_dataset_path('near')
+    temp_near_path = helpers.unique_temp_dataset_path('near')
     arcpy.analysis.GenerateNearTable(
         in_features=view_name, near_features=near_view_name,
         out_table=temp_near_path, search_radius=kwargs['max_near_distance'],

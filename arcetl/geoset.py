@@ -1,11 +1,13 @@
 """Set-theoretic geometry operations."""
-
 import logging
 
 import arcpy
 
-from arcetl import attributes, combo, dataset, features
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name, unique_temp_dataset_path
+from arcetl import attributes
+from arcetl import combo
+from arcetl import dataset
+from arcetl import features
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -43,7 +45,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
                           ('identity_where_sql', None), ('log_level', 'info'),
                           ('replacement_value', None), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
                         " by overlay values in %s on %s."), field_name,
             dataset_path, identity_field_name, identity_dataset_path)
@@ -55,13 +57,13 @@ def identity(dataset_path, field_name, identity_dataset_path,
         update_function = (lambda x: None if x == '' else x)
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = dataset.copy(
-        identity_dataset_path, unique_temp_dataset_path('overlay'),
+        identity_dataset_path, helpers.unique_temp_dataset_path('overlay'),
         dataset_where_sql=kwargs['identity_where_sql'], log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, identity_field_name,
-        new_field_name=unique_name(identity_field_name), log_level=None
+        new_field_name=helpers.unique_name(identity_field_name), log_level=None
         )
     attributes.update_by_function(
         temp_overlay_path, temp_overlay_field_name, function=(lambda x: x),
@@ -72,7 +74,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
             dataset_path, kwargs['chunk_size'],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         ):
-        temp_output_path = unique_temp_dataset_path('output')
+        temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.Identity(
             in_features=view_name, identity_features=temp_overlay_path,
             out_feature_class=temp_output_path, join_attributes='all',
@@ -139,7 +141,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
             ('replacement_value', None), ('tolerance', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, ("Start: Overlay-set attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, overlay_field_name, overlay_dataset_path)
@@ -165,13 +167,13 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         arcpy.env.XYTolerance = kwargs['tolerance']
     # Create temporary copy of overlay dataset.
     temp_overlay_path = dataset.copy(
-        overlay_dataset_path, unique_temp_dataset_path('overlay'),
+        overlay_dataset_path, helpers.unique_temp_dataset_path('overlay'),
         dataset_where_sql=kwargs['overlay_where_sql'], log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
         temp_overlay_path, overlay_field_name,
-        new_field_name=unique_name(overlay_field_name), log_level=None
+        new_field_name=helpers.unique_name(overlay_field_name), log_level=None
         )
     attributes.update_by_function(
         temp_overlay_path, temp_overlay_field_name, function=(lambda x: x),
@@ -182,7 +184,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
             dataset_path, kwargs['chunk_size'],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         ):
-        temp_output_path = unique_temp_dataset_path('output')
+        temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.SpatialJoin(
             target_features=view_name, join_features=temp_overlay_path,
             out_feature_class=temp_output_path, **join_kwargs
@@ -229,7 +231,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
                           ('log_level', 'info'), ('replacement_value', None),
                           ('tolerance', None), ('union_where_sql', None)]:
         kwargs.setdefault(kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, ("Start: Union-set attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, union_field_name, union_dataset_path)
@@ -241,13 +243,13 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         update_function = (lambda x: None if x == '' else x)
     # Create a temporary copy of the union dataset.
     temp_union_path = dataset.copy(
-        union_dataset_path, unique_temp_dataset_path('union'),
+        union_dataset_path, helpers.unique_temp_dataset_path('union'),
         dataset_where_sql=kwargs['union_where_sql'], log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_union_field_name = dataset.duplicate_field(
         temp_union_path, union_field_name,
-        new_field_name=unique_name(union_field_name), log_level=None
+        new_field_name=helpers.unique_name(union_field_name), log_level=None
         )
     attributes.update_by_function(
         temp_union_path, temp_union_field_name, function=(lambda x: x),
@@ -258,7 +260,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
             dataset_path, kwargs['chunk_size'],
             dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         ):
-        temp_output_path = unique_temp_dataset_path('output')
+        temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.Union(
             in_features=[view_name, temp_union_path],
             out_feature_class=temp_output_path, join_attributes='all',

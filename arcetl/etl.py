@@ -1,11 +1,11 @@
 """ETL objects."""
-
 import logging
 
 import funcsigs
 
 from arcetl import dataset, features
-from arcetl.helpers import unique_temp_dataset_path
+from arcetl import helpers
+
 
 LOG = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class ArcETL(object):
         LOG.info("Start: Extract %s.", extract_path)
         self.transform_path = dataset.copy(
             dataset_path=extract_path,
-            output_path=unique_temp_dataset_path('extract'),
+            output_path=helpers.unique_temp_dataset_path('extract'),
             dataset_where_sql=extract_where_sql, schema_only=schema_only,
             log_level=None
             )
@@ -75,7 +75,7 @@ class ArcETL(object):
         # Add output_path to kwargs if needed.
         if all(['output_path' in funcsigs.signature(transformation).parameters,
                 'output_path' not in kwargs]):
-            kwargs['output_path'] = unique_temp_dataset_path(
+            kwargs['output_path'] = helpers.unique_temp_dataset_path(
                 transformation.__name__
                 )
         result = transformation(**kwargs)

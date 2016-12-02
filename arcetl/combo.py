@@ -1,13 +1,13 @@
 """Combination operations."""
+import datetime as _datetime
+import logging as _logging
 
-import datetime
-import logging
-
-from arcetl import attributes, dataset
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name
+from arcetl import attributes
+from arcetl import dataset
+from arcetl import helpers
 
 
-LOG = logging.getLogger(__name__)
+LOG = _logging.getLogger(__name__)
 
 
 def adjust_for_shapefile(dataset_path, **kwargs):
@@ -35,12 +35,12 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     """
     for kwarg_default in [
             ('dataset_where_sql', None),
-            ('datetime_null_replacement', datetime.date.min),
+            ('datetime_null_replacement', _datetime.date.min),
             ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
             ('string_null_replacement', ''), ('log_level', 'info')
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
             dataset_path)
     type_function_map = {
@@ -100,9 +100,9 @@ def view_chunks(dataset_path, chunk_size, **kwargs):
             )
     # Get iterable of all O in the dataset.
     # Sorting is important, allows views with ID range instead of list.
-    oids = sorted(oid for oid, in attributes.as_iters(
-        dataset_path, ['oid@'], dataset_where_sql=kwargs['dataset_where_sql']
-        ))
+    oids = attributes.as_iters(dataset_path, ('oid@',),
+                               dataset_where_sql=kwargs['dataset_where_sql'])
+    oids = sorted(oid for oid, in oids)
     while oids:
         chunk = oids[:chunk_size]  # Get chunk OIDs
         oids = oids[chunk_size:]  # Remove them from set.
@@ -111,4 +111,5 @@ def view_chunks(dataset_path, chunk_size, **kwargs):
             field=dataset.metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
-        yield dataset.create_view(unique_name('chunk'), dataset_path, **kwargs)
+        yield dataset.create_view(helpers.unique_name('chunk'), dataset_path,
+                                  **kwargs)

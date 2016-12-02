@@ -1,13 +1,14 @@
 """Conversion operations."""
-
-import collections
+from collections import Sequence
 import csv
 import logging
 
 import arcpy
 
-from arcetl import arcobj, attributes, dataset
-from arcetl.helpers import LOG_LEVEL_MAP, unique_name
+from arcetl import arcobj
+from arcetl import attributes
+from arcetl import dataset
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -35,11 +36,11 @@ def planarize(dataset_path, output_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Planarize geometry in %s to lines in %s.",
             dataset_path, output_path)
     view_name = dataset.create_view(
-        unique_name(), dataset_path,
+        helpers.unique_name(), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     arcpy.management.FeatureToLine(
@@ -85,12 +86,12 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     if not kwargs['topological']:
         # Tolerance only applies to topological conversions.
         kwargs['tolerance'] = None
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Convert polgyons in %s to lines in %s.",
             dataset_path, output_path)
     dataset_meta = dataset.metadata(dataset_path)
     view_name = dataset.create_view(
-        unique_name(), dataset_path,
+        helpers.unique_name(), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     if kwargs['tolerance']:
@@ -153,7 +154,7 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Project %s to srid=%s in %s.",
             dataset_path, spatial_reference_id, output_path)
     dataset_meta = dataset.metadata(dataset_path)
@@ -164,10 +165,9 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     # create a clone dataset & copy features.
     dataset.create(
         output_path,
-        field_metadata_list=[
-            field for field in dataset_meta['fields']
-            if field['type'].lower() not in ('geometry ', 'oid')
-            ],
+        field_metadata_list=(field for field in dataset_meta['fields']
+                             if field['type'].lower()
+                             not in ('geometry ', 'oid')),
         geometry_type=dataset_meta['geometry_type'],
         spatial_reference_id=spatial_reference_id, log_level=None
         )
@@ -197,7 +197,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
     for kwarg_default in [('file_mode', 'wb'), ('header', False),
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Convert rows to CSVfile %s.", output_path)
     with open(output_path, kwargs['file_mode']) as csvfile:
         for index, row in enumerate(rows):
@@ -206,7 +206,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
                     writer = csv.DictWriter(csvfile, field_names)
                     if kwargs['header']:
                         writer.writeheader()
-                elif isinstance(row, collections.Sequence):
+                elif isinstance(row, Sequence):
                     writer = csv.writer(csvfile)
                     if kwargs['header']:
                         writer.writerow(field_names)
@@ -239,14 +239,15 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
             dataset_path, output_path)
-    view_name = unique_name()
+    view_name = helpers.unique_name()
+    sref = arcobj.spatial_reference_as_arc(spatial_reference_id)
     arcpy.management.MakeXYEventLayer(
         table=dataset_path, out_layer=view_name, in_x_field=x_field_name,
         in_y_field=y_field_name, in_z_field=z_field_name,
-        spatial_reference=arcobj.spatial_reference_as_arc(spatial_reference_id)
+        spatial_reference=sref
         )
     dataset.copy(view_name, output_path,
                  dataset_where_sql=kwargs['dataset_where_sql'], log_level=None)

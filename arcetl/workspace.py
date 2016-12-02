@@ -1,12 +1,11 @@
 """Workspace operations."""
-
 import logging
 import os
 
 import arcpy
 
 from arcetl import arcobj
-from arcetl.helpers import LOG_LEVEL_MAP
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ def build_locator(locator_path, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Build locator %s.", locator_path)
     arcpy.geocoding.RebuildAddressLocator(locator_path)
     LOG.log(log_level, "End: Build.")
@@ -43,7 +42,7 @@ def build_network(network_path, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Build network %s.", network_path)
     with arcobj.ArcExtension('Network'):
         arcpy.na.BuildNetwork(in_network_dataset=network_path)
@@ -64,7 +63,7 @@ def compress(workspace_path, **kwargs):
     """
     for kwarg_default in [('disconnect_users', False), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Compress workspace %s.", workspace_path)
     workspace_meta = metadata(workspace_path)
     if workspace_meta['is_file_geodatabase']:
@@ -104,7 +103,7 @@ def create_file_geodatabase(geodatabase_path, **kwargs):
     for kwarg_default in [('include_xml_data', False), ('log_level', 'info'),
                           ('xml_workspace_path', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Create file geodatabase %s.", geodatabase_path)
     if os.path.exists(geodatabase_path):
         LOG.warning("Geodatabase already exists.")
@@ -141,7 +140,7 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path, **kwargs):
     for kwarg_default in [('include_data', False), ('include_metadata', True),
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Create XML backup of geodatabase %s at %s.",
             geodatabase_path, output_path)
     arcpy.management.ExportXMLWorkspaceDocument(
@@ -237,7 +236,7 @@ def execute_sql(statement, database_path, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
     LOG.log(log_level, "Start: Execute SQL statement.")
     conn = arcpy.ArcSDESQLExecute(server=database_path)
     try:

@@ -1,11 +1,10 @@
 """Interfaces for ArcObjects."""
-
 import logging
 import uuid
 
 import arcpy
 
-from arcetl.helpers import LOG_LEVEL_MAP
+from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
@@ -15,7 +14,8 @@ FIELD_TYPE_AS_PYTHON = {
     'double': float, 'single': float,
     'integer': int, 'long': int, 'short': int, 'smallinteger': int,
     'guid': uuid.UUID,
-    'string': str, 'text': str}
+    'string': str, 'text': str,
+    }
 
 
 class ArcExtension(object):
@@ -29,11 +29,13 @@ class ArcExtension(object):
         self.result_activated_map = {'CheckedIn': False, 'CheckedOut': True,
                                      'Failed': False, 'NotInitialized': False,
                                      'Unavailable': False}
-        self.result_log_level_map = {'CheckedIn': LOG_LEVEL_MAP['info'],
-                                     'CheckedOut': LOG_LEVEL_MAP['info'],
-                                     'Failed': LOG_LEVEL_MAP['warning'],
-                                     'NotInitialized': LOG_LEVEL_MAP['warning'],
-                                     'Unavailable': LOG_LEVEL_MAP['warning']}
+        self.result_log_level_map = {
+            'CheckedIn': helpers.LOG_LEVEL_MAP['info'],
+            'CheckedOut': helpers.LOG_LEVEL_MAP['info'],
+            'Failed': helpers.LOG_LEVEL_MAP['warning'],
+            'NotInitialized': helpers.LOG_LEVEL_MAP['warning'],
+            'Unavailable': helpers.LOG_LEVEL_MAP['warning'],
+            }
         self.result_log_message_map = {
             'CheckedIn': "{} extension deactivated.".format(self.code),
             'CheckedOut': "{} extension activated.".format(self.code),
