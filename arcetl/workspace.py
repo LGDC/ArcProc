@@ -207,19 +207,7 @@ def dataset_paths(workspace_path, **kwargs):
         yield os.path.join(workspace_path, name)
 
 
-def domain_metadata(domain_name, workspace_path):
-    """Return dictionary of dataset metadata.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Returns:
-        dict.
-    """
-    meta = arcobj.domain_as_metadata(
-        next(domain for domain in arcpy.da.ListDomains(workspace_path)
-             if domain.name.lower() == domain_name.lower())
-        )
-    return meta
+domain_metadata = arcobj.domain_metadata  # pylint: disable=invalid-name
 
 
 def execute_sql(statement, database_path, **kwargs):

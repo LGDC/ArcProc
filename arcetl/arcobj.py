@@ -62,6 +62,24 @@ class ArcExtension(object):
         return not self.activated
 
 
+def _domain_object_metadata(domain_object):
+    """Return dictionary of metadata from ArcPy domain object."""
+    meta = {
+        'name': getattr(domain_object, 'name'),
+        'description': getattr(domain_object, 'description'),
+        'owner': getattr(domain_object, 'owner'),
+        #'domain_type': getattr(domain_object, 'domainType'),
+        'is_coded_value': getattr(domain_object, 'domainType') == 'CodedValue',
+        'is_range': getattr(domain_object, 'domainType') == 'Range',
+        #'merge_policy': getattr(domain_object, 'mergePolicy'),
+        #'split_policy': getattr(domain_object, 'splitPolicy'),
+        'code_description_map': getattr(domain_object, 'codedValues', {}),
+        'range': getattr(domain_object, 'range', tuple()),
+        'type': getattr(domain_object, 'type'),
+        }
+    return meta
+
+
 def dataset_metadata(dataset_path):
     """Return dictionary of dataset metadata.
 
@@ -104,21 +122,18 @@ def dataset_metadata(dataset_path):
     return meta
 
 
-def domain_as_metadata(domain_object):
-    """Return dictionary of metadata from an ArcPy domain object."""
-    meta = {
-        'name': getattr(domain_object, 'name'),
-        'description': getattr(domain_object, 'description'),
-        'owner': getattr(domain_object, 'owner'),
-        #'domain_type': getattr(domain_object, 'domainType'),
-        'is_coded_value': getattr(domain_object, 'domainType') == 'CodedValue',
-        'is_range': getattr(domain_object, 'domainType') == 'Range',
-        #'merge_policy': getattr(domain_object, 'mergePolicy'),
-        #'split_policy': getattr(domain_object, 'splitPolicy'),
-        'code_description_map': getattr(domain_object, 'codedValues', {}),
-        'range': getattr(domain_object, 'range', tuple()),
-        'type': getattr(domain_object, 'type'),
-        }
+def domain_metadata(domain_name, workspace_path):
+    """Return dictionary of dataset metadata.
+
+    Args:
+        dataset_path (str): Path of dataset.
+    Returns:
+        dict.
+    """
+    meta = _domain_object_metadata(
+        next(domain for domain in arcpy.da.ListDomains(workspace_path)
+             if domain.name.lower() == domain_name.lower())
+        )
     return meta
 
 
@@ -210,5 +225,5 @@ def workspace_as_metadata(describe_object):
         }
     for domain_object in arcpy.da.ListDomains(meta['path']):
         meta['arc_domains'].append(domain_object)
-        meta['domains'].append(domain_as_metadata(domain_object))
+        meta['domains'].append(_domain_object_metadata(domain_object))
     return meta
