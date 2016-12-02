@@ -218,7 +218,7 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
         create_function = arcpy.management.CreateFeatureclass
         create_kwargs['geometry_type'] = kwargs['geometry_type']
         # Default to EPSG 4326 (unprojected WGS 84).
-        create_kwargs['spatial_reference'] = arcobj.spatial_reference_as_arc(
+        create_kwargs['spatial_reference'] = arcobj.spatial_reference(
             kwargs['spatial_reference_id']
             )
     else:

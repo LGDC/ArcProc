@@ -89,7 +89,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     for kwarg_default in [('dataset_where_sql', None),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    sref = arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
+    sref = arcobj.spatial_reference(kwargs['spatial_reference_id'])
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names if field_names else '*',
         where_clause=kwargs['dataset_where_sql'], spatial_reference=sref
@@ -115,7 +115,7 @@ def as_iters(dataset_path, field_names=None, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('iter_type', tuple),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    sref = arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
+    sref = arcobj.spatial_reference(kwargs['spatial_reference_id'])
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names if field_names else '*',
         where_clause=kwargs['dataset_where_sql'], spatial_reference=sref
@@ -167,7 +167,7 @@ def id_map(dataset_path, field_names, **kwargs):
         kwargs.setdefault(*kwarg_default)
     if isinstance(field_names, basestring):
         field_names = [field_names]
-    sref = arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
+    sref = arcobj.spatial_reference(kwargs['spatial_reference_id'])
     with arcpy.da.SearchCursor(
         dataset_path, field_names=[kwargs['id_field_name']] + field_names,
         where_clause=kwargs['dataset_where_sql'], spatial_reference=sref
@@ -485,7 +485,7 @@ def update_by_geometry(dataset_path, field_name, geometry_property_cascade,
         'z-maximum': ['extent', 'ZMax'], 'zmax': ['extent', 'ZMax'],
         'z-minimum': ['extent', 'ZMin'], 'zmin': ['extent', 'ZMin'],
         }
-    sref = arcobj.spatial_reference_as_arc(kwargs['spatial_reference_id'])
+    sref = arcobj.spatial_reference(kwargs['spatial_reference_id'])
     with arcpy.da.UpdateCursor(
         in_table=dataset_path, field_names=[field_name, 'shape@'],
         where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref

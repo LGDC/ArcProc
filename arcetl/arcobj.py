@@ -137,9 +137,9 @@ def field_as_metadata(field_object):
     return meta
 
 
-def linear_unit_as_string(measure, spatial_reference):
+def linear_unit_as_string(measure, spatial_reference_source):
     """Return unit of measure as a linear unit string."""
-    linear_unit = getattr(spatial_reference_as_arc(spatial_reference),
+    linear_unit = getattr(spatial_reference(spatial_reference_source),
                           'linearUnitName', 'Unknown'),
     return '{} {}'.format(measure, linear_unit)
 
@@ -156,25 +156,24 @@ def spatial_reference_as_metadata(reference_object):
     return meta
 
 
-def spatial_reference_as_arc(spatial_reference):
+def spatial_reference(item):
     """Return ArcPy spatial reference object from a Python reference.
 
     Args:
-        spatial_reference (int): Spatial reference ID.
-                          (str): Path of reference dataset/file.
-                          (arcpy.Geometry): Reference geometry object.
+        item (int): Spatial reference ID.
+             (str): Path of reference dataset/file.
+             (arcpy.Geometry): Reference geometry object.
     Returns:
         arcpy.SpatialReference.
     """
-    if spatial_reference is None:
+    if item is None:
         arc_object = None
-    elif isinstance(spatial_reference, int):
-        arc_object = arcpy.SpatialReference(spatial_reference)
-    elif isinstance(spatial_reference, arcpy.Geometry):
-        arc_object = getattr(spatial_reference, 'spatialReference')
+    elif isinstance(item, int):
+        arc_object = arcpy.SpatialReference(item)
+    elif isinstance(item, arcpy.Geometry):
+        arc_object = getattr(item, 'spatialReference')
     else:
-        arc_object = getattr(arcpy.Describe(spatial_reference),
-                             'spatialReference')
+        arc_object = getattr(arcpy.Describe(item), 'spatialReference')
     return arc_object
 
 

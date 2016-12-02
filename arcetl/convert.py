@@ -243,7 +243,7 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
     LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
             dataset_path, output_path)
     view_name = helpers.unique_name()
-    sref = arcobj.spatial_reference_as_arc(spatial_reference_id)
+    sref = arcobj.spatial_reference(spatial_reference_id)
     arcpy.management.MakeXYEventLayer(
         table=dataset_path, out_layer=view_name, in_x_field=x_field_name,
         in_y_field=y_field_name, in_z_field=z_field_name,
