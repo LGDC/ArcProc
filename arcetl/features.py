@@ -28,7 +28,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     for kwarg_default in [('clip_where_sql', None), ('dataset_where_sql', None),
                           ('log_level', 'info'), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Clip features in %s where overlapping %s.",
             dataset_path, clip_dataset_path)
     dataset_view_name = dataset.create_view(
@@ -82,7 +82,7 @@ def delete(dataset_path, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
     truncate_type_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
@@ -142,7 +142,7 @@ def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
             ('multipart', True), ('tolerance', 0.001), ('unsplit_lines', False)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
     if kwargs['tolerance']:
@@ -199,7 +199,7 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         kwargs['condition'] = 'area'
     else:
         kwargs['condition'] = 'percent'
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Eliminate interior rings in %s.", dataset_path)
     dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), dataset_path,
@@ -239,7 +239,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
             ('log_level', 'info'), ('tolerance', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Erase features in %s where overlapping %s.",
             dataset_path, erase_dataset_path)
     dataset_view_name = dataset.create_view(
@@ -280,7 +280,7 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
@@ -307,7 +307,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
@@ -336,7 +336,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     """
     for kwarg_default in [('insert_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
     dataset_meta = dataset.metadata(dataset_path)
@@ -396,7 +396,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None),
                           ('location_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Keep features in %s where overlapping %s.",
             dataset_path, location_dataset_path)
     dataset_view_name = dataset.create_view(

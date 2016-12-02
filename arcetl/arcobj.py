@@ -30,11 +30,11 @@ class ArcExtension(object):
                                      'Failed': False, 'NotInitialized': False,
                                      'Unavailable': False}
         self.result_log_level_map = {
-            'CheckedIn': helpers.LOG_LEVEL_MAP['info'],
-            'CheckedOut': helpers.LOG_LEVEL_MAP['info'],
-            'Failed': helpers.LOG_LEVEL_MAP['warning'],
-            'NotInitialized': helpers.LOG_LEVEL_MAP['warning'],
-            'Unavailable': helpers.LOG_LEVEL_MAP['warning'],
+            'CheckedIn': helpers.log_level('info'),
+            'CheckedOut': helpers.log_level('info'),
+            'Failed': helpers.log_level('warning'),
+            'NotInitialized': helpers.log_level('warning'),
+            'Unavailable': helpers.log_level('warning'),
             }
         self.result_log_message_map = {
             'CheckedIn': "{} extension deactivated.".format(self.code),

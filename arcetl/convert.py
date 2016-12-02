@@ -36,7 +36,7 @@ def planarize(dataset_path, output_path, **kwargs):
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Planarize geometry in %s to lines in %s.",
             dataset_path, output_path)
     view_name = dataset.create_view(
@@ -86,7 +86,7 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     if not kwargs['topological']:
         # Tolerance only applies to topological conversions.
         kwargs['tolerance'] = None
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Convert polgyons in %s to lines in %s.",
             dataset_path, output_path)
     dataset_meta = dataset.metadata(dataset_path)
@@ -154,7 +154,7 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Project %s to srid=%s in %s.",
             dataset_path, spatial_reference_id, output_path)
     dataset_meta = dataset.metadata(dataset_path)
@@ -197,7 +197,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
     for kwarg_default in [('file_mode', 'wb'), ('header', False),
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Convert rows to CSVfile %s.", output_path)
     with open(output_path, kwargs['file_mode']) as csvfile:
         for index, row in enumerate(rows):
@@ -239,7 +239,7 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
             dataset_path, output_path)
     view_name = helpers.unique_name()

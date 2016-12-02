@@ -40,7 +40,7 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             ('string_null_replacement', ''), ('log_level', 'info')
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
             dataset_path)
     type_function_map = {

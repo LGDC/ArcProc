@@ -6,11 +6,13 @@ import uuid
 
 LOG = logging.getLogger(__name__)
 
-LOG_LEVEL_MAP = {
-    None: 0, 'debug': logging.DEBUG, 'info': logging.INFO,
-    'warning': logging.WARNING, 'error': logging.ERROR,
-    'critical': logging.CRITICAL,
-    }
+
+def log_level(name=None):
+    """Return integer for logging module level."""
+    level = {None: 0, 'debug': logging.DEBUG, 'info': logging.INFO,
+             'warning': logging.WARNING, 'error': logging.ERROR,
+             'critical': logging.CRITICAL}
+    return level[name]
 
 
 def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,

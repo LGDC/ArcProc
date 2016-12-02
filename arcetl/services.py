@@ -28,7 +28,7 @@ def generate_token(server_url, username, password, **kwargs):
     for kwarg_default in [('log_level', 'info'), ('minutes_active', None),
                           ('referer_url', None), ('requestor_ip', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Generate token for %s.", server_url)
     post_url = requests.compat.urljoin(server_url, 'admin/generateToken')
     post_data = {'f': 'json', 'username': username, 'password': password,
@@ -71,7 +71,7 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
         toggle = 'stop'
     else:
         raise ValueError("start_service or stop_service must be True")
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Toggle-%s service %s.", toggle, service_url)
     url_parts = service_url.split('/')
     post_url = re.sub(

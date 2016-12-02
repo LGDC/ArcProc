@@ -45,7 +45,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
                           ('identity_where_sql', None), ('log_level', 'info'),
                           ('replacement_value', None), ('tolerance', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
                         " by overlay values in %s on %s."), field_name,
             dataset_path, identity_field_name, identity_dataset_path)
@@ -141,7 +141,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
             ('replacement_value', None), ('tolerance', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Overlay-set attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, overlay_field_name, overlay_dataset_path)
@@ -231,7 +231,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
                           ('log_level', 'info'), ('replacement_value', None),
                           ('tolerance', None), ('union_where_sql', None)]:
         kwargs.setdefault(kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Union-set attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, union_field_name, union_dataset_path)

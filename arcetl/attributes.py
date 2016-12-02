@@ -267,7 +267,7 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(
         log_level, ("Start: Update attributes in %s on %s"
                     " by domain code in %s, using domain %s in %s."),
@@ -300,7 +300,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by expression: ```%s```.",
             field_name, dataset_path, expression)
@@ -345,7 +345,7 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
     for kwarg_default in [('dataset_where_sql', None), ('flag_value', None),
                           ('log_level', 'info'), ('sort_field_names', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by feature-matching %s on identifiers (%s)."),
             field_name, dataset_path, update_type, identifier_field_names)
@@ -380,7 +380,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
             ('log_level', 'info')
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Update attributes in %s on %s by function %s.",
             field_name, dataset_path, function)
     with arcpy.da.UpdateCursor(
@@ -425,7 +425,7 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
     for kwarg_default in [('dataset_where_sql', None), ('default_value', None),
                           ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by function %s mapping with key in %s."),
             field_name, dataset_path, function, key_field_name)
@@ -466,7 +466,7 @@ def update_by_geometry(dataset_path, field_name, geometry_property_cascade,
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by geometry properties %s."),
             field_name, dataset_path, geometry_property_cascade)
@@ -524,7 +524,7 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by joined values in %s on %s."),
             field_name, dataset_path, join_field_name, join_dataset_path)
@@ -590,7 +590,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
             ('replacement_value', None), ('tolerance', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, overlay_field_name, overlay_dataset_path)
@@ -675,7 +675,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by assigning unique IDs.",
             field_name, dataset_path)
@@ -707,7 +707,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Update attributes in %s on %s by given value.",
             field_name, dataset_path)
     with arcpy.da.UpdateCursor(dataset_path, (field_name,),

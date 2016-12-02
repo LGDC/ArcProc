@@ -68,7 +68,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             ('restriction_attributes', []), ('travel_from_facility', False)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level,
             "Start: Generate closest facility in %s to locations in %s.",
             facility_path, dataset_path)
@@ -186,7 +186,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
             ('travel_from_facility', False), ('trim_value', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
@@ -279,7 +279,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
             ('travel_from_facility', False), ('trim_value', None)
         ]:
         kwargs.setdefault(*kwarg_default)
-    log_level = helpers.LOG_LEVEL_MAP[kwargs['log_level']]
+    log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs['trim_value']:
