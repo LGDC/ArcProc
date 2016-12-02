@@ -191,10 +191,11 @@ def python_type(type_description):
     return instance[type_description]
 
 
-def spatial_reference_as_metadata(reference_object):
-    """Return dictionary of metadata from an ArcPy spatial reference object."""
+def spatial_reference_metadata(item):
+    """Return dictionary of spatial reference metadata."""
     ##TODO: Finish stub.
     ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
+    reference_object = spatial_reference(item)
     meta = {
         'spatial_reference_id': reference_object.factoryCode,
         'angular_unit': getattr(reference_object, 'angularUnitName', None),
