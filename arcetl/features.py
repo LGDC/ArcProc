@@ -4,6 +4,7 @@ import logging
 
 import arcpy
 
+from arcetl import arcobj
 from arcetl import dataset
 from arcetl import helpers
 
@@ -339,8 +340,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
-    dataset_meta = dataset.metadata(dataset_path)
-    insert_dataset_meta = dataset.metadata(insert_dataset_path)
+    dataset_meta = arcobj.dataset_metadata(dataset_path)
+    insert_dataset_meta = arcobj.dataset_metadata(insert_dataset_path)
     insert_dataset_view_name = dataset.create_view(
         helpers.unique_name('view'), insert_dataset_path,
         dataset_where_sql=kwargs['insert_where_sql'],

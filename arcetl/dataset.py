@@ -103,10 +103,10 @@ def add_index(dataset_path, field_names, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Add index to field(s) %s on %s.",
             field_names, dataset_path)
-    index_types = {
-        field['type'].lower() for field in metadata(dataset_path)['fields']
-        if field['name'].lower() in (name.lower() for name in field_names)
-        }
+    index_types = {field['type'].lower() for field
+                   in arcobj.dataset_metadata(dataset_path)['fields']
+                   if field['name'].lower() in (name.lower()
+                                                for name in field_names)}
     if 'geometry' in index_types:
         if len(field_names) > 1:
             raise RuntimeError("Cannot create a composite spatial index.")
@@ -156,7 +156,7 @@ def copy(dataset_path, output_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Copy dataset %s to %s.",
             dataset_path, output_path)
-    dataset_meta = metadata(dataset_path)
+    dataset_meta = arcobj.dataset_metadata(dataset_path)
     dataset_view_name = create_view(
         helpers.unique_name('view'), dataset_path,
         dataset_where_sql=("0=1" if kwargs['schema_only']
@@ -249,7 +249,7 @@ def create_view(view_name, dataset_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Create view %s of dataset %s.",
             view_name, dataset_path)
-    dataset_meta = metadata(dataset_path)
+    dataset_meta = arcobj.dataset_metadata(dataset_path)
     create_kwargs = {'where_clause': kwargs['dataset_where_sql'],
                      'workspace':  dataset_meta['workspace_path']}
     if dataset_meta['is_spatial'] and not kwargs['force_nonspatial']:
@@ -325,7 +325,7 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
             field_name, new_field_name, dataset_path)
-    field_meta = field_metadata(dataset_path, field_name)
+    field_meta = arcobj.field_metadata(dataset_path, field_name)
     field_meta['name'] = new_field_name
     # Cannot add OID-type field, so change to long.
     if field_meta['type'].lower() == 'oid':
@@ -366,7 +366,7 @@ def is_valid(dataset_path):
         bool.
     """
     return (dataset_path is not None and arcpy.Exists(dataset_path)
-            and metadata(dataset_path)['is_table'])
+            and arcobj.dataset_metadata(dataset_path)['is_table'])
 
 
 def join_field(dataset_path, join_dataset_path, join_field_name,

@@ -91,8 +91,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
                 helpers.unique_name('facility_view'), facility_path,
                 dataset_where_sql=kwargs['facility_where_sql'], log_level=None
                 ),
-            'id_field': dataset.field_metadata(facility_path,
-                                               facility_id_field_name),
+            'id_field': arcobj.field_metadata(facility_path,
+                                              facility_id_field_name),
             }
         arcpy.na.AddFieldToAnalysisLayer(
             in_network_analysis_layer='closest', sub_layer='Facilities',
@@ -117,7 +117,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
                 helpers.unique_name('dataset_view'), dataset_path,
                 dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
                 ),
-            'id_field': dataset.field_metadata(dataset_path, id_field_name),
+            'id_field': arcobj.field_metadata(dataset_path, id_field_name),
             }
         arcpy.na.AddFieldToAnalysisLayer(
             in_network_analysis_layer='closest', sub_layer='Incidents',
@@ -229,8 +229,8 @@ def generate_service_areas(dataset_path, output_path, network_path,
     dataset.copy('service_area/Polygons', output_path, log_level=None)
     dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
-        id_field_meta = dataset.field_metadata(dataset_path,
-                                               kwargs['id_field_name'])
+        id_field_meta = arcobj.field_metadata(dataset_path,
+                                              kwargs['id_field_name'])
         dataset.add_field_from_metadata(output_path, id_field_meta,
                                         log_level=None)
         attributes.update_by_function(
@@ -325,8 +325,8 @@ def generate_service_rings(dataset_path, output_path, network_path,
     dataset.copy('service_area/Polygons', output_path, log_level=None)
     dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
-        id_field_meta = dataset.field_metadata(dataset_path,
-                                               kwargs['id_field_name'])
+        id_field_meta = arcobj.field_metadata(dataset_path,
+                                              kwargs['id_field_name'])
         dataset.add_field_from_metadata(output_path, id_field_meta,
                                         log_level=None)
         attributes.update_by_function(

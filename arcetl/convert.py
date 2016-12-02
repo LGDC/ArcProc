@@ -89,7 +89,7 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Convert polgyons in %s to lines in %s.",
             dataset_path, output_path)
-    dataset_meta = dataset.metadata(dataset_path)
+    dataset_meta = arcobj.dataset_metadata(dataset_path)
     view_name = dataset.create_view(
         helpers.unique_name(), dataset_path,
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
@@ -107,7 +107,7 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
         for side in ('left', 'right'):
             side_meta = {'oid_field_name': '{}_FID'.format(side.upper())}
             if kwargs['id_field_name']:
-                side_meta['id_field'] = dataset.field_metadata(
+                side_meta['id_field'] = arcobj.field_metadata(
                     dataset_path, kwargs['id_field_name']
                     )
                 side_meta['id_field']['name'] = '{}_{}'.format(
@@ -157,7 +157,7 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Project %s to srid=%s in %s.",
             dataset_path, spatial_reference_id, output_path)
-    dataset_meta = dataset.metadata(dataset_path)
+    dataset_meta = arcobj.dataset_metadata(dataset_path)
     # Project tool cannot output to an in-memory workspace (will throw error
     # 000944). Not a bug. Esri's Project documentation (as of v10.4)
     # specifically states: "The in_memory workspace is not supported as a

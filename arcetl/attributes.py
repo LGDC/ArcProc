@@ -9,7 +9,6 @@ import arcpy
 from arcetl import arcobj
 from arcetl import dataset
 from arcetl import helpers
-from arcetl import workspace
 
 try:
     basestring
@@ -204,8 +203,8 @@ def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
         ]:
         kwargs.setdefault(*kwarg_default)
     field_meta = {
-        'from': dataset.field_metadata(dataset_path, from_id_field_name),
-        'to': dataset.field_metadata(dataset_path, to_id_field_name),
+        'from': arcobj.field_metadata(dataset_path, from_id_field_name),
+        'to': arcobj.field_metadata(dataset_path, to_id_field_name),
         }
     if field_meta['from']['type'] != field_meta['to']['type']:
         raise ValueError("Fields %s & %s must be of same type.")
@@ -239,7 +238,7 @@ def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
                 )
     coord_info_map = _updated_node_coord_info_map(
         coord_info_map,
-        force_to_type=arcobj.python_field_type(field_meta['from']['type'])
+        force_to_type=arcobj.python_type(field_meta['from']['type'])
         )
     if kwargs['field_names_as_keys']:
         map_kwargs = {'from_end_key': from_id_field_name,
@@ -274,7 +273,7 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
         field_name, dataset_path, code_field_name,
         domain_name, domain_workspace_path
         )
-    domain_meta = workspace.domain_metadata(domain_name, domain_workspace_path)
+    domain_meta = arcobj.domain_metadata(domain_name, domain_workspace_path)
     update_by_function(
         dataset_path, field_name,
         function=domain_meta['code_description_map'].get,
@@ -647,12 +646,11 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         arg_field_names=[temp_overlay_field_name], log_level=None
         )
     # Update values in original dataset.
+    oid_field_name = arcobj.dataset_metadata(dataset_path)['oid_field_name']
     update_by_joined_value(
         dataset_view_name, field_name,
         join_dataset_path=temp_output_path, join_field_name=field_name,
-        on_field_pairs=(
-            (dataset.metadata(dataset_path)['oid_field_name'], 'target_fid'),
-            ),
+        on_field_pairs=((oid_field_name, 'target_fid'),),
         dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
         )
     dataset.delete(dataset_view_name, log_level=None)
@@ -679,9 +677,9 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by assigning unique IDs.",
             field_name, dataset_path)
-    field_meta = dataset.field_metadata(dataset_path, field_name)
+    field_meta = arcobj.field_metadata(dataset_path, field_name)
     unique_id_pool = helpers.unique_ids(
-        data_type=arcobj.python_field_type(field_meta['type']),
+        data_type=arcobj.python_type(field_meta['type']),
         string_length=field_meta.get('length', 16)
         )
     with arcpy.da.UpdateCursor(dataset_path, (field_name,),

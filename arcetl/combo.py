@@ -2,6 +2,7 @@
 import datetime as _datetime
 import logging as _logging
 
+from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import helpers
@@ -62,7 +63,7 @@ def adjust_for_shapefile(dataset_path, **kwargs):
         'string': (lambda x: kwargs['string_null_replacement']
                    if x is None else x)
         }
-    for field in dataset.metadata(dataset_path)['fields']:
+    for field in arcobj.dataset_metadata(dataset_path)['fields']:
         if field['type'].lower() in type_function_map:
             attributes.update_by_function(
                 dataset_path, field['name'],
@@ -108,7 +109,7 @@ def view_chunks(dataset_path, chunk_size, **kwargs):
         oids = oids[chunk_size:]  # Remove them from set.
         # ArcPy where clauses cannot use 'between'.
         kwargs['dataset_where_sql'] = chunk_where_sql_template.format(
-            field=dataset.metadata(dataset_path)['oid_field_name'],
+            field=arcobj.dataset_metadata(dataset_path)['oid_field_name'],
             from_oid=chunk[0], to_oid=chunk[-1]
             )
         yield dataset.create_view(helpers.unique_name('chunk'), dataset_path,
