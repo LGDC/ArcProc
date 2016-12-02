@@ -225,10 +225,17 @@ def spatial_reference(item):
     return arc_object
 
 
-def workspace_as_metadata(describe_object):
-    """Return dictionary of workspace metadata from an ArcPy describe object."""
+def workspace_metadata(workspace_path):
+    """Return dictionary of workspace metadata.
+
+    Args:
+        workspace_path (str): Path of workspace.
+    Returns:
+        dict.
+    """
     ##TODO: Finish stub.
     ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
+    describe_object = arcpy.Describe(workspace_path)
     prog_id = getattr(describe_object, 'workspaceFactoryProgID', '')
     meta = {
         'name': getattr(describe_object, 'name'),

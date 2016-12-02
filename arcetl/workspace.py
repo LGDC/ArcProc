@@ -250,12 +250,4 @@ def is_valid(workspace_path):
                 metadata(workspace_path)['data_type'] == 'Workspace'])
 
 
-def metadata(workspace_path):
-    """Return dictionary of workspace metadata.
-
-    Args:
-        workspace_path (str): Path of workspace.
-    Returns:
-        dict.
-    """
-    return arcobj.workspace_as_metadata(arcpy.Describe(workspace_path))
+metadata = arcobj.workspace_metadata  # pylint: disable=invalid-name
