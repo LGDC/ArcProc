@@ -80,6 +80,20 @@ def _domain_object_metadata(domain_object):
     return meta
 
 
+def _field_object_metadata(field_object):
+    """Return dictionary of metadata from ArcPy field object."""
+    meta = {
+        'name': getattr(field_object, 'name'),
+        'alias_name': getattr(field_object, 'aliasName'),
+        'base_name': getattr(field_object, 'baseName'),
+        'type': getattr(field_object, 'type').lower(),
+        'length': getattr(field_object, 'length'),
+        'precision': getattr(field_object, 'precision'),
+        'scale': getattr(field_object, 'scale'),
+        }
+    return meta
+
+
 def dataset_metadata(dataset_path):
     """Return dictionary of dataset metadata.
 
@@ -106,11 +120,11 @@ def dataset_metadata(dataset_path):
         }
     for field in getattr(describe_object, 'fields', ()):
         meta['field_names'].append(field.name)
-        meta['fields'].append(field_as_metadata(field))
+        meta['fields'].append(_field_object_metadata(field))
         if all([field.name != meta['oid_field_name'],
                 '{}.'.format(meta['geometry_field_name']) not in field.name]):
             meta['user_field_names'].append(field.name)
-            meta['user_fields'].append(field_as_metadata(field))
+            meta['user_fields'].append(_field_object_metadata(field))
     if hasattr(describe_object, 'spatialReference'):
         meta['arc_spatial_reference'] = getattr(describe_object,
                                                 'spatialReference')
@@ -137,17 +151,25 @@ def domain_metadata(domain_name, workspace_path):
     return meta
 
 
-def field_as_metadata(field_object):
-    """Return dictionary of metadata from an ArcPy field object."""
-    meta = {
-        'name': getattr(field_object, 'name'),
-        'alias_name': getattr(field_object, 'aliasName'),
-        'base_name': getattr(field_object, 'baseName'),
-        'type': getattr(field_object, 'type').lower(),
-        'length': getattr(field_object, 'length'),
-        'precision': getattr(field_object, 'precision'),
-        'scale': getattr(field_object, 'scale'),
-        }
+def field_metadata(dataset_path, field_name):
+    """Return dictionary of field metadata.
+
+    Field name is case-insensitive.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        field_name (str): Name of field.
+    Returns:
+        dict.
+    """
+    try:
+        meta = _field_object_metadata(
+            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
+            )
+    except IndexError:
+        raise AttributeError(
+            "Field {} not present on {}".format(field_name, dataset_path)
+            )
     return meta
 
 

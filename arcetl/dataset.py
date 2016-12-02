@@ -354,26 +354,7 @@ def feature_count(dataset_path, **kwargs):
     return count
 
 
-def field_metadata(dataset_path, field_name):
-    """Return dictionary of field metadata.
-
-    Field name is case-insensitive.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-    Returns:
-        dict.
-    """
-    try:
-        meta = arcobj.field_as_metadata(
-            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
-            )
-    except IndexError:
-        raise AttributeError(
-            "Field {} not present on {}".format(field_name, dataset_path)
-            )
-    return meta
+field_metadata = arcobj.field_metadata  # pylint: disable=invalid-name
 
 
 def is_valid(dataset_path):
