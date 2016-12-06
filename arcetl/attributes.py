@@ -75,6 +75,8 @@ def _feature_id_node_map(node_coord_info_map,
 def as_dicts(dataset_path, field_names=None, **kwargs):
     """Generator for dictionaries of feature attributes.
 
+    Use ArcPy cursor token names for object IDs and geometry objects/properties.
+
     Args:
         dataset_path (str): Path of dataset.
         field_names (iter): Iterable of field names.
@@ -99,6 +101,8 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
 
 def as_iters(dataset_path, field_names=None, **kwargs):
     """Generator for iterables of feature attributes.
+
+    Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
         dataset_path (str): Path of dataset.
@@ -147,6 +151,7 @@ def id_map(dataset_path, field_names, **kwargs):
     """Return dictionary mapping of field attribute for each feature ID.
 
     There is no guarantee that the ID field is unique.
+    Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
         dataset_path (str): Path of dataset.

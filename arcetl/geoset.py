@@ -15,41 +15,40 @@ LOG = logging.getLogger(__name__)
 
 def identity(dataset_path, field_name, identity_dataset_path,
              identity_field_name, **kwargs):
-    """Assign identity attribute, splitting feature where necessary.
+    """Assign identity attribute, splitting features where necessary.
 
-    replacement_value is a value that will substitute as the identity
-    value.
-    This method has a 'chunking' routine in order to avoid an
-    unhelpful output error that occurs when the inputs are rather large.
-    For some reason, the identity will 'succeed' with and empty output
-    warning, but not create an output dataset. Running the identity against
-    smaller sets of data generally avoids this conundrum.
+    Note:
+        This function has a 'chunking' loop routine in order to avoid an
+        unhelpful output error that occurs when the inputs are rather large.
+        For some reason the identity will 'succeed' with an empty output
+        warning, but not create an output dataset. Running the identity
+        against smaller sets of data generally avoids this conundrum.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        identity_dataset_path (str): Path of identity-dataset.
-        identity_field_name (str): Name of identity-field.
-    Kwargs:
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        replacement_value: Value to replace present identity field value with.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        identity_where_sql (str): SQL where-clause for identity dataset
-            subselection.
-        chunk_size (int): Number of features to process per loop iteration.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        field_name (str): The name of the dataset's field to assign to.
+        identity_dataset_path (str): The path of the identity dataset.
+        identity_field_name (str): The name of identity dataset's field with
+            values to assign.
+        **kwargs: Arbitrary keyword arguments. See below
+
+    Keyword Args:
+        chunk_size (int): The number of features to process per loop.
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        identity_where_sql (str): The SQL where-clause for the identity
+            dataset subselection.
+        log_level (str): The level to log the function at.
+        replacement_value: The value to replace identity field values with.
+        tolerance (float): The tolerance for coincidence, in dataset's units.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
-    for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
-                          ('identity_where_sql', None), ('log_level', 'info'),
-                          ('replacement_value', None), ('tolerance', None)]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
                         " by overlay values in %s on %s."), field_name,
             dataset_path, identity_field_name, identity_dataset_path)
-    if kwargs['replacement_value'] is not None:
+    if kwargs.get('replacement_value') is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
         # Identity puts empty string when identity feature not present.
@@ -58,7 +57,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
     # Create a temporary copy of the overlay dataset.
     temp_overlay_path = dataset.copy(
         identity_dataset_path, helpers.unique_temp_dataset_path('overlay'),
-        dataset_where_sql=kwargs['identity_where_sql'], log_level=None
+        dataset_where_sql=kwargs.get('identity_where_sql'), log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
@@ -71,14 +70,14 @@ def identity(dataset_path, field_name, identity_dataset_path,
         log_level=None
         )
     for view_name in combo.view_chunks(
-            dataset_path, kwargs['chunk_size'],
-            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+            dataset_path, kwargs.get('chunk_size', 4096),
+            dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
         ):
         temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.Identity(
             in_features=view_name, identity_features=temp_overlay_path,
             out_feature_class=temp_output_path, join_attributes='all',
-            cluster_tolerance=kwargs['tolerance'], relationship=False
+            cluster_tolerance=kwargs.get('tolerance'), relationship=False
             )
         # Push identity (or replacement) value from temp to update field.
         attributes.update_by_function(
@@ -99,58 +98,55 @@ def identity(dataset_path, field_name, identity_dataset_path,
 
 def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
             **kwargs):
-    """Assign overlay value to features, splitting where necessary.
+    """Assign overlay attribute to features, splitting where necessary.
 
-    Please note that only one overlay flag at a time can be used. If
-    mutliple are set to True, the first one referenced in the code
-    will be used. If no overlay flags are set, the operation will perform a
-    basic intersection check, and the result will be at the whim of the
-    geoprocessing environment's merge rule for the update field.
-    replacement_value is a value that will substitute as the identity
-    value.
-    This method has a 'chunking' routine in order to avoid an
-    unhelpful output error that occurs when the inputs are rather large.
-    For some reason, the identity will 'succeed' with and empty output
-    warning, but not create an output dataset. Running the identity against
-    smaller sets of data generally avoids this conundrum.
+    Note:
+        Only one overlay flag at a time can be used. If mutliple are set to
+        True, the first one referenced in the code will be used. If no
+        overlay flags are set, the operation will perform a basic
+        intersection check, and the result will be at the whim of the
+        geoprocessing environment's merge rule for the update field.
+
+        This function has a 'chunking' loop routine in order to avoid an
+        unhelpful output error that occurs when the inputs are rather large.
+        For some reason the identity will 'succeed' with an empty output
+        warning, but not create an output dataset. Running the identity
+        against smaller sets of data generally avoids this conundrum.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        overlay_dataset_path (str): Path of overlay-dataset.
-        overlay_field_name (str): Name of overlay-field.
-    Kwargs:
-        overlay_most_coincident (bool): Flag indicating overlay using most
+        dataset_path (str): The path of the dataset.
+        field_name (str): The name of the dataset's field to assign to.
+        overlay_dataset_path (str): The path of the overlay dataset.
+        overlay_field_name (str): The name of overlay dataset's field with
+            values to assign.
+        **kwargs: Arbitrary keyword arguments. See below
+
+    Keyword Args:
+        chunk_size (int): The number of features to process per loop.
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        overlay_central_coincident (bool): The flag to overlay the centrally-
             coincident value.
-        overlay_central_coincident (bool): Flag indicating overlay using
-            centrally-coincident value.
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        replacement_value: Value to replace present overlay-field value with.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        overlay_where_sql (str): SQL where-clause for overlay dataset
+        overlay_most_coincident (bool): The flag to overlay the most
+            coincident value.
+        overlay_where_sql (str): The SQL where-clause for the overlay dataset
             subselection.
-        chunk_size (int): Number of features to process per loop iteration.
-        log_level (str): Level at which to log this function.
+        log_level (str): The level to log the function at.
+        replacement_value: The value to replace overlay field values with.
+        tolerance (float): The tolerance for coincidence, in dataset's units.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
-    for kwarg_default in [
-            ('chunk_size', 4096), ('dataset_where_sql', None),
-            ('log_level', 'info'), ('overlay_central_coincident', False),
-            ('overlay_most_coincident', False), ('overlay_where_sql', None),
-            ('replacement_value', None), ('tolerance', None)
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Overlay-set attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, overlay_field_name, overlay_dataset_path)
     # Check flags & set details for spatial join call.
-    if kwargs['overlay_most_coincident']:
+    if kwargs.get('overlay_most_coincident'):
         raise NotImplementedError(
             "overlay_most_coincident not yet implemented."
             )
-    elif kwargs['overlay_central_coincident']:
+    elif kwargs.get('overlay_central_coincident'):
         join_kwargs = {'join_operation': 'join_one_to_many',
                        'join_type': 'keep_all',
                        'match_option': 'have_their_center_in'}
@@ -158,17 +154,17 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         join_kwargs = {'join_operation': 'join_one_to_many',
                        'join_type': 'keep_all',
                        'match_option': 'intersect'}
-    if kwargs['replacement_value'] is not None:
+    if kwargs.get('replacement_value') is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
         update_function = (lambda x: x)
-    if kwargs['tolerance']:
+    if kwargs.get('tolerance') is not None:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
     # Create temporary copy of overlay dataset.
     temp_overlay_path = dataset.copy(
         overlay_dataset_path, helpers.unique_temp_dataset_path('overlay'),
-        dataset_where_sql=kwargs['overlay_where_sql'], log_level=None
+        dataset_where_sql=kwargs.get('overlay_where_sql'), log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_overlay_field_name = dataset.duplicate_field(
@@ -181,8 +177,8 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         log_level=None
         )
     for view_name in combo.view_chunks(
-            dataset_path, kwargs['chunk_size'],
-            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+            dataset_path, kwargs.get('chunk_size', 4096),
+            dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
         ):
         temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.SpatialJoin(
@@ -208,34 +204,40 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
 
 def union(dataset_path, field_name, union_dataset_path, union_field_name,
           **kwargs):
-    """Assign union value to features, splitting where necessary.
+    """Assign union attribute to features, splitting where necessary.
 
-    replacement_value is a value that will substitute as the union value.
+    Note:
+        This function has a 'chunking' loop routine in order to avoid an
+        unhelpful output error that occurs when the inputs are rather large.
+        For some reason the identity will 'succeed' with an empty output
+        warning, but not create an output dataset. Running the identity
+        against smaller sets of data generally avoids this conundrum.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        union_dataset_path (str): Path of union-dataset.
-        union_field_name (str): Name of union-field.
-    Kwargs:
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        replacement_value: Value to replace present union-field value with.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        union_where_sql (st): SQL where-clause for union dataset subselection.
-        chunk_size (int): Number of features to process per loop iteration.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        field_name (str): The name of the dataset's field to assign to.
+        union_dataset_path (str): The path of the union dataset.
+        union_field_name (str): The name of union dataset's field with values
+            to assign.
+        **kwargs: Arbitrary keyword arguments. See below
+
+    Keyword Args:
+        chunk_size (int): The number of features to process per loop.
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        union_where_sql (str): The SQL where-clause for the union dataset
+            subselection.
+        log_level (str): The level to log the function at.
+        replacement_value: The value to replace overlay field values with.
+        tolerance (float): The tolerance for coincidence, in dataset's units.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
-    for kwarg_default in [('chunk_size', 4096), ('dataset_where_sql', None),
-                          ('log_level', 'info'), ('replacement_value', None),
-                          ('tolerance', None), ('union_where_sql', None)]:
-        kwargs.setdefault(kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Union-set attributes in %s on %s"
                         " by overlay values in %s on %s."),
             field_name, dataset_path, union_field_name, union_dataset_path)
-    if kwargs['replacement_value'] is not None:
+    if kwargs.get('replacement_value') is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
         # Union puts empty string when identity feature not present.
@@ -244,7 +246,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
     # Create a temporary copy of the union dataset.
     temp_union_path = dataset.copy(
         union_dataset_path, helpers.unique_temp_dataset_path('union'),
-        dataset_where_sql=kwargs['union_where_sql'], log_level=None
+        dataset_where_sql=kwargs.get('union_where_sql'), log_level=None
         )
     # Avoid field name collisions with neutral holding field.
     temp_union_field_name = dataset.duplicate_field(
@@ -257,14 +259,14 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         log_level=None
         )
     for view_name in combo.view_chunks(
-            dataset_path, kwargs['chunk_size'],
-            dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+            dataset_path, kwargs.get('chunk_size', 4096),
+            dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
         ):
         temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.Union(
             in_features=[view_name, temp_union_path],
             out_feature_class=temp_output_path, join_attributes='all',
-            cluster_tolerance=kwargs['tolerance'], gaps=False
+            cluster_tolerance=kwargs.get('tolerance'), gaps=False
             )
         attributes.update_by_function(
             temp_output_path, field_name, update_function,

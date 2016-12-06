@@ -10,34 +10,33 @@ from arcetl import helpers
 LOG = logging.getLogger(__name__)
 
 
-def generate_token(server_url, username, password, **kwargs):
-    """Generate a security token for the given server.
+def generate_token(server_url, username, password, minutes_active=60, **kwargs):
+    """Generate a security token for ArcGIS server.
 
     Args:
-        server_url (str): URL for ArcGIS Server instance.
-        username (str): Name of user requesting token.
-        password (str): Password for user.
-    Kwargs:
-        minutes_active (int): Number of minutes token will be active.
-        referer_url (str): URL of referring web app.
-        requestor_ip (str): IP address of machine to use the token.
-        log_level (str): Level at which to log this function.
+        server_url (str): The URL of the ArcGIS Server instance.
+        username (str): The name of the user requesting the token.
+        password (str): The password for the user listed above.
+        minutes_active (int): The number of minutes token will be active.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (str): The level to log the function at.
+        referer_url (str): The URL of the referring web app.
+        requestor_ip (str): The IP address of the machine using the token.
+
     Returns:
-        str.
+        str: The generated token.
     """
-    for kwarg_default in [('log_level', 'info'), ('minutes_active', None),
-                          ('referer_url', None), ('requestor_ip', None)]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Generate token for %s.", server_url)
     post_url = requests.compat.urljoin(server_url, 'admin/generateToken')
     post_data = {'f': 'json', 'username': username, 'password': password,
-                 'expiration': (kwargs['minutes_active']
-                                if kwargs['minutes_active'] else None)}
-    if kwargs['referer_url']:
+                 'expiration': minutes_active}
+    if 'referer_url' in kwargs:
         post_data['client'] = 'referer'
         post_data['referer'] = kwargs['referer_url']
-    elif kwargs['requestor_ip']:
+    elif 'requestor_ip' in kwargs:
         post_data['client'] = 'ip'
         post_data['ip'] = kwargs['requestor_ip']
     else:
@@ -53,25 +52,29 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
     """Toggle service to start or stop.
 
     Args:
-        service_url (str): URL for service endpoint.
-        token (str): Security token for REST admin.
-        start_service (bool): Flag to start service.
-        stop_service (bool): Flag to stop service (only used if start_service
-            not flagged).
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        service_url (str): The URL for the service endpoint.
+        token (str): The security token for REST admininstration.
+        start_service (bool): The flag to start service.
+        stop_service (bool): The flag to stop service.
+            This will only be used if start_service is not flagged.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The URL for the toggled service.
+
+    Raises:
+        requests.HTTPError: An error in the HTTP request occurred.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
     if start_service:
         toggle = 'start'
     elif stop_service:
         toggle = 'stop'
     else:
         raise ValueError("start_service or stop_service must be True")
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Toggle-%s service %s.", toggle, service_url)
     url_parts = service_url.split('/')
     post_url = re.sub(
