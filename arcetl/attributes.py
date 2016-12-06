@@ -127,26 +127,6 @@ def as_iters(dataset_path, field_names=None, **kwargs):
             yield kwargs['iter_type'](feature)
 
 
-def id_geometry_map(dataset_path, **kwargs):
-    """Return dictionary mapping of geometry for each feature ID.
-
-    Wraps attributes.id_map.
-    There is no guarantee that the ID field is unique.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        id_field_name (str): Name of ID field. Defaults to feature OID.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
-    Returns:
-        dict.
-    """
-    # Kwarg defaults set in id_map.
-    return id_map(dataset_path, field_names=('shape@',), **kwargs)
-
-
 def id_map(dataset_path, field_names, **kwargs):
     """Return dictionary mapping of field attribute for each feature ID.
 
