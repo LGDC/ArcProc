@@ -127,39 +127,49 @@ def as_iters(dataset_path, field_names=None, **kwargs):
             yield kwargs['iter_type'](feature)
 
 
-def id_map(dataset_path, field_names, **kwargs):
+def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
     """Return dictionary mapping of field attribute for each feature ID.
 
-    There is no guarantee that the ID field is unique.
+    There is no guarantee that the ID field(s) are unique.
     Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
         dataset_path (str): Path of dataset.
+        id_field_names (iterm, str): Name(s) of id field(s).
+            Defaults to feature object ID.
         field_names (iter, str): Name(s) of field.
     Kwargs:
-        id_field_name (str): Name of ID field. Defaults to feature OID.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         spatial_reference_id (int): EPSG code indicating the spatial reference
             output geometry will be in.
     Returns:
         dict.
     """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('id_field_name', 'oid@'),
-            ('spatial_reference_id', None)
-        ]:
+    for kwarg_default in [('dataset_where_sql', None),
+                          ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
     if isinstance(field_names, basestring):
-        field_names = [field_names]
+        field_names = (field_names,)
+    else:
+        field_names = tuple(field_names)
+    if isinstance(id_field_names, basestring):
+        id_field_names = (id_field_names,)
+    else:
+        id_field_names = tuple(id_field_names)
     sref = arcobj.spatial_reference(kwargs['spatial_reference_id'])
     with arcpy.da.SearchCursor(
-        dataset_path, field_names=[kwargs['id_field_name']] + field_names,
+        dataset_path, field_names=id_field_names + field_names,
         where_clause=kwargs['dataset_where_sql'], spatial_reference=sref
         ) as cursor:
-        if len(field_names) == 1:
-            result = {row[0]: row[1] for row in cursor}
-        else:
-            result = {row[0]: row[1:] for row in cursor}
+        result = {}
+        for row in cursor:
+            map_id = row[:len(id_field_names)]
+            map_value = row[len(id_field_names):]
+            if len(id_field_names) == 1:
+                map_id = map_id[0]
+            if len(field_names) == 1:
+                map_value = map_value[0]
+            result[map_id] = map_value
     return result
 
 
