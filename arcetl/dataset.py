@@ -212,43 +212,6 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     return dataset_path
 
 
-def create_view(view_name, dataset_path, **kwargs):
-    """Create new view of dataset.
-
-    Args:
-        view_name (str): Name of view to create.
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        force_nonspatial (bool): Flag ensure view is nonspatial.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Returns:
-        str.
-    """
-    for kwarg_default in [('dataset_where_sql', None),
-                          ('force_nonspatial', False), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
-    LOG.log(log_level, "Start: Create view %s of dataset %s.",
-            view_name, dataset_path)
-    dataset_meta = arcobj.dataset_metadata(dataset_path)
-    create_kwargs = {'where_clause': kwargs['dataset_where_sql'],
-                     'workspace':  dataset_meta['workspace_path']}
-    if dataset_meta['is_spatial'] and not kwargs['force_nonspatial']:
-        create_function = arcpy.management.MakeFeatureLayer
-        create_kwargs['in_features'] = dataset_path
-        create_kwargs['out_layer'] = view_name
-    elif dataset_meta['is_table']:
-        create_function = arcpy.management.MakeTableView
-        create_kwargs['in_table'] = dataset_path
-        create_kwargs['out_view'] = view_name
-    else:
-        raise ValueError("{} unsupported dataset type.".format(dataset_path))
-    create_function(**create_kwargs)
-    LOG.log(log_level, "End: Create.")
-    return view_name
-
-
 def delete(dataset_path, **kwargs):
     """Delete dataset.
 
