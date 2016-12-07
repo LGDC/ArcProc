@@ -165,6 +165,59 @@ class DatasetView(object):
         return
 
 
+class TempDatasetCopy(object):
+    """Context manager for a temporary dataset copy."""
+
+    def __init__(self, dataset_path, dataset_where_sql=None, output_path=None,
+                 force_nonspatial=False):
+        """Initialize instance.
+
+        Notes:
+            To make a temp dataset without copying template rows:
+            `dataset_where_sql="0=1"`
+
+        Args:
+            dataset_path (str): The path of the dataset to copy.
+            dataset_where_sql (str): The SQL where-clause for dataset
+                subselection.
+            output_path (str): The path of the dataset to create.
+            force_nonspatial (bool): The flag that forces a nonspatial copy.
+        """
+        self.path = (output_path if output_path
+                     else helpers.unique_temp_dataset_path('temp'))
+        self.dataset_path = dataset_path
+        self.dataset_meta = dataset_metadata(dataset_path)
+        self.is_spatial = all((self.dataset_meta['is_spatial'],
+                               not force_nonspatial))
+        self.where_sql = dataset_where_sql
+        self.activated = self.create()
+        return
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.discard()
+
+    def create(self):
+        """Create dataset."""
+        if self.is_spatial:
+            function = arcpy.management.CopyFeatures
+        else:
+            function = arcpy.management.CopyRows
+        with DatasetView(self.dataset_path, dataset_where_sql=self.where_sql,
+                         force_nonspatial=not self.is_spatial) as dataset_view:
+            function(dataset_view.name, self.path)
+        return
+
+    def discard(self):
+        """Discard dataset."""
+        if arcpy.Exists(self.path):
+            arcpy.management.Delete(self.path)
+        self.activated = False
+        return
+
+
 def _domain_object_metadata(domain_object):
     """Return dictionary of metadata from ArcPy domain object."""
     meta = {
