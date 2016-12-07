@@ -62,6 +62,109 @@ class ArcExtension(object):
         return not self.activated
 
 
+class DatasetView(object):
+    """Context manager for an ArcGIS dataset view (feature layer/table view)."""
+
+    def __init__(self, dataset_path, dataset_where_sql=None, view_name=None,
+                 force_nonspatial=False):
+        """Initialize instance.
+
+        Args:
+            dataset_path (str): The path of the dataset.
+            dataset_where_sql (str): The SQL where-clause for dataset
+                subselection.
+            view_name (str): The name of the view to create.
+            force_nonspatial (bool): The flag that forces a nonspatial view.
+        """
+        self.name = view_name if view_name else helpers.unique_name('view')
+        self.dataset_path = dataset_path
+        self.dataset_meta = dataset_metadata(dataset_path)
+        self.is_spatial = all((self.dataset_meta['is_spatial'],
+                               not force_nonspatial))
+        self._where_sql = dataset_where_sql
+        self.activated = self.create()
+        return
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.discard()
+
+    @property
+    def where_sql(self):
+        """SQL where-clause property of dataset view."""
+        return self._where_sql
+
+    @where_sql.setter
+    def where_sql(self, value):
+        if self.activated:
+            arcpy.management.SelectLayerByAttribute(
+                in_layer_or_view=self.name, selection_type='new_selection',
+                where_clause=value
+                )
+        self._where_sql = value
+        return
+
+    @where_sql.deleter
+    def where_sql(self):
+        if self.activated:
+            arcpy.management.SelectLayerByAttribute(
+                in_layer_or_view=self.name, selection_type='clear_selection',
+                )
+        self._where_sql = None
+        return
+
+    def as_chunks(self, chunk_size):
+        """Generate 'chunks' of the view's data as new DatasetView.
+
+        Yields DatasetView with context management, i.e. view will be discarded
+        when generator moves to next chunk-view.
+
+        Args:
+            chunk_size (int): Number of features in each chunk-view.
+        Yields:
+            DatasetView.
+        """
+        # ArcPy where clauses cannot use 'between'.
+        chunk_where_sql_template = ("{oid_field_name} >= {from_oid}"
+                                    " and {oid_field_name} <= {to_oid}")
+        if self.where_sql:
+            chunk_where_sql_template += " and ({})".format(self.where_sql)
+        # Get iterable of all object IDs in dataset.
+        with arcpy.da.SearchCursor(in_table=self.dataset_path,
+                                   field_names=('oid@',),
+                                   where_clause=self.where_sql) as cursor:
+            # Sorting is important: allows selection by ID range.
+            oids = sorted(oid for oid, in cursor)
+        while oids:
+            chunk_where_sql = chunk_where_sql_template(
+                oid_field_name=self.dataset_meta['oid_field_name'],
+                from_oid=min(oids), to_oid=max(oids[:chunk_size])
+                )
+            with DatasetView(self.name, chunk_where_sql) as chunk_view:
+                yield chunk_view
+            # Remove chunk from set.
+            oids = oids[chunk_size:]
+
+    def create(self):
+        """Create view."""
+        if self.is_spatial:
+            function = arcpy.management.MakeFeatureLayer
+        else:
+            function = arcpy.management.MakeTableView
+        function(self.dataset_path, self.name, where_clause=self.where_sql,
+                 workspace=self.dataset_meta['workspace_path'])
+        return
+
+    def discard(self):
+        """Discard view."""
+        if arcpy.Exists(self.name):
+            arcpy.management.Delete(self.name)
+        self.activated = False
+        return
+
+
 def _domain_object_metadata(domain_object):
     """Return dictionary of metadata from ArcPy domain object."""
     meta = {
@@ -126,12 +229,11 @@ def dataset_metadata(dataset_path):
             meta['user_field_names'].append(field.name)
             meta['user_fields'].append(_field_object_metadata(field))
     if hasattr(describe_object, 'spatialReference'):
-        meta['arc_spatial_reference'] = getattr(describe_object,
-                                                'spatialReference')
-        meta['spatial_reference_id'] = getattr(meta['arc_spatial_reference'],
+        meta['spatial_reference'] = getattr(describe_object, 'spatialReference')
+        meta['spatial_reference_id'] = getattr(meta['spatial_reference'],
                                                'factoryCode')
     else:
-        meta['arc_spatial_reference'] = None
+        meta['spatial_reference'] = None
         meta['spatial_reference_id'] = None
     return meta
 
