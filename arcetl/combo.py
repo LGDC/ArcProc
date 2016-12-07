@@ -4,7 +4,6 @@ import logging as _logging
 
 from arcetl import arcobj
 from arcetl import attributes
-from arcetl import dataset
 from arcetl import helpers
 
 
@@ -73,44 +72,3 @@ def adjust_for_shapefile(dataset_path, **kwargs):
                 )
     LOG.log(log_level, "End: Adjust.")
     return dataset_path
-
-
-def view_chunks(dataset_path, chunk_size, **kwargs):
-    """Generator for creating & referencing views of 'chunks' of a dataset.
-
-    Wraps create_view.
-    Yields view name as a string.
-
-    Args:
-        dataset_path (str): Path of dataset.
-        chunk_size (int): Number of features in each chunk-view.
-    Kwargs:
-        force_nonspatial (bool): Flag ensure view is nonspatial.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
-    Yields:
-        str.
-    """
-    for kwarg_default in [('dataset_where_sql', None),
-                          ('force_nonspatial', False), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    chunk_where_sql_template = "{field} >= {from_oid} and {field} <= {to_oid}"
-    if kwargs['dataset_where_sql']:
-        chunk_where_sql_template += " and ({})".format(
-            kwargs['dataset_where_sql']
-            )
-    # Get iterable of all O in the dataset.
-    # Sorting is important, allows views with ID range instead of list.
-    oids = attributes.as_iters(dataset_path, ('oid@',),
-                               dataset_where_sql=kwargs['dataset_where_sql'])
-    oids = sorted(oid for oid, in oids)
-    while oids:
-        chunk = oids[:chunk_size]  # Get chunk OIDs
-        oids = oids[chunk_size:]  # Remove them from set.
-        # ArcPy where clauses cannot use 'between'.
-        kwargs['dataset_where_sql'] = chunk_where_sql_template.format(
-            field=arcobj.dataset_metadata(dataset_path)['oid_field_name'],
-            from_oid=chunk[0], to_oid=chunk[-1]
-            )
-        yield dataset.create_view(helpers.unique_name('chunk'), dataset_path,
-                                  **kwargs)
