@@ -139,9 +139,6 @@ def copy(dataset_path, output_path, **kwargs):
     Kwargs:
         schema_only (bool): Flag to copy only the schema, omitting the data.
         overwrite (bool): Flag to overwrite an existing dataset at the path.
-        sort_field_names (iter): Iterable of field names to sort on, in order.
-        sort_reversed_field_names (iter): Iterable of field names (present in
-            sort_field_names) to sort values in reverse-order.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level at which to log this function.
     Returns:
@@ -150,44 +147,29 @@ def copy(dataset_path, output_path, **kwargs):
     for kwarg_default in [
             ('dataset_where_sql', None), ('log_level', 'info'),
             ('overwrite', False), ('schema_only', False),
-            ('sort_field_names', []), ('sort_reversed_field_names', [])
         ]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Copy dataset %s to %s.",
             dataset_path, output_path)
-    dataset_meta = arcobj.dataset_metadata(dataset_path)
-    dataset_view_name = create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=("0=1" if kwargs['schema_only']
-                           else kwargs['dataset_where_sql']),
-        log_level=None
-        )
-    if kwargs['sort_field_names']:
-        copy_function = arcpy.management.Sort
-        copy_kwargs = {
-            'in_dataset': dataset_view_name,
-            'out_dataset': output_path,
-            'sort_field': [
-                (name, 'descending')
-                if name in kwargs['sort_reversed_field_names']
-                else (name, 'ascending') for name in kwargs['sort_field_names']
-                ],
-            'spatial_sort_method': 'UR'
-            }
-    elif dataset_meta['is_spatial']:
-        copy_function = arcpy.management.CopyFeatures
-        copy_kwargs = {'in_features': dataset_view_name,
-                       'out_feature_class': output_path}
-    elif dataset_meta['is_table']:
-        copy_function = arcpy.management.CopyRows
-        copy_kwargs = {'in_rows': dataset_view_name, 'out_table': output_path}
-    else:
-        raise ValueError("{} unsupported dataset type.".format(dataset_path))
-    if kwargs['overwrite'] and arcpy.Exists(output_path):
-        delete(output_path, log_level=None)
-    copy_function(**copy_kwargs)
-    delete(dataset_view_name, log_level=None)
+    _dataset = {
+        'meta': arcobj.dataset_metadata(dataset_path),
+        'view': arcobj.DatasetView(dataset_path,
+                                   ("0=1" if kwargs['schema_only']
+                                    else kwargs['dataset_where_sql'])),
+        }
+    with _dataset['view']:
+        if _dataset['meta']['is_spatial']:
+            function = arcpy.management.CopyFeatures
+        elif _dataset['meta']['is_table']:
+            function = arcpy.management.CopyRows
+        else:
+            raise ValueError(
+                "{} unsupported dataset type.".format(dataset_path)
+                )
+        if kwargs['overwrite'] and arcpy.Exists(output_path):
+            delete(output_path, log_level=None)
+        function(_dataset['view'].name, output_path)
     LOG.log(log_level, "End: Copy.")
     return output_path
 

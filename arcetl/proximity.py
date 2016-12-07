@@ -3,6 +3,7 @@ import logging
 
 import arcpy
 
+from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import helpers
@@ -40,25 +41,20 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
             'angle' value (float) is in decimal degrees.
     """
     near_rank = kwargs.get('near_rank', 1)
-    view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs.get('dataset_where_sql', None), log_level=None
-        )
-    near_view_name = dataset.create_view(
-        helpers.unique_name('view'), near_dataset_path,
-        dataset_where_sql=kwargs.get('near_where_sql', None), log_level=None
-        )
-    temp_near_path = helpers.unique_temp_dataset_path('near')
-    arcpy.analysis.GenerateNearTable(
-        in_features=view_name, near_features=near_view_name,
-        out_table=temp_near_path, search_radius=max_near_distance,
-        location=True, angle=True,
-        closest=(near_rank == 1), closest_count=near_rank
-        )
-    oid_id_map = attributes.id_map(view_name, dataset_id_field_name)
-    dataset.delete(view_name, log_level=None)
-    near_oid_id_map = attributes.id_map(near_view_name, near_id_field_name)
-    dataset.delete(near_view_name, log_level=None)
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    near_view = arcobj.DatasetView(near_dataset_path,
+                                   kwargs.get('near_where_sql'))
+    with dataset_view, near_view:
+        temp_near_path = helpers.unique_temp_dataset_path('near')
+        arcpy.analysis.GenerateNearTable(
+            in_features=dataset_view.name, near_features=near_view.name,
+            out_table=temp_near_path, search_radius=max_near_distance,
+            location=True, angle=True,
+            closest=(near_rank == 1), closest_count=near_rank
+            )
+        oid_id_map = attributes.id_map(dataset_view.name, dataset_id_field_name)
+        near_oid_id_map = attributes.id_map(near_view.name, near_id_field_name)
     field_names = ('in_fid', 'near_fid', 'near_dist', 'near_angle',
                    'near_x', 'near_y', 'near_rank')
     near_info_map = {}

@@ -292,20 +292,15 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     Returns:
         str.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by expression: ```%s```.",
             field_name, dataset_path, expression)
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    arcpy.management.CalculateField(in_table=dataset_view_name,
-                                    field=field_name, expression=expression,
-                                    expression_type='python_9.3')
-    dataset.delete(dataset_view_name, log_level=None)
+    with arcobj.DatasetView(dataset_path,
+                            kwargs.get('dataset_where_sql')) as dataset_view:
+        arcpy.management.CalculateField(in_table=dataset_view.name,
+                                        field=field_name, expression=expression,
+                                        expression_type='python_9.3')
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -600,55 +595,50 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         join_kwargs = {'join_operation': 'join_one_to_many',
                        'join_type': 'keep_all',
                        'match_option': 'intersect'}
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
     # Create temporary copy of overlay dataset.
-    temp_overlay_path = dataset.copy(
-        overlay_dataset_path, helpers.unique_temp_dataset_path('overlay'),
-        dataset_where_sql=kwargs['overlay_where_sql'], log_level=None
-        )
-    # Avoid field name collisions with neutral holding field.
-    temp_overlay_field_name = dataset.duplicate_field(
-        temp_overlay_path, overlay_field_name,
-        new_field_name=helpers.unique_name(overlay_field_name), log_level=None
-        )
-    update_by_function(
-        temp_overlay_path, temp_overlay_field_name, function=(lambda x: x),
-        field_as_first_arg=False, arg_field_names=(overlay_field_name,),
-        log_level=None
-        )
-    # Create temp output of the overlay.
-    if kwargs['tolerance']:
-        old_tolerance = arcpy.env.XYTolerance
-        arcpy.env.XYTolerance = kwargs['tolerance']
-    temp_output_path = helpers.unique_temp_dataset_path('output')
-    arcpy.analysis.SpatialJoin(
-        target_features=dataset_view_name, join_features=temp_overlay_path,
-        out_feature_class=temp_output_path, **join_kwargs
-        )
-    if kwargs['tolerance']:
-        arcpy.env.XYTolerance = old_tolerance
-    dataset.delete(temp_overlay_path, log_level=None)
+    temp_overlay = arcobj.TempDatasetCopy(overlay_dataset_path,
+                                          kwargs.get('overlay_where_sql'))
+    with dataset_view, temp_overlay:
+        # Avoid field name collisions with neutral holding field.
+        temp_overlay_field_name = dataset.duplicate_field(
+            temp_overlay.path, overlay_field_name,
+            new_field_name=helpers.unique_name(overlay_field_name),
+            log_level=None
+            )
+        update_by_function(temp_overlay.path, temp_overlay_field_name,
+                           function=(lambda x: x), field_as_first_arg=False,
+                           arg_field_names=(overlay_field_name,),
+                           log_level=None)
+        # Create temp output of the overlay.
+        if kwargs['tolerance']:
+            old_tolerance = arcpy.env.XYTolerance
+            arcpy.env.XYTolerance = kwargs['tolerance']
+        temp_output_path = helpers.unique_temp_dataset_path('output')
+        arcpy.analysis.SpatialJoin(target_features=dataset_view.name,
+                                   join_features=temp_overlay.path,
+                                   out_feature_class=temp_output_path,
+                                   **join_kwargs)
+        if kwargs['tolerance']:
+            arcpy.env.XYTolerance = old_tolerance
     # Push overlay (or replacement) value from temp to update field.
     if kwargs['replacement_value'] is not None:
         function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
         function = (lambda x: x)
-    update_by_function(
-        temp_output_path, field_name, function, field_as_first_arg=False,
-        arg_field_names=[temp_overlay_field_name], log_level=None
-        )
+    update_by_function(temp_output_path, field_name, function,
+                       field_as_first_arg=False,
+                       arg_field_names=(temp_overlay_field_name,),
+                       log_level=None)
     # Update values in original dataset.
     oid_field_name = arcobj.dataset_metadata(dataset_path)['oid_field_name']
     update_by_joined_value(
-        dataset_view_name, field_name,
+        dataset_path, field_name,
         join_dataset_path=temp_output_path, join_field_name=field_name,
         on_field_pairs=((oid_field_name, 'target_fid'),),
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
+        dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
         )
-    dataset.delete(dataset_view_name, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name

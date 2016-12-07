@@ -39,15 +39,12 @@ def planarize(dataset_path, output_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Planarize geometry in %s to lines in %s.",
             dataset_path, output_path)
-    view_name = dataset.create_view(
-        helpers.unique_name(), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    arcpy.management.FeatureToLine(
-        in_features=view_name, out_feature_class=output_path,
-        cluster_tolerance=kwargs['tolerance'], attributes=True
-        )
-    dataset.delete(view_name, log_level=None)
+    with arcobj.DatasetView(dataset_path,
+                            kwargs.get('dataset_where_sql')) as dataset_view:
+        arcpy.management.FeatureToLine(in_features=dataset_view.name,
+                                       out_feature_class=output_path,
+                                       cluster_tolerance=kwargs['tolerance'],
+                                       attributes=True)
     LOG.log(log_level, "End: Planarize.")
     return output_path
 
@@ -90,19 +87,16 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     LOG.log(log_level, "Start: Convert polgyons in %s to lines in %s.",
             dataset_path, output_path)
     dataset_meta = arcobj.dataset_metadata(dataset_path)
-    view_name = dataset.create_view(
-        helpers.unique_name(), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    if kwargs['tolerance']:
-        old_tolerance = arcpy.env.XYTolerance
-        arcpy.env.XYTolerance = kwargs['tolerance']
-    arcpy.management.PolygonToLine(in_features=view_name,
-                                   out_feature_class=output_path,
-                                   neighbor_option=kwargs['topological'])
-    if kwargs['tolerance']:
-        arcpy.env.XYTolerance = old_tolerance
-    dataset.delete(view_name, log_level=None)
+    with arcobj.DatasetView(dataset_path,
+                            kwargs.get('dataset_where_sql')) as dataset_view:
+        if kwargs['tolerance']:
+            old_tolerance = arcpy.env.XYTolerance
+            arcpy.env.XYTolerance = kwargs['tolerance']
+        arcpy.management.PolygonToLine(in_features=dataset_view.name,
+                                       out_feature_class=output_path,
+                                       neighbor_option=kwargs['topological'])
+        if kwargs['tolerance']:
+            arcpy.env.XYTolerance = old_tolerance
     if kwargs['topological']:
         for side in ('left', 'right'):
             side_meta = {'oid_field_name': '{}_FID'.format(side.upper())}

@@ -32,23 +32,17 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Clip features in %s where overlapping %s.",
             dataset_path, clip_dataset_path)
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    clip_dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), clip_dataset_path,
-        dataset_where_sql=kwargs['clip_where_sql'], log_level=None
-        )
-    temp_output_path = helpers.unique_temp_dataset_path('output')
-    arcpy.analysis.Clip(
-        in_features=dataset_view_name, clip_features=clip_dataset_view_name,
-        out_feature_class=temp_output_path,
-        cluster_tolerance=kwargs['tolerance']
-        )
-    dataset.delete(clip_dataset_view_name, log_level=None)
-    delete(dataset_view_name, log_level=None)
-    dataset.delete(dataset_view_name, log_level=None)
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    clip_view = arcobj.DatasetView(clip_dataset_path,
+                                   kwargs.get('clip_where_sql'))
+    with dataset_view, clip_view:
+        temp_output_path = helpers.unique_temp_dataset_path('output')
+        arcpy.analysis.Clip(in_features=dataset_view.name,
+                            clip_features=clip_view.name,
+                            out_feature_class=temp_output_path,
+                            cluster_tolerance=kwargs['tolerance'])
+        delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Clip.")
@@ -96,27 +90,24 @@ def delete(dataset_path, **kwargs):
         # dataset.
         'ERROR 001395'
         )
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
     # Can use (faster) truncate when no sub-selection
     run_truncate = kwargs.get('dataset_where_sql') is None
-    if run_truncate:
-        try:
-            arcpy.management.TruncateTable(in_table=dataset_view_name)
-        except arcpy.ExecuteError:
-            # Avoid arcpy.GetReturnCode(); error code position inconsistent.
-            # Search messages for 'ERROR ######' instead.
-            if any(code in arcpy.GetMessages()
-                   for code in truncate_type_error_codes):
-                LOG.debug("Truncate unsupported; will try deleting rows.")
-                run_truncate = False
-            else:
-                raise
-    if not run_truncate:
-        arcpy.management.DeleteRows(in_rows=dataset_view_name)
-    dataset.delete(dataset_view_name, log_level=None)
+    with arcobj.DatasetView(dataset_path,
+                            kwargs.get('dataset_where_sql')) as dataset_view:
+        if run_truncate:
+            try:
+                arcpy.management.TruncateTable(in_table=dataset_view.name)
+            except arcpy.ExecuteError:
+                # Avoid arcpy.GetReturnCode(); error code position inconsistent.
+                # Search messages for 'ERROR ######' instead.
+                if any(code in arcpy.GetMessages()
+                       for code in truncate_type_error_codes):
+                    LOG.debug("Truncate unsupported; will try deleting rows.")
+                    run_truncate = False
+                else:
+                    raise
+        if not run_truncate:
+            arcpy.management.DeleteRows(in_rows=dataset_view.name)
     LOG.log(log_level, "End: Delete.")
     return dataset_path
 
@@ -146,23 +137,20 @@ def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
-    if kwargs['tolerance']:
-        old_tolerance = arcpy.env.XYTolerance
-        arcpy.env.XYTolerance = kwargs['tolerance']
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    temp_output_path = helpers.unique_temp_dataset_path('output')
-    arcpy.management.Dissolve(
-        in_features=dataset_view_name, out_feature_class=temp_output_path,
-        dissolve_field=dissolve_field_names, multi_part=kwargs['multipart'],
-        unsplit_lines=kwargs['unsplit_lines']
-        )
-    if kwargs['tolerance']:
-        arcpy.env.XYTolerance = old_tolerance
-    delete(dataset_view_name, log_level=None)
-    dataset.delete(dataset_view_name, log_level=None)
+    with arcobj.DatasetView(dataset_path,
+                            kwargs.get('dataset_where_sql')) as dataset_view:
+        if kwargs['tolerance']:
+            old_tolerance = arcpy.env.XYTolerance
+            arcpy.env.XYTolerance = kwargs['tolerance']
+        temp_output_path = helpers.unique_temp_dataset_path('output')
+        arcpy.management.Dissolve(
+            in_features=dataset_view.name, out_feature_class=temp_output_path,
+            dissolve_field=dissolve_field_names, multi_part=kwargs['multipart'],
+            unsplit_lines=kwargs['unsplit_lines']
+            )
+        if kwargs['tolerance']:
+            arcpy.env.XYTolerance = old_tolerance
+        delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Dissolve.")
@@ -202,19 +190,16 @@ def eliminate_interior_rings(dataset_path, **kwargs):
         kwargs['condition'] = 'percent'
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Eliminate interior rings in %s.", dataset_path)
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    temp_output_path = helpers.unique_temp_dataset_path('output')
-    arcpy.management.EliminatePolygonPart(
-        in_features=dataset_view_name, out_feature_class=temp_output_path,
-        condition=kwargs['condition'], part_area=kwargs['max_area'],
-        part_area_percent=kwargs['max_percent_total_area'],
-        part_option='contained_only'
-        )
-    delete(dataset_view_name, log_level=None)
-    dataset.delete(dataset_view_name, log_level=None)
+    with arcobj.DatasetView(dataset_path,
+                            kwargs.get('dataset_where_sql')) as dataset_view:
+        temp_output_path = helpers.unique_temp_dataset_path('output')
+        arcpy.management.EliminatePolygonPart(
+            in_features=dataset_view.name, out_feature_class=temp_output_path,
+            condition=kwargs['condition'], part_area=kwargs['max_area'],
+            part_area_percent=kwargs['max_percent_total_area'],
+            part_option='contained_only'
+            )
+        delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Eliminate.")
@@ -243,23 +228,17 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Erase features in %s where overlapping %s.",
             dataset_path, erase_dataset_path)
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    erase_dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), erase_dataset_path,
-        dataset_where_sql=kwargs['erase_where_sql'], log_level=None
-        )
-    temp_output_path = helpers.unique_temp_dataset_path('output')
-    arcpy.analysis.Erase(
-        in_features=dataset_view_name, erase_features=erase_dataset_view_name,
-        out_feature_class=temp_output_path,
-        cluster_tolerance=kwargs['tolerance']
-        )
-    dataset.delete(erase_dataset_view_name, log_level=None)
-    delete(dataset_view_name, log_level=None)
-    dataset.delete(dataset_view_name, log_level=None)
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    erase_view = arcobj.DatasetView(erase_dataset_path,
+                                    kwargs.get('erase_where_sql'))
+    with dataset_view, erase_view:
+        temp_output_path = helpers.unique_temp_dataset_path('output')
+        arcpy.analysis.Erase(in_features=dataset_view.name,
+                             erase_features=erase_view.name,
+                             out_feature_class=temp_output_path,
+                             cluster_tolerance=kwargs['tolerance'])
+        delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Erase.")
@@ -340,14 +319,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
-    dataset_meta = arcobj.dataset_metadata(dataset_path)
-    insert_dataset_meta = arcobj.dataset_metadata(insert_dataset_path)
-    insert_dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), insert_dataset_path,
-        dataset_where_sql=kwargs['insert_where_sql'],
-        # Insert view must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not dataset_meta['is_spatial']), log_level=None
-        )
+    _dataset = {'meta': arcobj.dataset_metadata(dataset_path)}
+    _insert = {'meta': arcobj.dataset_metadata(insert_dataset_path)}
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
     # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
@@ -356,26 +329,28 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     if field_names:
         field_names = [name.lower() for name in field_names]
     else:
-        field_names = [name.lower() for name in dataset_meta['field_names']]
+        field_names = [name.lower() for name in _dataset['meta']['field_names']]
     insert_field_names = [name.lower() for name
-                          in insert_dataset_meta['field_names']]
+                          in _insert['meta']['field_names']]
     # Append takes care of geometry & OIDs independent of the field maps.
     for field_name_type in ['geometry_field_name', 'oid_field_name']:
-        if dataset_meta.get(field_name_type):
-            field_names.remove(dataset_meta[field_name_type].lower())
-            insert_field_names.remove(
-                insert_dataset_meta[field_name_type].lower()
-                )
+        if _dataset['meta'].get(field_name_type):
+            field_names.remove(_dataset['meta'][field_name_type].lower())
+            insert_field_names.remove(_insert['meta'][field_name_type].lower())
     field_maps = arcpy.FieldMappings()
     for field_name in field_names:
         if field_name in insert_field_names:
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
-    arcpy.management.Append(inputs=insert_dataset_view_name,
-                            target=dataset_path, schema_type='no_test',
-                            field_mapping=field_maps)
-    dataset.delete(insert_dataset_view_name, log_level=None)
+    with arcobj.DatasetView(
+        insert_dataset_path, kwargs.get('insert_where_sql'),
+        # Insert view must be nonspatial to append to nonspatial table.
+        force_nonspatial=(not _dataset['meta']['is_spatial'])
+        ) as _insert['view']:
+        arcpy.management.Append(inputs=_insert['view'].name,
+                                target=dataset_path, schema_type='no_test',
+                                field_mapping=field_maps)
     LOG.log(log_level, "End: Insert.")
     return dataset_path
 
@@ -400,23 +375,18 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Keep features in %s where overlapping %s.",
             dataset_path, location_dataset_path)
-    dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), dataset_path,
-        dataset_where_sql=kwargs['dataset_where_sql'], log_level=None
-        )
-    location_dataset_view_name = dataset.create_view(
-        helpers.unique_name('view'), location_dataset_path,
-        dataset_where_sql=kwargs['location_where_sql'], log_level=None
-        )
-    arcpy.management.SelectLayerByLocation(
-        in_layer=dataset_view_name, overlap_type='intersect',
-        select_features=location_dataset_view_name,
-        selection_type='new_selection'
-        )
-    arcpy.management.SelectLayerByLocation(in_layer=dataset_view_name,
-                                           selection_type='switch_selection')
-    dataset.delete(location_dataset_view_name, log_level=None)
-    delete(dataset_view_name, log_level=None)
-    dataset.delete(dataset_view_name, log_level=None)
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    location_view = arcobj.DatasetView(location_dataset_path,
+                                       kwargs.get('location_where_sql'))
+    with dataset_view, location_view:
+        arcpy.management.SelectLayerByLocation(
+            in_layer=dataset_view.name, overlap_type='intersect',
+            select_features=location_view.name, selection_type='new_selection'
+            )
+        arcpy.management.SelectLayerByLocation(
+            in_layer=dataset_view.name, selection_type='switch_selection'
+            )
+        delete(dataset_view.name, log_level=None)
     LOG.log(log_level, "End: Keep.")
     return dataset_path
