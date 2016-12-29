@@ -49,19 +49,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     return dataset_path
 
 
-def count(dataset_path, **kwargs):
-    """Return number of features in dataset.
-
-    Wraps dataset.feature_count.
-
-    Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-    Returns:
-        int.
-    """
-    return dataset.feature_count(dataset_path, **kwargs)
+count = dataset.feature_count  # pylint: disable=invalid-name
 
 
 def delete(dataset_path, **kwargs):
