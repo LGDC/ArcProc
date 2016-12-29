@@ -119,10 +119,10 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             arcpy.na.AddFieldToAnalysisLayer(
                 in_network_analysis_layer='closest', sub_layer='Incidents',
                 field_name='dataset_id',
-                field_type=_dataset['id_field_name']['type'],
-                field_precision=_dataset['id_field_name']['precision'],
-                field_scale=_dataset['id_field_name']['scale'],
-                field_length=_dataset['id_field_name']['length'],
+                field_type=_dataset['id_field_meta']['type'],
+                field_precision=_dataset['id_field_meta']['precision'],
+                field_scale=_dataset['id_field_meta']['scale'],
+                field_length=_dataset['id_field_meta']['length'],
                 field_is_nullable=True
                 )
             arcpy.na.AddLocations(
