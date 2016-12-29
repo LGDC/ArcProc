@@ -31,10 +31,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [('clip_where_sql', None), ('dataset_where_sql', None),
-                          ('log_level', 'info'), ('tolerance', None)]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Clip features in %s where overlapping %s.",
             dataset_path, clip_dataset_path)
     dataset_view = arcobj.DatasetView(dataset_path,
@@ -46,7 +43,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
         arcpy.analysis.Clip(in_features=dataset_view.name,
                             clip_features=clip_view.name,
                             out_feature_class=temp_output_path,
-                            cluster_tolerance=kwargs['tolerance'])
+                            cluster_tolerance=kwargs.get('tolerance'))
         delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
@@ -71,9 +68,7 @@ def delete(dataset_path, **kwargs):
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
     truncate_type_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
@@ -82,14 +77,13 @@ def delete(dataset_path, **kwargs):
         'ERROR 001259',
         # "Operation not supported on table {table name}."
         'ERROR 001260',
-        # Operation not supported on a feature class in a controller
-        # dataset.
-        'ERROR 001395'
+        # Operation not supported on a feature class in a controller dataset.
+        'ERROR 001395',
         )
-    # Can use (faster) truncate when no sub-selection
-    run_truncate = kwargs.get('dataset_where_sql') is None
     with arcobj.DatasetView(dataset_path,
                             kwargs.get('dataset_where_sql')) as dataset_view:
+        # Can use (faster) truncate when no sub-selection
+        run_truncate = kwargs.get('dataset_where_sql') is None
         if run_truncate:
             try:
                 arcpy.management.TruncateTable(in_table=dataset_view.name)
@@ -108,43 +102,41 @@ def delete(dataset_path, **kwargs):
     return dataset_path
 
 
-def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
-    """Merge features that share values in given fields.
+def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
+             unsplit_lines=False, **kwargs):
+    """Dissolve geometry of features that share values in given fields.
 
     Args:
-        dataset_path (str): Path of dataset.
-        dissolve_field_names (iter): Iterable of field names to dissolve on.
-    Kwargs:
-        multipart (bool): Flag indicating if dissolve should create multipart
-            features.
-        unsplit_lines (bool): Flag indicating if dissolving lines should merge
-            features when endpoints meet without a crossing feature.
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        dissolve_field_names (iter): An iterable of field names to dissolve on.
+        multipart (bool): The flag to allow multipart features in output.
+        unsplit_lines (bool): The flag to merge line features when endpoints
+            meet without a crossing features.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        log_level (str): The level to log the function at.
+        tolerance (float): The tolerance for coincidence, in dataset's units.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('log_level', 'info'),
-            ('multipart', True), ('tolerance', 0.001), ('unsplit_lines', False)
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
     with arcobj.DatasetView(dataset_path,
                             kwargs.get('dataset_where_sql')) as dataset_view:
-        if kwargs['tolerance']:
+        if kwargs.get('tolerance') is not None:
             old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
         temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.management.Dissolve(
             in_features=dataset_view.name, out_feature_class=temp_output_path,
-            dissolve_field=dissolve_field_names, multi_part=kwargs['multipart'],
-            unsplit_lines=kwargs['unsplit_lines']
+            dissolve_field=dissolve_field_names, multi_part=multipart,
+            unsplit_lines=unsplit_lines
             )
-        if kwargs['tolerance']:
+        if kwargs.get('tolerance') is not None:
             arcpy.env.XYTolerance = old_tolerance
         delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
@@ -153,46 +145,49 @@ def dissolve(dataset_path, dissolve_field_names=None, **kwargs):
     return dataset_path
 
 
-def eliminate_interior_rings(dataset_path, **kwargs):
-    """Eliminate interior rings in polygon features.
+def eliminate_interior_rings(dataset_path, max_area=None,
+                             max_percent_total_area=None, **kwargs):
+    """Eliminate interior rings of polygon features.
+
+    Notes:
+        If no value if provided for either max_area or max_percent_total_area,
+        (nearly) all interior rings will be removed. Technically,
+        max_percent_total_area will be set to 99.9999.
 
     Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        max_area (float, str): Maximum area under which parts are eliminated.
-            Numeric area will be in dataset's units. String area will be
-            formatted as '{number} {unit}'.
-        max_percent_total_area (float): Maximum percent of total area under
-            which parts are eliminated. Default is 100.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        max_area (float, str): The maximum area which parts smaller than are
+            eliminated. Numeric area will be in dataset's units. String area
+            will be formatted as '{number} {unit}'.
+        max_percent_total_area (float): The maximum percent of total area
+            which parts smaller than are eliminated.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info'),
-                          ('max_area', None), ('max_percent_total_area', None)]:
-        kwargs.setdefault(*kwarg_default)
-    # Only set max_percent_total_area default if neither it or area defined.
-    if all([kwargs['max_area'] is None,
-            kwargs['max_percent_total_area'] is None]):
-        kwargs['max_percent_total_area'] = 99.9999
-        kwargs['condition'] = 'percent'
-    elif all([kwargs['max_area'] is not None,
-              kwargs['max_percent_total_area'] is not None]):
-        kwargs['condition'] = 'area_or_percent'
-    elif kwargs['max_area'] is not None:
-        kwargs['condition'] = 'area'
-    else:
-        kwargs['condition'] = 'percent'
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Eliminate interior rings in %s.", dataset_path)
+    # Only set max_percent_total_area default if neither it or area defined.
+    if all((max_area is None, max_percent_total_area is None)):
+        max_percent_total_area = 99.9999
+    if all((max_area is not None, max_percent_total_area is not None)):
+        condition = 'area_or_percent'
+    elif max_area is not None:
+        condition = 'area'
+    else:
+        condition = 'percent'
     with arcobj.DatasetView(dataset_path,
                             kwargs.get('dataset_where_sql')) as dataset_view:
         temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.management.EliminatePolygonPart(
             in_features=dataset_view.name, out_feature_class=temp_output_path,
-            condition=kwargs['condition'], part_area=kwargs['max_area'],
-            part_area_percent=kwargs['max_percent_total_area'],
+            condition=condition, part_area=max_area,
+            part_area_percent=max_percent_total_area,
             part_option='contained_only'
             )
         delete(dataset_view.name, log_level=None)
@@ -221,12 +216,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('erase_where_sql', None),
-            ('log_level', 'info'), ('tolerance', None)
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Erase features in %s where overlapping %s.",
             dataset_path, erase_dataset_path)
     dataset_view = arcobj.DatasetView(dataset_path,
@@ -238,7 +228,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         arcpy.analysis.Erase(in_features=dataset_view.name,
                              erase_features=erase_view.name,
                              out_feature_class=temp_output_path,
-                             cluster_tolerance=kwargs['tolerance'])
+                             cluster_tolerance=kwargs.get('tolerance'))
         delete(dataset_view.name, log_level=None)
     insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
@@ -262,15 +252,15 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    iters = ([feat[name] if name in feat else None for name in field_names]
-             for feat in insert_features)
+    iters = (
+        (feature[name] if name in feature else None for name in field_names)
+        for feature in insert_features
+        )
     result = insert_from_iters(dataset_path, iters, field_names, log_level=None)
     LOG.log(log_level, "End: Insert.")
     return result
@@ -293,16 +283,14 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
         for row in insert_features:
-            cursor.insertRow(row)
+            cursor.insertRow(tuple(row))
     LOG.log(log_level, "End: Insert.")
     return dataset_path
 
@@ -327,9 +315,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [('insert_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
     _dataset = {'meta': arcobj.dataset_metadata(dataset_path)}
@@ -340,19 +326,24 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     # Append tool does not auto-map to the same field name if naming
     # convention differs.
     if field_names:
-        field_names = [name.lower() for name in field_names]
+        _dataset['field_names'] = [name.lower() for name in field_names]
     else:
-        field_names = [name.lower() for name in _dataset['meta']['field_names']]
-    insert_field_names = [name.lower() for name
-                          in _insert['meta']['field_names']]
+        _dataset['field_names'] = [name.lower() for name
+                                   in _dataset['meta']['field_names']]
+    _insert['field_names'] = [name.lower() for name
+                              in _insert['meta']['field_names']]
     # Append takes care of geometry & OIDs independent of the field maps.
     for field_name_type in ['geometry_field_name', 'oid_field_name']:
         if _dataset['meta'].get(field_name_type):
-            field_names.remove(_dataset['meta'][field_name_type].lower())
-            insert_field_names.remove(_insert['meta'][field_name_type].lower())
+            _dataset['field_names'].remove(
+                _dataset['meta'][field_name_type].lower()
+                )
+            _insert['field_names'].remove(
+                _insert['meta'][field_name_type].lower()
+                )
     field_maps = arcpy.FieldMappings()
-    for field_name in field_names:
-        if field_name in insert_field_names:
+    for field_name in _dataset['field_names']:
+        if field_name in _insert['field_names']:
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
@@ -385,10 +376,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     Returns:
         str: The path of the dataset updated.
     """
-    for kwarg_default in [('dataset_where_sql', None),
-                          ('location_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Keep features in %s where overlapping %s.",
             dataset_path, location_dataset_path)
     dataset_view = arcobj.DatasetView(dataset_path,
