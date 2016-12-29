@@ -138,7 +138,7 @@ class DatasetView(object):
             # Sorting is important: allows selection by ID range.
             oids = sorted(oid for oid, in cursor)
         while oids:
-            chunk_where_sql = chunk_where_sql_template(
+            chunk_where_sql = chunk_where_sql_template.format(
                 oid_field_name=self.dataset_meta['oid_field_name'],
                 from_oid=min(oids), to_oid=max(oids[:chunk_size])
                 )
@@ -221,6 +221,7 @@ class TempDatasetCopy(object):
 def _domain_object_metadata(domain_object):
     """Return dictionary of metadata from ArcPy domain object."""
     meta = {
+        'arc_object': domain_object,
         'name': getattr(domain_object, 'name'),
         'description': getattr(domain_object, 'description'),
         'owner': getattr(domain_object, 'owner'),
@@ -239,6 +240,7 @@ def _domain_object_metadata(domain_object):
 def _field_object_metadata(field_object):
     """Return dictionary of metadata from ArcPy field object."""
     meta = {
+        'arc_object': field_object,
         'name': getattr(field_object, 'name'),
         'alias_name': getattr(field_object, 'aliasName'),
         'base_name': getattr(field_object, 'baseName'),
@@ -258,31 +260,37 @@ def dataset_metadata(dataset_path):
     Returns:
         dict.
     """
-    describe_object = arcpy.Describe(dataset_path)
+    arc_object = arcpy.Describe(dataset_path)
     meta = {
-        'name': getattr(describe_object, 'name'),
-        'path': getattr(describe_object, 'catalogPath'),
-        'data_type': getattr(describe_object, 'dataType'),
-        'workspace_path': getattr(describe_object, 'path'),
-        # Do not use getattr! Tables can not have OIDs.
-        'is_table': hasattr(describe_object, 'hasOID'),
-        'is_versioned': getattr(describe_object, 'isVersioned', False),
-        'oid_field_name': getattr(describe_object, 'OIDFieldName', None),
-        'is_spatial': hasattr(describe_object, 'shapeType'),
-        'geometry_type': getattr(describe_object, 'shapeType', None),
-        'geometry_field_name': getattr(describe_object, 'shapeFieldName', None),
-        'field_names': [], 'fields': [],
-        'user_field_names': [], 'user_fields': [],
+        'arc_object': arc_object,
+        'name': getattr(arc_object, 'name'),
+        'path': getattr(arc_object, 'catalogPath'),
+        'data_type': getattr(arc_object, 'dataType'),
+        'workspace_path': getattr(arc_object, 'path'),
+        # Do not use getattr! Tables sometimes don't have OIDs.
+        'is_table': hasattr(arc_object, 'hasOID'),
+        'is_versioned': getattr(arc_object, 'isVersioned', False),
+        'oid_field_name': getattr(arc_object, 'OIDFieldName', None),
+        'is_spatial': hasattr(arc_object, 'shapeType'),
+        'geometry_type': getattr(arc_object, 'shapeType', None),
+        'geometry_field_name': getattr(arc_object, 'shapeFieldName', None),
         }
-    for field in getattr(describe_object, 'fields', ()):
-        meta['field_names'].append(field.name)
-        meta['fields'].append(_field_object_metadata(field))
-        if all([field.name != meta['oid_field_name'],
-                '{}.'.format(meta['geometry_field_name']) not in field.name]):
-            meta['user_field_names'].append(field.name)
-            meta['user_fields'].append(_field_object_metadata(field))
-    if hasattr(describe_object, 'spatialReference'):
-        meta['spatial_reference'] = getattr(describe_object, 'spatialReference')
+    meta['field_names'] = tuple(field.name for field
+                                in getattr(arc_object, 'fields', ()))
+    meta['fields'] = tuple(_field_object_metadata(field) for field
+                           in getattr(arc_object, 'fields', ()))
+    meta['user_field_names'] = tuple(
+        name for name in meta['field_names']
+        if name != meta['oid_field_name']
+        and '{}.'.format(meta['geometry_field_name']) not in name
+        )
+    meta['user_fields'] = tuple(
+        field for field in meta['fields']
+        if field['name'] != meta['oid_field_name']
+        and '{}.'.format(meta['geometry_field_name']) not in field['name']
+        )
+    if hasattr(arc_object, 'spatialReference'):
+        meta['spatial_reference'] = getattr(arc_object, 'spatialReference')
         meta['spatial_reference_id'] = getattr(meta['spatial_reference'],
                                                'factoryCode')
     else:
@@ -350,11 +358,12 @@ def spatial_reference_metadata(item):
     """Return dictionary of spatial reference metadata."""
     ##TODO: Finish stub.
     ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
-    reference_object = spatial_reference(item)
+    arc_object = spatial_reference(item)
     meta = {
-        'spatial_reference_id': reference_object.factoryCode,
-        'angular_unit': getattr(reference_object, 'angularUnitName', None),
-        'linear_unit': getattr(reference_object, 'linearUnitName', None),
+        'arc_object': arc_object,
+        'spatial_reference_id': arc_object.factoryCode,
+        'angular_unit': getattr(arc_object, 'angularUnitName', None),
+        'linear_unit': getattr(arc_object, 'linearUnitName', None),
         }
     return meta
 
@@ -390,12 +399,13 @@ def workspace_metadata(workspace_path):
     """
     ##TODO: Finish stub.
     ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
-    describe_object = arcpy.Describe(workspace_path)
-    prog_id = getattr(describe_object, 'workspaceFactoryProgID', '')
+    arc_object = arcpy.Describe(workspace_path)
+    prog_id = getattr(arc_object, 'workspaceFactoryProgID', '')
     meta = {
-        'name': getattr(describe_object, 'name'),
-        'path': getattr(describe_object, 'catalogPath'),
-        'data_type': getattr(describe_object, 'dataType'),
+        'arc_object': arc_object,
+        'name': getattr(arc_object, 'name'),
+        'path': getattr(arc_object, 'catalogPath'),
+        'data_type': getattr(arc_object, 'dataType'),
         'is_geodatabase': any(['AccessWorkspace' in prog_id,
                                'FileGDBWorkspace' in prog_id,
                                'SdeWorkspace' in prog_id]),
@@ -404,11 +414,8 @@ def workspace_metadata(workspace_path):
         'is_enterprise_database': 'SdeWorkspace' in prog_id,
         'is_personal_geodatabase': 'AccessWorkspace' in prog_id,
         'is_in_memory': 'InMemoryWorkspace' in prog_id,
-        'domain_names': getattr(describe_object, 'domains', []),
-        'arc_domains': [],
-        'domains': [],
+        'domain_names': tuple(getattr(arc_object, 'domains', ())),
         }
-    for domain_object in arcpy.da.ListDomains(meta['path']):
-        meta['arc_domains'].append(domain_object)
-        meta['domains'].append(_domain_object_metadata(domain_object))
+    meta['domains'] = tuple(_domain_object_metadata(domain)
+                            for domain in arcpy.da.ListDomains(meta['path']))
     return meta

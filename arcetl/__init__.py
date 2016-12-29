@@ -1,7 +1,8 @@
 """ETL framework library based on ArcGIS/ArcPy."""
 
 from arcetl import arcobj
-from arcetl.arcobj import (ArcExtension, DatasetView, TempDatasetCopy)
+from arcetl.arcobj import (ArcExtension, DatasetView, TempDatasetCopy,
+                           spatial_reference_metadata)
 from arcetl import attributes
 from arcetl import combo
 from arcetl import convert
