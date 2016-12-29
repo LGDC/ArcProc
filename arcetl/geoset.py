@@ -30,7 +30,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
         identity_dataset_path (str): The path of the identity dataset.
         identity_field_name (str): The name of identity dataset's field with
             values to assign.
-        **kwargs: Arbitrary keyword arguments. See below
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         chunk_size (int): The number of features to process per loop.
@@ -119,7 +119,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         overlay_dataset_path (str): The path of the overlay dataset.
         overlay_field_name (str): The name of overlay dataset's field with
             values to assign.
-        **kwargs: Arbitrary keyword arguments. See below
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         chunk_size (int): The number of features to process per loop.
@@ -195,7 +195,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
             features.insert_from_path(dataset_path, temp_output_path,
                                       log_level=None)
             dataset.delete(temp_output_path, log_level=None)
-        if kwargs['tolerance']:
+        if kwargs.get('tolerance') is not None:
             arcpy.env.XYTolerance = old_tolerance
         LOG.log(log_level, "End: Overlay.")
     return dataset_path
@@ -218,7 +218,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         union_dataset_path (str): The path of the union dataset.
         union_field_name (str): The name of union dataset's field with values
             to assign.
-        **kwargs: Arbitrary keyword arguments. See below
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         chunk_size (int): The number of features to process per loop.

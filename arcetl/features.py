@@ -13,18 +13,23 @@ LOG = logging.getLogger(__name__)
 
 
 def clip(dataset_path, clip_dataset_path, **kwargs):
-    """Clip feature geometry where overlapping clip-geometry.
+    """Clip feature geometry where it overlaps clip-dataset geometry.
 
     Args:
-        dataset_path (str): Path of dataset.
-        clip_dataset_path (str): Path of dataset defining clip area.
-    Kwargs:
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        clip_where_sql (str): SQL where-clause for clip dataset subselection.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        clip_dataset_path (str): The path of dataset whose features define
+            the clip area.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        clip_where_sql (str): The SQL where-clause for clip dataset
+            subselection.
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        log_level (str): The level to log the function at.
+        tolerance (float): The tolerance for coincidence, in dataset's units.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [('clip_where_sql', None), ('dataset_where_sql', None),
                           ('log_level', 'info'), ('tolerance', None)]:
@@ -53,15 +58,18 @@ count = dataset.feature_count  # pylint: disable=invalid-name
 
 
 def delete(dataset_path, **kwargs):
-    """Delete features.
+    """Delete features in the dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
@@ -195,18 +203,23 @@ def eliminate_interior_rings(dataset_path, **kwargs):
 
 
 def erase(dataset_path, erase_dataset_path, **kwargs):
-    """Erase feature geometry where overlaps erase dataset geometry.
+    """Erase feature geometry where it overlaps erase-dataset geometry.
 
     Args:
-        dataset_path (str): Path of dataset.
-        erase_dataset_path (str): Path of erase-dataset.
-    Kwargs:
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        erase_where_sql (str): SQL where-clause for erase-dataset subselection.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        erase_dataset_path (str): The path of the dataset defining the erase-
+            area.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        erase_where_sql (str): The SQL where-clause for erase-dataset
+            subselection.
+        log_level (str): The level to log the function at.
+        tolerance (float): The tolerance for coincidence, in dataset's units.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [
             ('dataset_where_sql', None), ('erase_where_sql', None),
@@ -234,17 +247,20 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
 
 
 def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
-    """Insert features from a collection of dictionaries.
+    """Insert features into the dataset from an iterable of dictionaries.
 
     Args:
-        dataset_path (str): Path of dataset.
-        insert_features (iter): Iterable containing dictionaries representing
-            features.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        insert_features (iter): An iterable containing dictionaries
+            representing features.
+        field_names (iter): An iterable of field names/keys to insert.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
@@ -261,17 +277,21 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
 
 
 def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
-    """Insert features from a collection of iterables.
+    """Insert features into the dataset from an iterable of iterables.
 
     Args:
-        dataset_path (str): Path of dataset.
-        insert_features (iter): Iterable containing iterables representing
-            features.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        dataset_path (str): The path of the dataset.
+        insert_features (iter): An iterable containing iterables
+            representing features.
+        field_names (iter): An iterable of field names to insert. These
+            must match the order of their attributes in the iterables.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
@@ -292,15 +312,20 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     """Insert features from a dataset referred to by a system path.
 
     Args:
-        dataset_path (str): Path of dataset.
-        insert_dataset_path (str): Path of insert-dataset.
-        field_names (iter): Iterable of field names to insert.
-    Kwargs:
-        insert_where_sql (str): SQL where-clause for insert-dataset
+        dataset_path (str): The path of the dataset.
+        insert_dataset_path (str): The path of dataset to insert features from.
+        field_names (iter): An iterable of field names to insert. Listed
+            field names must be present in both datasets. If field_names is
+            not defined, all fields will be inserted.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        insert_where_sql (str): The SQL where-clause for insert-dataset
             subselection.
-        log_level (str): Level at which to log this function.
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [('insert_where_sql', None), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
@@ -344,18 +369,21 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
 
 
 def keep_by_location(dataset_path, location_dataset_path, **kwargs):
-    """Keep features where geometry overlaps location feature geometry.
+    """Keep features where geometry overlaps location-dataset geometry.
 
     Args:
-        dataset_path (str): Path of dataset.
-        location_dataset_path (str): Path of location-dataset.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        location_where_sql (str): SQL where-clause for location-dataset
+        dataset_path (str): The path of the dataset.
+        location_dataset_path (str): The path of location-dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): The SQL where-clause for dataset subselection.
+        location_where_sql (str): The SQL where-clause for location-dataset
             subselection.
-        log_level (str): Level at which to log this function.
+        log_level (str): The level to log the function at.
+
     Returns:
-        str.
+        str: The path of the dataset updated.
     """
     for kwarg_default in [('dataset_where_sql', None),
                           ('location_where_sql', None), ('log_level', 'info')]:

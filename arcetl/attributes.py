@@ -108,7 +108,7 @@ def as_iters(dataset_path, field_names=None, **kwargs):
         dataset_path (str): Path of dataset.
         field_names (iter): Iterable of field names.
     Kwargs:
-        iter_type (object): Python iterable type to yield.
+        iter_type (object): Python iterable type to yield. Default is tuple.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         spatial_reference_id (int): EPSG code indicating the spatial reference
             output geometry will be in.
