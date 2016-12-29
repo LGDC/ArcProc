@@ -50,8 +50,7 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
         arcpy.analysis.GenerateNearTable(
             in_features=dataset_view.name, near_features=near_view.name,
             out_table=temp_near_path, search_radius=max_near_distance,
-            location=True, angle=True,
-            closest=(near_rank == 1), closest_count=near_rank
+            location=True, angle=True, closest=False, closest_count=near_rank
             )
         oid_id_map = attributes.id_map(dataset_view.name, dataset_id_field_name)
         near_oid_id_map = attributes.id_map(near_view.name, near_id_field_name)
@@ -60,12 +59,14 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
     near_info_map = {}
     for near_info in attributes.as_dicts(temp_near_path, field_names):
         if near_info['near_rank'] == near_rank:
-            near_info_map[near_info['id']] = {
-                'id': oid_id_map[near_info['in_fid']],
+            _id = oid_id_map[near_info['in_fid']]
+            near_info_map[_id] = {
+                'id': _id,
                 'near_id': near_oid_id_map[near_info['near_fid']],
                 'rank': near_info['near_rank'],
                 'distance': near_info['near_dist'],
                 'angle': near_info['near_angle'],
+                'near_x': near_info['near_x'], 'near_y': near_info['near_y'],
                 }
     dataset.delete(temp_near_path, log_level=None)
     return near_info_map
