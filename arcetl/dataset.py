@@ -19,6 +19,8 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
         field_name (str): Name of field.
         field_type (str): Type of field.
     Kwargs:
+        exist_ok (bool): Flag indicating whether field already existing treated
+            same as field being added. Default is False.
         field_length (int): Length of field.
         field_precision (int): Precision of field.
         field_scale (int): Scale of field.
@@ -29,21 +31,27 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
         str.
     """
     for kwarg_default in [
-            ('field_is_nullable', True), ('field_is_required', False),
-            ('field_length', 64), ('field_precision', None),
-            ('field_scale', None), ('log_level', 'info')
+            ('exist_ok', False), ('field_is_nullable', True),
+            ('field_is_required', False), ('field_length', 64),
+            ('field_precision', None), ('field_scale', None),
+            ('log_level', 'info')
         ]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Add field %s to %s.", field_name, dataset_path)
-    arcpy.management.AddField(
-        in_table=dataset_path, field_name=field_name, field_type=field_type,
-        field_length=kwargs['field_length'],
-        field_precision=kwargs['field_precision'],
-        field_scale=kwargs['field_scale'],
-        field_is_nullable=kwargs['field_is_nullable'],
-        field_is_required=kwargs['field_is_required']
-        )
+    if arcpy.ListFields(dataset_path, field_name):
+        LOG.info("Field already exists.")
+        if not kwargs['exist_ok']:
+            raise RuntimeError("Cannot add existing field (exist_ok=False).")
+    else:
+        arcpy.management.AddField(
+            in_table=dataset_path, field_name=field_name, field_type=field_type,
+            field_length=kwargs['field_length'],
+            field_precision=kwargs['field_precision'],
+            field_scale=kwargs['field_scale'],
+            field_is_nullable=kwargs['field_is_nullable'],
+            field_is_required=kwargs['field_is_required']
+            )
     LOG.log(log_level, "End: Add.")
     return field_name
 
@@ -55,11 +63,13 @@ def add_field_from_metadata(dataset_path, metadata, **kwargs):
         dataset_path (str): Path of dataset.
         metadata (dict): Metadata of field properties.
     Kwargs:
+        exist_ok (bool): Flag indicating whether field already existing treated
+            same as field being added. Default is False.
         log_level (str): Level at which to log this function.
     Returns:
         list.
     """
-    for kwarg_default in [('log_level', 'info')]:
+    for kwarg_default in [('exist_ok', False), ('log_level', 'info')]:
         kwargs.setdefault(*kwarg_default)
     log_level = helpers.log_level(kwargs['log_level'])
     LOG.log(log_level, "Start: Add field %s to %s.",
@@ -68,7 +78,8 @@ def add_field_from_metadata(dataset_path, metadata, **kwargs):
                       'is_nullable', 'is_required']
     add_kwargs = {'field_{}'.format(kw): metadata[kw]
                   for kw in field_keywords if kw in metadata}
-    add_field(dataset_path, log_level=None, **add_kwargs)
+    add_field(dataset_path, exist_ok=kwargs['exist_ok'], log_level=None,
+              **add_kwargs)
     LOG.log(log_level, "End: Add.")
     return metadata['name']
 
