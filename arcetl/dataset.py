@@ -106,7 +106,7 @@ def add_index(dataset_path, field_names, **kwargs):
     """
     for kwarg_default in [
             ('fail_on_lock_ok', False),
-            ('index_name', '_'.join(['ndx'] + field_names)),
+            ('index_name', '_'.join(('ndx',) + tuple(field_names))),
             ('is_ascending', False), ('is_unique', False),
             ('log_level', 'info')
         ]:
