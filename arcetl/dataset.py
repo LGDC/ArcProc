@@ -170,20 +170,19 @@ def copy(dataset_path, output_path, **kwargs):
 
     Returns:
         str: Path of the output dataset.
+
+    Raises:
+        ValueError: If dataset type not supported.
     """
-    for kwarg_default in [
-            ('dataset_where_sql', None), ('log_level', 'info'),
-            ('overwrite', False), ('schema_only', False),
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Copy dataset %s to %s.",
             dataset_path, output_path)
     _dataset = {
         'meta': arcobj.dataset_metadata(dataset_path),
-        'view': arcobj.DatasetView(dataset_path,
-                                   ("0=1" if kwargs['schema_only']
-                                    else kwargs['dataset_where_sql'])),
+        'view': arcobj.DatasetView(
+            dataset_path, ("0=1" if kwargs.get('schema_only', False)
+                           else kwargs.get('dataset_where_sql'))
+            ),
         }
     with _dataset['view']:
         if _dataset['meta']['is_spatial']:
@@ -194,7 +193,7 @@ def copy(dataset_path, output_path, **kwargs):
             raise ValueError(
                 "{} unsupported dataset type.".format(dataset_path)
                 )
-        if kwargs['overwrite'] and arcpy.Exists(output_path):
+        if kwargs.get('overwrite', False) and arcpy.Exists(output_path):
             delete(output_path, log_level=None)
         function(_dataset['view'].name, output_path)
     LOG.log(log_level, "End: Copy.")
@@ -205,29 +204,28 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     """Create new dataset.
 
     Args:
-        dataset_path (str): Path of dataset to create.
-        field_metadata_list (iter): Iterable of field metadata dicts.
-    Kwargs:
+        dataset_path (str): Path of the dataset .
+        field_metadata_list (iter): Collection of field metadata dictionaries.
+
+    Keyword Args:
         geometry_type (str): Type of geometry, if a spatial dataset.
         spatial_reference_id (int): EPSG code for spatial reference, if a
-            spatial dataset.
-        log_level (str): Level at which to log this function.
+            spatial dataset. Defaults to 4326 (WGS 84).
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Path of the dataset created.
     """
-    for kwarg_default in [('geometry_type', None), ('log_level', 'info'),
-                          ('spatial_reference_id', 4326)]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Create dataset %s.", dataset_path)
     create_kwargs = {'out_path': os.path.dirname(dataset_path),
                      'out_name': os.path.basename(dataset_path)}
-    if kwargs['geometry_type']:
+    if kwargs.get('geometry_type'):
         create_function = arcpy.management.CreateFeatureclass
         create_kwargs['geometry_type'] = kwargs['geometry_type']
         # Default to EPSG 4326 (unprojected WGS 84).
         create_kwargs['spatial_reference'] = arcobj.spatial_reference(
-            kwargs['spatial_reference_id']
+            kwargs.get('spatial_reference_id', 4326)
             )
     else:
         create_function = arcpy.management.CreateTable
@@ -243,15 +241,15 @@ def delete(dataset_path, **kwargs):
     """Delete dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+
+    Keyword Args:
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Path of the dataset deleted.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Delete dataset %s.", dataset_path)
     arcpy.management.Delete(in_data=dataset_path)
     LOG.log(log_level, "End: Delete.")
@@ -262,16 +260,16 @@ def delete_field(dataset_path, field_name, **kwargs):
     """Delete field from dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+
+    Keyword Args:
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Name of the field deleted.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Delete field %s on %s.",
             field_name, dataset_path)
     arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
@@ -283,18 +281,17 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     """Create new field as a duplicate of another.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        new_field_name (str): Field name to call duplicate.
-    Kwargs:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        new_field_name (str): Name of the field to call duplicate.
+
+    Keyword Args:
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Name of the field created.
     """
-    for kwarg_default in [('dataset_where_sql', None), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
             field_name, new_field_name, dataset_path)
     field_meta = arcobj.field_metadata(dataset_path, field_name)
@@ -311,18 +308,19 @@ def feature_count(dataset_path, **kwargs):
     """Return number of features in dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
+        dataset_path (str): Path of the dataset.
+
+   Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+
     Returns:
-        int.
+        int: Number of features counted.
     """
-    kwargs.setdefault('dataset_where_sql', None)
     with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=['oid@'],
-        where_clause=kwargs['dataset_where_sql']
+        in_table=dataset_path, field_names=('oid@',),
+        where_clause=kwargs.get('dataset_where_sql')
         ) as cursor:
-        count = len([None for _ in cursor])
+        count = len(tuple(None for _ in cursor))
     return count
 
 
@@ -333,9 +331,10 @@ def is_valid(dataset_path):
     """Check whether dataset exists/is valid.
 
     Args:
-        dataset_path (str): Path of dataset.
+        dataset_path (str): Path of the dataset.
+
     Returns:
-        bool.
+        bool: Dataset is valid (True) or not (False).
     """
     return (dataset_path is not None and arcpy.Exists(dataset_path)
             and arcobj.dataset_metadata(dataset_path)['is_table'])
@@ -346,19 +345,20 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     """Add field and its values from join-dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
-        join_dataset_path (str): Path of dataset to join field from.
-        join_field_name (str): Name of field to join.
-        on_field_name (str): Name of field to join the dataset on.
-        on_join_field_name (str): Name of field to join the join-dataset on.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+        join_dataset_path (str): Path of the dataset to join field from.
+        join_field_name (str): Name of the field to join.
+        on_field_name (str): Name of the field to join the dataset on.
+        on_join_field_name (str): Name of the field to join the join-dataset
+            on.
+
+   Keyword Args:
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Name of the joined field.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Join field %s on %s from %s.",
             join_field_name, dataset_path, join_dataset_path)
     arcpy.management.JoinField(
@@ -377,17 +377,17 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     """Rename field.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        new_field_name (str): Field name to change to.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        new_field_name (str): Name to change field to.
+
+    Keyword Args:
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: New name of the field.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Rename field %s to %s on %s.",
             field_name, new_field_name, dataset_path)
     arcpy.management.AlterField(in_table=dataset_path, field=field_name,
@@ -403,17 +403,17 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
     For the allow-flags, True = grant; False = revoke; None = as is.
 
     Args:
-        dataset_path (str): Path of dataset.
+        dataset_path (str): Path of the dataset.
         allow_view (bool): Flag to allow or revoke view privileges.
         allow_edit (bool): Flag to allow or revoke edit privileges.
-    Kwargs:
-        log_level (str): Level at which to log this function.
+
+    Keyword Args:
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Path of the dataset with changed privileges.
     """
-    for kwarg_default in [('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
     view_arg, edit_arg = privilege_map[allow_view], privilege_map[allow_edit]
     LOG.log(log_level,
