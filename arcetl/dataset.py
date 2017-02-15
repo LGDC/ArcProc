@@ -60,32 +60,33 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
     return field_name
 
 
-def add_field_from_metadata(dataset_path, metadata, **kwargs):
+def add_field_from_metadata(dataset_path, add_metadata, **kwargs):
     """Add field to dataset from metadata dictionary.
 
     Args:
-        dataset_path (str): Path of dataset.
-        metadata (dict): Metadata of field properties.
-    Kwargs:
-        exist_ok (bool): Flag indicating whether field already existing treated
-            same as field being added. Default is False.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+        add_metadata (dict): Metadata with field properties for adding.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        exist_ok (bool): Flag indicating whether field already existing
+            is considered a successful 'add'. Defaults to False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        list.
+        str: Name of the field added.
     """
-    for kwarg_default in [('exist_ok', False), ('log_level', 'info')]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Add field %s to %s.",
-            metadata['name'], dataset_path)
-    field_keywords = ['name', 'type', 'length', 'precision', 'scale',
-                      'is_nullable', 'is_required']
-    add_kwargs = {'field_{}'.format(kw): metadata[kw]
-                  for kw in field_keywords if kw in metadata}
-    add_field(dataset_path, exist_ok=kwargs['exist_ok'], log_level=None,
-              **add_kwargs)
+            add_metadata['name'], dataset_path)
+    field_keywords = ('name', 'type', 'length', 'precision', 'scale',
+                      'is_nullable', 'is_required')
+    add_kwargs = {'field_{}'.format(keyword): add_metadata[keyword]
+                  for keyword in field_keywords if keyword in add_metadata}
+    add_field(dataset_path, exist_ok=kwargs.get('exist_ok', False),
+              log_level=None, **add_kwargs)
     LOG.log(log_level, "End: Add.")
-    return metadata['name']
+    return add_metadata['name']
 
 
 def add_index(dataset_path, field_names, **kwargs):
