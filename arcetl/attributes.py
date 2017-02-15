@@ -4,16 +4,13 @@ import copy
 import functools
 import logging
 
+import six
+
 import arcpy
 
 from arcetl import arcobj
 from arcetl import dataset
 from arcetl import helpers
-
-try:
-    basestring
-except NameError:
-    basestring = (str, bytes)  # pylint: disable=redefined-builtin,invalid-name
 
 
 LOG = logging.getLogger(__name__)
@@ -29,7 +26,7 @@ def _updated_node_coord_info_map(node_coord_info_map, force_to_type=None):
                 if info['node_id'] is not None}
     data_type = next(iter(used_ids)) if force_to_type is None else force_to_type
     string_length = (max(len(i) for i in used_ids)
-                     if isinstance(data_type, basestring) else None)
+                     if isinstance(data_type, six.string_types) else None)
     unused_ids = (i for i in helpers.unique_ids(data_type, string_length)
                   if i not in used_ids)
     id_coord_map = {}
@@ -148,11 +145,11 @@ def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
     for kwarg_default in [('dataset_where_sql', None),
                           ('spatial_reference_id', None)]:
         kwargs.setdefault(*kwarg_default)
-    if isinstance(field_names, basestring):
+    if isinstance(field_names, six.string_types):
         field_names = (field_names,)
     else:
         field_names = tuple(field_names)
-    if isinstance(id_field_names, basestring):
+    if isinstance(id_field_names, six.string_types):
         id_field_names = (id_field_names,)
     else:
         id_field_names = tuple(id_field_names)
