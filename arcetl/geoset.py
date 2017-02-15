@@ -25,24 +25,25 @@ def identity(dataset_path, field_name, identity_dataset_path,
         against smaller sets of data generally avoids this conundrum.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        field_name (str): The name of the dataset's field to assign to.
-        identity_dataset_path (str): The path of the identity dataset.
-        identity_field_name (str): The name of identity dataset's field with
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the dataset's field to assign to.
+        identity_dataset_path (str): Path of the identity dataset.
+        identity_field_name (str): Name of identity dataset's field with
             values to assign.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        chunk_size (int): The number of features to process per loop.
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        identity_where_sql (str): The SQL where-clause for the identity
-            dataset subselection.
-        log_level (str): The level to log the function at.
-        replacement_value: The value to replace identity field values with.
-        tolerance (float): The tolerance for coincidence, in dataset's units.
+        chunk_size (int): Number of features to process per loop. Defaults to
+            4096.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        identity_where_sql (str): SQL where-clause for the identity dataset
+            subselection.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        replacement_value: Value to replace identity field values with.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
 
     Returns:
-        str: The path of the dataset updated.
+        str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
@@ -114,28 +115,29 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         against smaller sets of data generally avoids this conundrum.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        field_name (str): The name of the dataset's field to assign to.
-        overlay_dataset_path (str): The path of the overlay dataset.
-        overlay_field_name (str): The name of overlay dataset's field with
-            values to assign.
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the dataset's field to assign to.
+        overlay_dataset_path (str): Path of the overlay dataset.
+        overlay_field_name (str): Name of overlay dataset's field with values
+            to assign.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        chunk_size (int): The number of features to process per loop.
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        overlay_central_coincident (bool): The flag to overlay the centrally-
-            coincident value.
-        overlay_most_coincident (bool): The flag to overlay the most
-            coincident value.
-        overlay_where_sql (str): The SQL where-clause for the overlay dataset
+        chunk_size (int): Number of features to process per loop. Defaults to
+            4096.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        overlay_central_coincident (bool): Flag to overlay the centrally-
+            coincident value. Defaults to False.
+        overlay_most_coincident (bool): Flag to overlay the most
+            coincident value. Defaults to False.
+        overlay_where_sql (str): SQL where-clause for the overlay dataset
             subselection.
-        log_level (str): The level to log the function at.
-        replacement_value: The value to replace overlay field values with.
-        tolerance (float): The tolerance for coincidence, in dataset's units.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        replacement_value: Value to replace overlay field values with.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
 
     Returns:
-        str: The path of the dataset updated.
+        str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Overlay-set attributes in %s on %s"
@@ -213,24 +215,25 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         against smaller sets of data generally avoids this conundrum.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        field_name (str): The name of the dataset's field to assign to.
-        union_dataset_path (str): The path of the union dataset.
-        union_field_name (str): The name of union dataset's field with values
-            to assign.
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the dataset's field to assign to.
+        union_dataset_path (str): Path of the union dataset.
+        union_field_name (str): Name of union dataset's field with values to
+            assign.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        chunk_size (int): The number of features to process per loop.
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        union_where_sql (str): The SQL where-clause for the union dataset
+        chunk_size (int): Number of features to process per loop. Defaults to
+            4096.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        union_where_sql (str): SQL where-clause for the union dataset
             subselection.
-        log_level (str): The level to log the function at.
-        replacement_value: The value to replace overlay field values with.
-        tolerance (float): The tolerance for coincidence, in dataset's units.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        replacement_value: Value to replace overlay field values with.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
 
     Returns:
-        str: The path of the dataset updated.
+        str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Union-set attributes in %s on %s"

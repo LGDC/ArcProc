@@ -15,42 +15,46 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
     """Add field to dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
-        field_type (str): Type of field.
-    Kwargs:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        field_type (str): Data type of the field.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
         exist_ok (bool): Flag indicating whether field already existing treated
-            same as field being added. Default is False.
-        field_length (int): Length of field.
-        field_precision (int): Precision of field.
-        field_scale (int): Scale of field.
-        field_is_nullable (bool): Flag indicating if field will be nullable.
-        field_is_required (bool): Flag indicating if field will be required.
-        log_level (str): Level at which to log this function.
+            same as field being added. Defaults to False.
+        field_is_nullable (bool): Flag to indicate if field can be null.
+            Defaults to True.
+        field_is_required (bool): Dlag to indicate if field is required.
+            Defaults to False.
+        field_length (int): Length of field. Only applies to text fields.
+            Defaults to 64.
+        field_precision (int): Precision of the field. Only applies to
+            float/double fields.
+        field_scale (int): Scale of the field. Only applies to
+            float/double fields.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Name of the field added.
+
+    Raises:
+        RuntimeError: If `exist_ok=False` and field already exists.
     """
-    for kwarg_default in [
-            ('exist_ok', False), ('field_is_nullable', True),
-            ('field_is_required', False), ('field_length', 64),
-            ('field_precision', None), ('field_scale', None),
-            ('log_level', 'info')
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Add field %s to %s.", field_name, dataset_path)
     if arcpy.ListFields(dataset_path, field_name):
-        LOG.info("Field already exists.")
-        if not kwargs['exist_ok']:
+        LOG.warning("Field already exists.")
+        if not kwargs.get('exist_ok', False):
             raise RuntimeError("Cannot add existing field (exist_ok=False).")
     else:
         arcpy.management.AddField(
             in_table=dataset_path, field_name=field_name, field_type=field_type,
-            field_length=kwargs['field_length'],
-            field_precision=kwargs['field_precision'],
-            field_scale=kwargs['field_scale'],
-            field_is_nullable=kwargs['field_is_nullable'],
-            field_is_required=kwargs['field_is_required']
+            field_length=kwargs.get('field_length', 64),
+            field_precision=kwargs.get('field_precision'),
+            field_scale=kwargs.get('field_scale'),
+            field_is_nullable=kwargs.get('field_is_nullable', True),
+            field_is_required=kwargs.get('field_is_required', False),
             )
     LOG.log(log_level, "End: Add.")
     return field_name
@@ -87,31 +91,35 @@ def add_field_from_metadata(dataset_path, metadata, **kwargs):
 def add_index(dataset_path, field_names, **kwargs):
     """Add index to dataset fields.
 
-    Index names can only be applied to non-spatial indexes for geodatabase
-    feature classes and tables. There is a limited length allowed from index
-    names, which will be truncated to without warning.
+    Note:
+        Index names can only be applied to non-spatial indexes for
+        geodatabase feature classes and tables.
+        There is a limited length allowed for index names; longer names will
+        be truncated without warning.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_names (iter): Iterable of field names.
-    Kwargs:
-        fail_on_lock_ok (bool): Flag indicating success even if dataset locks
-            prevent adding index.
-        index_name (str): Optional name for index.
-        is_ascending (bool): Flag indicating index built in ascending order.
-        is_unique (bool): Flag indicating index built with unique constraint.
-        log_level (str): Level at which to log this function.
+        dataset_path (str): Path of the dataset.
+        field_names (iter): Collections with names of participating
+            fields.
+
+    Keyword Args:
+        fail_on_lock_ok (bool): Flag to indicate success even if dataset
+            locks prevent adding index. Defaults to False.
+        index_name (str): Name for index. Optional; see note.
+        is_ascending (bool): Flag to indicate index to be built in ascending
+            order. Defaults to False.
+        is_unique (bool): Flag to indicate index to be built with unique
+            constraint. Defaults to False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
     Returns:
-        str.
+        str: Path of the dataset receiving the index.
+
+    Raises:
+        RuntimeError: If more than one field and any are geometry-types.
+        arcpy.ExecuteError: If dataset lock prevents adding index.
     """
-    for kwarg_default in [
-            ('fail_on_lock_ok', False),
-            ('index_name', '_'.join(('ndx',) + tuple(field_names))),
-            ('is_ascending', False), ('is_unique', False),
-            ('log_level', 'info')
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Add index to field(s) %s on %s.",
             field_names, dataset_path)
     index_types = {field['type'].lower() for field
@@ -125,15 +133,18 @@ def add_index(dataset_path, field_names, **kwargs):
         add_kwargs = {'in_features': dataset_path}
     else:
         add_function = arcpy.management.AddIndex
-        add_kwargs = {'in_table': dataset_path, 'fields': field_names,
-                      'index_name': kwargs['index_name'],
-                      'unique': kwargs['is_unique'],
-                      'ascending': kwargs['is_ascending']}
+        add_kwargs = {
+            'in_table': dataset_path, 'fields': field_names,
+            'index_name': kwargs.get('index_name',
+                                     '_'.join(('ndx',) + tuple(field_names))),
+            'unique': kwargs.get('is_unique', False),
+            'ascending': kwargs.get('is_ascending', False),
+            }
     try:
         add_function(**add_kwargs)
     except arcpy.ExecuteError as error:
-        if all([kwargs['fail_on_lock_ok'],
-                error.message.startswith('ERROR 000464')]):
+        if all((kwargs.get('fail_on_lock_ok', False),
+                error.message.startswith('ERROR 000464'))):
             LOG.warning("Lock on %s prevents adding index.", dataset_path)
         else:
             raise
@@ -145,15 +156,19 @@ def copy(dataset_path, output_path, **kwargs):
     """Copy features into a new dataset.
 
     Args:
-        dataset_path (str): Path of dataset.
+        dataset_path (str): Path of the dataset.
         output_path (str): Path of output dataset.
-    Kwargs:
-        schema_only (bool): Flag to copy only the schema, omitting the data.
-        overwrite (bool): Flag to overwrite an existing dataset at the path.
+
+    Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        overwrite (bool): Flag to overwrite the output, if it exists.
+            Defaults to False.
+        schema_only (bool): Flag to only copy the schema, omitting data.
+            Defaults to False.
+
     Returns:
-        str.
+        str: Path of the output dataset.
     """
     for kwarg_default in [
             ('dataset_where_sql', None), ('log_level', 'info'),

@@ -15,14 +15,14 @@ def build_locator(locator_path, **kwargs):
     """Build locator.
 
     Args:
-        locator_path (str): The path of the locator to build.
+        locator_path (str): Path of the locator.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        str: The path of the built locator.
+        str: Path of the built locator.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Build locator %s.", locator_path)
@@ -35,14 +35,14 @@ def build_network(network_path, **kwargs):
     """Build network dataset.
 
     Args:
-        network_path (str): The path of the network to build.
+        network_path (str): Path of the network dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        str: The path of the built network dataset.
+        str: Path of the built network dataset.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Build network %s.", network_path)
@@ -56,15 +56,15 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
     """Compress workspace (usually geodatabase).
 
     Args:
-        geodatabase_path (str): The path of the workspace to compress.
-        disconnect_users (bool): A flag to disconnect users before compressing.
+        geodatabase_path (str): Path of the workspace.
+        disconnect_users (bool): Flag to disconnect users before compressing.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        str: The path of the compressed workspace.
+        str: Path of the compressed workspace.
 
     Raises:
         ValueError: If `workspace_path` doesn't reference a compressable
@@ -96,18 +96,18 @@ def create_file_geodatabase(geodatabase_path, xml_workspace_path=None,
     """Create new file geodatabase.
 
     Args:
-        geodatabase_path (str): The path of the geodatabase to create.
-        xml_workspace_path (str): The path of the XML workspace document to
-            define the geodatabase with.
-        include_xml_data (bool): A Flag to include data stored in the XML
+        geodatabase_path (str): Path of the geodatabase.
+        xml_workspace_path (str): Path of the XML workspace document to
+            initialize the geodatabase with.
+        include_xml_data (bool): Flag to include data stored in the XML
             workspace document, if it has any.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        str: The path of the created file geodatabase.
+        str: Path of the created file geodatabase.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Create file geodatabase %s.", geodatabase_path)
@@ -135,17 +135,17 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path,
     """Create backup of geodatabase as XML workspace document.
 
     Args:
-        geodatabase_path (str): The path of the geodatabase to back up.
-        output_path (str): The path of the XML workspace document to create.
-        include_data (bool): A flag to include data in the output.
-        include_metadata (bool): A flag to include metadata in the output.
+        geodatabase_path (str): Path of the geodatabase.
+        output_path (str): Path of the XML workspace document to create.
+        include_data (bool): Flag to include data in the output.
+        include_metadata (bool): Flag to include metadata in the output.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        str: The path of the created XML workspace document.
+        str: Path of the created XML workspace document.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Create XML backup of geodatabase %s at %s.",
@@ -165,7 +165,7 @@ def dataset_names(workspace_path, include_feature_classes=True,
     """Generate names of datasets in workspace.
 
     Args:
-        workspace_path (str): The path of the workspace to query.
+        workspace_path (str): Path of the workspace.
         include_feature_classes (bool): Flag to include feature class datasets.
         include_rasters (bool): Flag to include raster datasets.
         include_tables (bool): Flag to include nonspatial tables.
@@ -176,7 +176,7 @@ def dataset_names(workspace_path, include_feature_classes=True,
         name_validator (function): Function to validate dataset names yielded.
 
     Yields:
-        str: The name of the next dataset in the workspace.
+        str: Name of the next dataset in the workspace.
     """
     dataset_types = tuple()
     if include_feature_classes:
@@ -200,7 +200,7 @@ def dataset_paths(workspace_path, include_feature_classes=True,
     """Generate paths of datasets in workspace.
 
     Args:
-        workspace_path (str): The path of the workspace to query.
+        workspace_path (str): Path of the workspace.
         include_feature_classes (bool): Flag to include feature class datasets.
         include_rasters (bool): Flag to include raster datasets.
         include_tables (bool): Flag to include nonspatial tables.
@@ -214,7 +214,7 @@ def dataset_paths(workspace_path, include_feature_classes=True,
         dataset_names.
 
     Yields:
-        str: The path of the next dataset in the workspace.
+        str: Path of the next dataset in the workspace.
     """
     for name in dataset_names(workspace_path, include_feature_classes,
                               include_rasters, include_tables, only_top_level,
@@ -231,20 +231,23 @@ def execute_sql(statement, database_path, **kwargs):
     Only works if database_path resolves to an actual SQL database.
 
     Args:
-        statement (str): The SQL statement to execute.
-        database_path (str): The path of the database.
+        statement (str): SQL statement to execute.
+        database_path (str): Path of the database to execute statement in.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        object: The return value from the SQL statement's execution. Likely
+        object: Return value from the SQL statement's execution. Likely
             return types:
                 bool: Success (True) or failure (False) of statement not
-                returning rows.
+                    returning rows.
                 list: A List of lists representing returned rows.
                 object: A single return value.
+
+    Raises:
+        AttributeError: If statement SQL syntax is incorrect.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Execute SQL statement.")
@@ -264,7 +267,7 @@ def is_valid(workspace_path):
     """Indicate whether workspace exists/is valid.
 
     Args:
-        workspace_path (str): The path of the workspace to verify.
+        workspace_path (str): Path of the workspace to verify.
 
     Returns:
         bool: Indicates the workspace is valid (True) or not (False).

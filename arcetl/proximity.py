@@ -17,23 +17,23 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
     """Return mapping dictionary of feature IDs/near-feature info.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        dataset_id_field_name (str): The name of ID field.
-        near_dataset_path (str): The path of the near-dataset.
-        near_id_field_name (str): The name of the near ID field.
-        max_near_distance (float): The maximum distance to search for near-
+        dataset_path (str): Path of the dataset.
+        dataset_id_field_name (str): Name of ID field.
+        near_dataset_path (str): Path of the near-dataset.
+        near_id_field_name (str): Name of the near ID field.
+        max_near_distance (float): Maximum distance to search for near-
             features, in units of the dataset's spatial reference.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        near_rank (int): The nearness rank of the feature to map info for.
-            Default is 1.
-        near_where_sql (str): The SQL where-clause for near-dataset
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        near_rank (int): Nearness rank of the feature to map info for.
+            Defaults to 1.
+        near_where_sql (str): SQL where-clause for near-dataset
             subselection.
 
     Returns:
-        dict: The mapping of the dataset ID to a near-feature info dictionary.
+        dict: Mapping of the dataset ID to a near-feature info dictionary.
             Info dictionary keys: 'id', 'near_id', 'rank', 'distance',
             'angle', 'near_x', 'near_y'.
             'distance' value (float) will match linear unit of the dataset's

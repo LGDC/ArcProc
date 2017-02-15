@@ -14,16 +14,16 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
     """Generate a security token for ArcGIS server.
 
     Args:
-        server_url (str): The URL of the ArcGIS Server instance.
-        username (str): The name of the user requesting the token.
-        password (str): The password for the user listed above.
-        minutes_active (int): The number of minutes token will be active.
+        server_url (str): URL of the ArcGIS Server instance.
+        username (str): Name of the user requesting the token.
+        password (str): Password for the user listed above.
+        minutes_active (int): Number of minutes token will be active.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
-        referer_url (str): The URL of the referring web app.
-        requestor_ip (str): The IP address of the machine using the token.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        referer_url (str): URL of the referring web app.
+        requestor_ip (str): IP address of the machine using the token.
 
     Returns:
         str: The generated token.
@@ -52,18 +52,18 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
     """Toggle service to start or stop.
 
     Args:
-        service_url (str): The URL for the service endpoint.
-        token (str): The security token for REST admininstration.
-        start_service (bool): The flag to start service.
-        stop_service (bool): The flag to stop service.
-            This will only be used if start_service is not flagged.
+        service_url (str): URL for the service endpoint.
+        token (str): Security token for REST admininstration.
+        start_service (bool): Flag to start service.
+        stop_service (bool): Flag to stop service. This will only be used if
+            start_service is not flagged.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): The level to log the function at.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
-        str: The URL for the toggled service.
+        str: URL for the toggled service.
 
     Raises:
         requests.HTTPError: An error in the HTTP request occurred.

@@ -37,25 +37,25 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
     """Generate route info dictionaries for dataset features's closest facility.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        id_field_name (str): The name of the dataset ID field.
-        facility_path (str): The path of the facilities dataset.
-        facility_id_field_name (str): The name of the facility ID field.
-        network_path (str): The path of the network dataset.
-        cost_attribute (str): The name of the network cost attribute to use.
+        dataset_path (str): Path of the dataset.
+        id_field_name (str): Name of the dataset ID field.
+        facility_path (str): Path of the facilities dataset.
+        facility_id_field_name (str): Name of the facility ID field.
+        network_path (str): Path of the network dataset.
+        cost_attribute (str): Name of the network cost attribute to use.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        facility_where_sql (str): The SQL where-clause for facility
-            subselection.
-        log_level (str): The level to log the function at.
-        max_cost (float): The maximum travel cost the search will attempt, in
-            the cost attribute's units.
-        restriction_attributes (iter): An iterable of network restriction
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        facility_where_sql (str): SQL where-clause for facility subselection.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        max_cost (float): Maximum travel cost the search will attempt, in the
+            cost attribute's units.
+        restriction_attributes (iter): Collection of network restriction
             attribute names to use.
-        travel_from_facility (bool): The flag to indicate performing the
-            analysis travelling from (True) or to (False) the facility.
+        travel_from_facility (bool): Flag to indicate performing the analysis
+            travelling from (True) or to (False) the facility. Defaults to
+            False.
 
     Yields:
         dict: The next feature's analysis result details.
@@ -159,30 +159,32 @@ def generate_service_areas(dataset_path, output_path, network_path,
     """Create network service area features.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        output_path (str): The path of the output service areas dataset.
-        network_path (str): The path of the network dataset.
-        cost_attribute (str): The name of the network cost attribute to use.
-        max_distance (float): The distance in travel from the facility the outer
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output service areas dataset.
+        network_path (str): Path of the network dataset.
+        cost_attribute (str): Name of the network cost attribute to use.
+        max_distance (float): Distance in travel from the facility the outer
             ring will extend to, in the dataset's units.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        detailed_features (bool): The flag to generate high-detail features.
-        id_field_name (str): The name of facility ID field.
-        log_level (str): The level to log the function at.
-        overlap_facilities (bool): The flag to overlap different facility
-            service areas.
-        restriction_attributes (iter): An iterable of network restriction
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        detailed_features (bool): Flag to generate high-detail features.
+            Defaults to False.
+        id_field_name (str): Name of facility ID field.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        overlap_facilities (bool): Flag to overlap different facility service
+            areas. Defaults to True.
+        restriction_attributes (iter): Collection of network restriction
             attribute names to use.
-        travel_from_facility (bool): The flag to indicate performing the
-            analysis travelling from (True) or to (False) the facility.
-        trim_value (float): The distance from the network features to trim
-            service areas at.
+        travel_from_facility (bool): Flag to indicate performing the analysis
+            travelling from (True) or to (False) the facility. Defaults to
+            False.
+        trim_value (float): Dstance from the network features to trim service
+            areas at.
 
     Returns:
-        str: The path of the output service areas dataset.
+        str: Path of the output service areas dataset.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
@@ -246,32 +248,34 @@ def generate_service_rings(dataset_path, output_path, network_path,
     """Create facility service ring features using a network dataset.
 
     Args:
-        dataset_path (str): The path of the dataset.
-        output_path (str): The path of the output service rings dataset.
-        network_path (str): The path of the network dataset.
-        cost_attribute (str): The name of the network cost attribute to use.
-        ring_width (float): The distance a service ring represents in travel, in
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output service rings dataset.
+        network_path (str): Path of the network dataset.
+        cost_attribute (str): Name of the network cost attribute to use.
+        ring_width (float): Distance a service ring represents in travel, in
             the dataset's units.
-        max_distance (float): The distance in travel from the facility the outer
+        max_distance (float): Distance in travel from the facility the outer
             ring will extend to, in the dataset's units.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        dataset_where_sql (str): The SQL where-clause for dataset subselection.
-        detailed_features (bool): The flag to generate high-detail features.
-        id_field_name (str): The name of facility ID field.
-        log_level (str): The level to log the function at.
-        overlap_facilities (bool): The flag to overlap different facility
-            service areas.
-        restriction_attributes (iter): An iterable of network restriction
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        detailed_features (bool): Flag to generate high-detail features.
+            Defaults to False.
+        id_field_name (str): Name of facility ID field.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        overlap_facilities (bool): Flag to overlap different facility service
+            areas. Defaults to True.
+        restriction_attributes (iter): Collection of network restriction
             attribute names to use.
-        travel_from_facility (bool): The flag to indicate performing the
-            analysis travelling from (True) or to (False) the facility.
-        trim_value (float): The distance from the network features to trim
+        travel_from_facility (bool): Flag to indicate performing the analysis
+            travelling from (True) or to (False) the facility. Defaults to
+            False.
+        trim_value (float): Distance from the network features to trim
             service areas at.
 
     Returns:
-        str: The path of the output service rings dataset.
+        str: Path of the output service rings dataset.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
