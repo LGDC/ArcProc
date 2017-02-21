@@ -11,30 +11,45 @@ LOG = logging.getLogger(__name__)
 
 
 class ArcExtension(object):
-    """Context manager for an ArcGIS extension."""
+    """Context manager for an ArcGIS extension.
+
+    Attributes:
+        name (str): Name of the extension. Currently, name is same as code.
+        code (str): Internal code for the extension.
+        activated (bool): Flag to indicate extension is activated or not.
+    """
+
+    _result = {
+        'CheckedIn': {'activated': False,
+                      'message': "Extension deactivated.",
+                      'log_level': helpers.log_level('info')},
+        'CheckedOut': {'activated': True,
+                       'message': "Extension activated.",
+                       'log_level': helpers.log_level('info')},
+        'Failed': {'activated': False,
+                   'message': "System failure.",
+                   'log_level': helpers.log_level('warning')},
+        'NotInitialized': {'activated': False,
+                           'message': "No desktop license set.",
+                           'log_level': helpers.log_level('warning')},
+        'Unavailable': {'activated': False,
+                        'message': "Extension unavailable.",
+                        'log_level': helpers.log_level('warning')},
+        }
+    """dict: Information mapped to each extension result string."""
 
     def __init__(self, name, activate_on_init=True):
+        """Initialize instance.
+
+        Args:
+            name (str): Name of the extension.
+            activate_on_init (bool): Flag to indicate extension should be
+                activated automatically.
+        """
         self.name = name
         # For now assume name & code are same.
         self.code = name
         self.activated = None
-        self.result_activated_map = {'CheckedIn': False, 'CheckedOut': True,
-                                     'Failed': False, 'NotInitialized': False,
-                                     'Unavailable': False}
-        self.result_log_level_map = {
-            'CheckedIn': helpers.log_level('info'),
-            'CheckedOut': helpers.log_level('info'),
-            'Failed': helpers.log_level('warning'),
-            'NotInitialized': helpers.log_level('warning'),
-            'Unavailable': helpers.log_level('warning'),
-            }
-        self.result_log_message_map = {
-            'CheckedIn': "{} extension deactivated.".format(self.code),
-            'CheckedOut': "{} extension activated.".format(self.code),
-            'NotInitialized': "No desktop license set.",
-            'Unavailable': "Extension unavailable.",
-            'Failed': "System failure."
-            }
         if activate_on_init:
             self.activate()
 
@@ -45,36 +60,59 @@ class ArcExtension(object):
         self.deactivate()
 
     def _exec_activation(self, exec_function):
-        """Execute extension (de)activation & return boolean of state."""
-        result = exec_function(self.code)
-        LOG.log(self.result_log_level_map.get(result, 0),
-                self.result_log_message_map[result])
-        return self.result_activated_map[result]
+        """Execute extension (de)activation & return boolean of state.
+
+        Args:
+            exec_function: Function or method to call for (de)activation.
+
+        Returns:
+            bool: Indicator that extension is activated (True) or deactivated/
+                failure (False).
+        """
+        result = self._result[exec_function(self.code)]
+        LOG.log(result['log_level'], result['message'])
+        return result['activated']
 
     def activate(self):
-        """Activate extension."""
+        """Activate extension.
+
+        Returns:
+            bool: Indicator that extension is activated or not.
+        """
         self.activated = self._exec_activation(arcpy.CheckOutExtension)
         return self.activated
 
     def deactivate(self):
-        """Deactivate extension."""
+        """Deactivate extension.
+
+        Returns:
+            bool: Indicator that extension is deactivated or not.
+        """
         self.activated = self._exec_activation(arcpy.CheckInExtension)
         return not self.activated
 
 
 class DatasetView(object):
-    """Context manager for an ArcGIS dataset view (feature layer/table view)."""
+    """Context manager for an ArcGIS dataset view (feature layer/table view).
+
+    Attributes:
+        name (str): Name of the view.
+        dataset_path (str): Path of the dataset.
+        dataset_meta (dict): Metadata dictionary for the dataset.
+        is_spatial (bool): Flag indicating if the view is spatial.
+        activated (bool): Flag indicating whether the view is activated.
+    """
 
     def __init__(self, dataset_path, dataset_where_sql=None, view_name=None,
                  force_nonspatial=False):
         """Initialize instance.
 
         Args:
-            dataset_path (str): The path of the dataset.
-            dataset_where_sql (str): The SQL where-clause for dataset
+            dataset_path (str): Path of the dataset.
+            dataset_where_sql (str): SQL where-clause for dataset
                 subselection.
-            view_name (str): The name of the view to create.
-            force_nonspatial (bool): The flag that forces a nonspatial view.
+            view_name (str): Name of the view to create.
+            force_nonspatial (bool): Flag that forces a nonspatial view.
         """
         self.name = view_name if view_name else helpers.unique_name('view')
         self.dataset_path = dataset_path
@@ -83,7 +121,6 @@ class DatasetView(object):
                                not force_nonspatial))
         self._where_sql = dataset_where_sql
         self.activated = self.create()
-        return
 
     def __enter__(self):
         return self
@@ -92,8 +129,19 @@ class DatasetView(object):
         self.discard()
 
     @property
+    def count(self):
+        """int: Number of features in the view."""
+        with arcpy.da.SearchCursor(in_table=self.name,
+                                   field_names=('oid@',)) as cursor:
+            count = len(tuple(None for _ in cursor))
+        return count
+
+    @property
     def where_sql(self):
-        """SQL where-clause property of dataset view."""
+        """str: SQL where-clause property of dataset view subselection.
+
+        Setting this property will change the view's dataset subselection.
+        """
         return self._where_sql
 
     @where_sql.setter
@@ -104,7 +152,6 @@ class DatasetView(object):
                 where_clause=value
                 )
         self._where_sql = value
-        return
 
     @where_sql.deleter
     def where_sql(self):
@@ -113,7 +160,6 @@ class DatasetView(object):
                 in_layer_or_view=self.name, selection_type='clear_selection',
                 )
         self._where_sql = None
-        return
 
     def as_chunks(self, chunk_size):
         """Generate 'chunks' of the view's data as new DatasetView.
@@ -123,6 +169,7 @@ class DatasetView(object):
 
         Args:
             chunk_size (int): Number of features in each chunk-view.
+
         Yields:
             DatasetView.
         """
@@ -155,33 +202,41 @@ class DatasetView(object):
             function = arcpy.management.MakeTableView
         function(self.dataset_path, self.name, where_clause=self.where_sql,
                  workspace=self.dataset_meta['workspace_path'])
-        return
 
     def discard(self):
         """Discard view."""
         if arcpy.Exists(self.name):
             arcpy.management.Delete(self.name)
         self.activated = False
-        return
 
 
 class TempDatasetCopy(object):
-    """Context manager for a temporary dataset copy."""
+    """Context manager for a temporary copy of a dataset.
+
+    Attributes:
+        path (str): Path of the dataset copy.
+        dataset_path (str): Path of the original dataset.
+        dataset_meta (dict): Metadata dictionary for the original dataset.
+        is_spatial (bool): Flag indicating if the view is spatial.
+        where_sql (str): SQL where-clause property of copy subselection.
+        activated (bool): Flag indicating whether the temporary copy is
+            activated.
+    """
 
     def __init__(self, dataset_path, dataset_where_sql=None, output_path=None,
                  force_nonspatial=False):
         """Initialize instance.
 
-        Notes:
+        Note:
             To make a temp dataset without copying template rows:
             `dataset_where_sql="0=1"`
 
         Args:
-            dataset_path (str): The path of the dataset to copy.
-            dataset_where_sql (str): The SQL where-clause for dataset
+            dataset_path (str): Path of the dataset to copy.
+            dataset_where_sql (str): SQL where-clause for dataset
                 subselection.
-            output_path (str): The path of the dataset to create.
-            force_nonspatial (bool): The flag that forces a nonspatial copy.
+            output_path (str): Path of the dataset to create.
+            force_nonspatial (bool): Flag that forces a nonspatial copy.
         """
         self.path = (output_path if output_path
                      else helpers.unique_temp_dataset_path('temp'))
@@ -191,7 +246,6 @@ class TempDatasetCopy(object):
                                not force_nonspatial))
         self.where_sql = dataset_where_sql
         self.activated = self.create()
-        return
 
     def __enter__(self):
         return self
@@ -208,14 +262,12 @@ class TempDatasetCopy(object):
         with DatasetView(self.dataset_path, dataset_where_sql=self.where_sql,
                          force_nonspatial=not self.is_spatial) as dataset_view:
             function(dataset_view.name, self.path)
-        return
 
     def discard(self):
         """Discard dataset."""
         if arcpy.Exists(self.path):
             arcpy.management.Delete(self.path)
         self.activated = False
-        return
 
 
 def _domain_object_metadata(domain_object):
@@ -231,7 +283,7 @@ def _domain_object_metadata(domain_object):
         #'merge_policy': getattr(domain_object, 'mergePolicy'),
         #'split_policy': getattr(domain_object, 'splitPolicy'),
         'code_description_map': getattr(domain_object, 'codedValues', {}),
-        'range': getattr(domain_object, 'range', tuple()),
+        'range': getattr(domain_object, 'range', ()),
         'type': getattr(domain_object, 'type'),
         }
     return meta
@@ -256,9 +308,10 @@ def dataset_metadata(dataset_path):
     """Return dictionary of dataset metadata.
 
     Args:
-        dataset_path (str): Path of dataset.
+        dataset_path (str): Path of the dataset.
+
     Returns:
-        dict.
+        dict: Metadata for dataset.
     """
     arc_object = arcpy.Describe(dataset_path)
     meta = {
@@ -303,69 +356,77 @@ def domain_metadata(domain_name, workspace_path):
     """Return dictionary of dataset metadata.
 
     Args:
-        dataset_path (str): Path of dataset.
+        domain_name (str): Name of the domain.
+        workspace_path (str): Path of the workspace domain is in.
+
     Returns:
-        dict.
+        dict: Metadata for domain.
     """
-    meta = _domain_object_metadata(
-        next(domain for domain in arcpy.da.ListDomains(workspace_path)
-             if domain.name.lower() == domain_name.lower())
+    domain_object = next(
+        domain for domain in arcpy.da.ListDomains(workspace_path)
+        if domain.name.lower() == domain_name.lower()
         )
+    meta = _domain_object_metadata(domain_object)
     return meta
 
 
 def field_metadata(dataset_path, field_name):
     """Return dictionary of field metadata.
 
-    Field name is case-insensitive.
+    Note:
+        Field name is case-insensitive.
 
     Args:
-        dataset_path (str): Path of dataset.
-        field_name (str): Name of field.
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+
     Returns:
-        dict.
+        dict: Metadata for field.
     """
     try:
-        meta = _field_object_metadata(
-            arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
-            )
+        field_object = arcpy.ListFields(dataset=dataset_path,
+                                        wild_card=field_name)[0]
     except IndexError:
+        ##TODO: Replace with new FieldNotPresentError/NoSuchFieldError.
         raise AttributeError(
             "Field {} not present on {}".format(field_name, dataset_path)
             )
+    meta = _field_object_metadata(field_object)
     return meta
 
 
 def linear_unit_string(measure, spatial_reference_source):
-    """Return unit of measure as a linear unit string."""
+    """Return unit of measure as a linear unit string.
+
+    Args:
+        measure (float, int, str): Count of measure.
+        spatial_reference_source: Source object for determining the spatial
+            reference.
+
+    Returns:
+        str: Linear unit as a string.
+    """
     linear_unit = getattr(spatial_reference(spatial_reference_source),
                           'linearUnitName', 'Unknown'),
     return '{} {}'.format(measure, linear_unit)
 
 
 def python_type(type_description):
-    """Return instance of Python type from Arc type description."""
+    """Return object representing the Python type.
+
+    Args:
+        type_description (str): Arc-style type description/code.
+
+    Returns:
+        Python object representing the type.
+    """
     instance = {
         'double': float, 'single': float,
         'integer': int, 'long': int, 'short': int, 'smallinteger': int,
         'guid': uuid.UUID,
         'string': str, 'text': str,
         }
-    return instance[type_description]
-
-
-def spatial_reference_metadata(item):
-    """Return dictionary of spatial reference metadata."""
-    ##TODO: Finish stub.
-    ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
-    arc_object = spatial_reference(item)
-    meta = {
-        'arc_object': arc_object,
-        'spatial_reference_id': arc_object.factoryCode,
-        'angular_unit': getattr(arc_object, 'angularUnitName', None),
-        'linear_unit': getattr(arc_object, 'linearUnitName', None),
-        }
-    return meta
+    return instance[type_description.lower()]
 
 
 def spatial_reference(item):
@@ -389,13 +450,37 @@ def spatial_reference(item):
     return arc_object
 
 
+def spatial_reference_metadata(item):
+    """Return dictionary of spatial reference metadata.
+
+    Args:
+        item (int): Spatial reference ID.
+             (str): Path of reference dataset/file.
+             (arcpy.Geometry): Reference geometry object.
+
+    Returns:
+        dict: Metadata for the derived spatial reference.
+    """
+    ##TODO: Finish stub.
+    ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
+    arc_object = spatial_reference(item)
+    meta = {
+        'arc_object': arc_object,
+        'spatial_reference_id': arc_object.factoryCode,
+        'angular_unit': getattr(arc_object, 'angularUnitName', None),
+        'linear_unit': getattr(arc_object, 'linearUnitName', None),
+        }
+    return meta
+
+
 def workspace_metadata(workspace_path):
     """Return dictionary of workspace metadata.
 
     Args:
-        workspace_path (str): Path of workspace.
+        workspace_path (str): Path of the workspace.
+
     Returns:
-        dict.
+        dict: Metadata for workspace.
     """
     ##TODO: Finish stub.
     ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
@@ -406,9 +491,9 @@ def workspace_metadata(workspace_path):
         'name': getattr(arc_object, 'name'),
         'path': getattr(arc_object, 'catalogPath'),
         'data_type': getattr(arc_object, 'dataType'),
-        'is_geodatabase': any(['AccessWorkspace' in prog_id,
+        'is_geodatabase': any(('AccessWorkspace' in prog_id,
                                'FileGDBWorkspace' in prog_id,
-                               'SdeWorkspace' in prog_id]),
+                               'SdeWorkspace' in prog_id)),
         'is_folder': prog_id == '',
         'is_file_geodatabase': 'FileGDBWorkspace' in prog_id,
         'is_enterprise_database': 'SdeWorkspace' in prog_id,
