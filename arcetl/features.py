@@ -148,7 +148,7 @@ def eliminate_interior_rings(dataset_path, max_area=None,
                              max_percent_total_area=None, **kwargs):
     """Eliminate interior rings of polygon features.
 
-    Notes:
+    Note:
         If no value if provided for either max_area or max_percent_total_area,
         (nearly) all interior rings will be removed. Technically,
         max_percent_total_area will be set to 99.9999.

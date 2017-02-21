@@ -23,7 +23,8 @@ TYPE_ID_FUNCTION_MAP = {
     'long': (lambda x: int(x.split(' : ')[0]) if x else None),
     'double': (lambda x: float(x.split(' : ')[0]) if x else None),
     'single': (lambda x: float(x.split(' : ')[0]) if x else None),
-    'string': (lambda x: x.split(' : ')[0] if x else None)
+    'string': (lambda x: x.split(' : ')[0] if x else None),
+    'text': (lambda x: x.split(' : ')[0] if x else None),
     }
 
 
