@@ -1,4 +1,5 @@
 """Interfaces for ArcObjects."""
+import datetime
 import logging
 import uuid
 
@@ -421,8 +422,10 @@ def python_type(type_description):
         Python object representing the type.
     """
     instance = {
+        'date': datetime.datetime,
         'double': float, 'single': float,
         'integer': int, 'long': int, 'short': int, 'smallinteger': int,
+        'geometry': arcpy.Geometry,
         'guid': uuid.UUID,
         'string': str, 'text': str,
         }

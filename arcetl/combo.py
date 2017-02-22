@@ -1,74 +1,90 @@
 """Combination operations."""
-import datetime as _datetime
-import logging as _logging
+import datetime
+import logging
 
 from arcetl import arcobj
 from arcetl import attributes
 from arcetl import helpers
 
 
-LOG = _logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 def adjust_for_shapefile(dataset_path, **kwargs):
     """Adjust features to meet shapefile requirements.
 
-    Adjustments currently made:
-    * Convert datetime values to date or time based on
-    preserve_time_not_date flag.
-    * Convert nulls to replacement value.
+    Note:
+        Shapefiles cannot have null-values. Nulls will be replaced with the
+            values provided in the null replacement keyword arguments.
+        Shapefiles only have dates in the date/datetime field. Times will be
+            truncated in the adjustment.
+
     Args:
-        dataset_path (str): Path of dataset.
-    Kwargs:
-        datetime_null_replacement (datetime.date): Replacement value for nulls
-            in datetime fields.
-        integer_null_replacement (int): Replacement value for nulls in integer
-            fields.
-        numeric_null_replacement (float): Replacement value for nulls in
-            numeric fields.
-        string_null_replacement (str): Replacement value for nulls in string
-            fields.
+        dataset_path (str): Path of the dataset.
+
+    Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level at which to log this function.
+        date_null_replacement (datetime.date): Replacement value for
+            null-values in date fields. Defaults to datetime.date.min.
+        integer_null_replacement (int): Replacement value for null-values in
+            integer fields. Defaults to 0.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        numeric_null_replacement (float): Replacement value for null-values
+            in numeric fields. Defaults to 0.0.
+        string_null_replacement (str): Replacement value for null-values in
+            string fields. Defaults to ''.
+
     Returns:
-        str.
+        str: Path of the adjusted dataset.
     """
-    for kwarg_default in [
-            ('dataset_where_sql', None),
-            ('datetime_null_replacement', _datetime.date.min),
-            ('integer_null_replacement', 0), ('numeric_null_replacement', 0.0),
-            ('string_null_replacement', ''), ('log_level', 'info')
-        ]:
-        kwargs.setdefault(*kwarg_default)
-    log_level = helpers.log_level(kwargs['log_level'])
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
             dataset_path)
-    type_function_map = {
-        # Invalid shapefile field types: 'blob', 'raster'.
-        # Shapefiles can only store dates, not times.
-        'date': (lambda x: kwargs['datetime_null_replacement']
-                 if x is None else x.date()),
-        'double': (lambda x: kwargs['numeric_null_replacement']
-                   if x is None else x),
-        #'geometry',  # Passed-through: Shapefile loader handles this.
-        #'guid': Not valid shapefile type.
-        'integer': (lambda x: kwargs['integer_null_replacement']
-                    if x is None else x),
-        #'oid',  # Passed-through: Shapefile loader handles this.
-        'single': (lambda x: kwargs['numeric_null_replacement']
-                   if x is None else x),
-        'smallinteger': (lambda x: kwargs['integer_null_replacement']
-                         if x is None else x),
-        'string': (lambda x: kwargs['string_null_replacement']
-                   if x is None else x)
-        }
+    shp_field_convert_types = (
+        'Date', 'Double', 'Single', 'Integer', 'SmallInteger', 'String',
+        # Shapefile loader handles these types.
+        # 'Geometry', 'OID',
+        # Invalid shapefile types.
+        # 'Blob', 'GlobalID', 'Guid', 'Raster',
+        )
+    def shp_value_convertor_factory(field_type):
+        """Return value-convertor function for shapefile-valid values."""
+        def _date_convertor(value):
+            if value is None:
+                value = kwargs.get('date_null_replacement', datetime.date.min)
+            else:
+                value = value.date()
+            return value
+        def _integer_convertor(value):
+            if value is None:
+                value = kwargs.get('integer_null_replacement', 0)
+            return value
+        def _numeric_convertor(value):
+            if value is None:
+                value = kwargs.get('numeric_null_replacement', 0.0)
+            return value
+        def _string_convertor(value):
+            if value is None:
+                value = kwargs.get('string_null_replacement', '')
+            return value
+        type_convertor = {
+            'Date': _date_convertor,
+            'Double': _numeric_convertor,
+            'Integer': _integer_convertor,
+            'Single': _numeric_convertor,
+            'SmallInteger': _integer_convertor,
+            'String': _string_convertor,
+            }
+        return type_convertor[field_type.lower()]
     for field in arcobj.dataset_metadata(dataset_path)['fields']:
-        if field['type'].lower() in type_function_map:
-            attributes.update_by_function(
-                dataset_path, field['name'],
-                function=type_function_map[field['type'].lower()],
-                dataset_where_sql=kwargs['dataset_where_sql'],
-                log_level=None
-                )
+        # Ignore fields that conversion won't affect in copying to shapefiles.
+        if field['type'] not in shp_field_convert_types:
+            continue
+        attributes.update_by_function(
+            dataset_path, field['name'],
+            function=shp_value_convertor_factory(field['type']),
+            dataset_where_sql=kwargs.get('dataset_where_sql'),
+            log_level=None
+            )
     LOG.log(log_level, "End: Adjust.")
     return dataset_path
