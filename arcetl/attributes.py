@@ -25,6 +25,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         dataset_path (str): Path of the dataset.
         field_names (iter): Collection of field names. Names will be the keys
             in the dictionary mapping to their values.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -53,6 +54,7 @@ def as_iters(dataset_path, field_names=None, **kwargs):
         field_names (iter): Collection of field names. The order of the names
             in the collection will determine where its value will fall in the
             yielded item.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         iter_type: Iterable type to yield. Defaults to tuple.
@@ -85,6 +87,7 @@ def coordinate_node_info_map(dataset_path, from_id_field_name,
         to_id_field_name (str): Name of the to-ID field.
         update_nodes (bool): Flag to indicate whether to update the nodes
             based on the feature geometries.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -169,6 +172,7 @@ def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
         id_field_names (iterm, str): Name(s) of the ID field(s). Defaults to
             feature object ID.
         field_names (iter, str): Name(s) of the field(s).
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -215,6 +219,7 @@ def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
         to_id_field_name (str): Name of the to-ID field.
         update_nodes (bool): Flag to indicate whether to update the nodes
             based on the feature geometries.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -267,6 +272,7 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
         code_field_name (str): Name of the field with related domain code.
         domain_name (str): Name of the domain.
         domain_workspace_path (str) Path of the workspace the domain is in.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -298,6 +304,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         expression (str): Python string expression to evaluate values from.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -335,6 +342,7 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
             identify a feature.
         update_type (str): Code indicating what values to apply to matched
             features.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -364,6 +372,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         function (types.FunctionType): Function to get values from.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         arg_field_names (iter): Iterable of the field names whose values will
@@ -404,7 +413,8 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
                            **kwargs):
     """Update attribute values by finding them in a function-created mapping.
 
-    Wraps update_by_function.
+    Note:
+        Wraps update_by_function.
 
     Args:
         dataset_path (str): Path of the dataset.
@@ -412,6 +422,7 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
         function (types.FunctionType): Function to get values from.
         key_field_name (str): Name of the field whose values will be the
             mapping's key.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -440,14 +451,16 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
 def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     """Update attribute values by cascading through the geometry properties.
 
-    If the spatial reference ID is not specified, the spatial reference of
-    the dataset is used.
+    Note:
+        If the spatial reference ID is not specified, the spatial reference of
+        the dataset is used.
 
     Args:
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         geometry_properties (iter): Collection of the geometry property
             names in object-access order to retrieve the update value.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -516,6 +529,7 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
         join_field_name (str): Name of the join-field.
         on_field_pairs (iter): Iterable of the field name pairs to used to
             determine join.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -569,6 +583,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         field_name (str): Name of the field.
         overlay_dataset_path (str): Path of the overlay-dataset.
         overlay_field_name (str): Name of the overlay-field.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -657,6 +672,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -689,6 +705,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         value (types.FunctionType): Static value to assign.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.

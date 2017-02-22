@@ -21,6 +21,7 @@ def adjust_for_shapefile(dataset_path, **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.

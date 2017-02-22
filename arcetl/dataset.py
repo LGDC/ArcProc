@@ -102,6 +102,7 @@ def add_index(dataset_path, field_names, **kwargs):
         dataset_path (str): Path of the dataset.
         field_names (iter): Collections with names of participating
             fields.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         fail_on_lock_ok (bool): Flag to indicate success even if dataset
@@ -159,6 +160,7 @@ def copy(dataset_path, output_path, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         output_path (str): Path of output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -206,6 +208,7 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     Args:
         dataset_path (str): Path of the dataset .
         field_metadata_list (iter): Collection of field metadata dictionaries.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         geometry_type (str): Type of geometry, if a spatial dataset.
@@ -242,6 +245,7 @@ def delete(dataset_path, **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -262,6 +266,7 @@ def delete_field(dataset_path, field_name, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -284,6 +289,7 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         new_field_name (str): Name of the field to call duplicate.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -309,6 +315,7 @@ def feature_count(dataset_path, **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
 
    Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -351,6 +358,7 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
         on_field_name (str): Name of the field to join the dataset on.
         on_join_field_name (str): Name of the field to join the join-dataset
             on.
+        **kwargs: Arbitrary keyword arguments. See below.
 
    Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -380,6 +388,7 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         new_field_name (str): Name to change field to.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -406,6 +415,7 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
         dataset_path (str): Path of the dataset.
         allow_view (bool): Flag to allow or revoke view privileges.
         allow_edit (bool): Flag to allow or revoke edit privileges.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.

@@ -27,6 +27,7 @@ def planarize(dataset_path, output_path, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         output_path (str): Path of the output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -67,6 +68,7 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         output_path (str): Path of the output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -139,6 +141,7 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
         spatial_reference_id (int): EPSG code indicating the spatial
             reference output geometry will be in. Defaults to 4326
             (unprojected WGS84).
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
@@ -180,6 +183,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
         output_path (str): Path of the output dataset.
         field_names (iter): Collection of the field names, in the desired
             order or output.
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         file_mode (str): Code indicating the file mode for writing. Defaults
@@ -223,6 +227,7 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
         spatial_reference_id (int): EPSG code indicating the spatial
             reference output geometry will be in. Defaults to 4326
             (unprojected WGS84).
+        **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
