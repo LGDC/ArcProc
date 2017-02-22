@@ -11,10 +11,20 @@ LOG = logging.getLogger(__name__)
 
 
 class ArcETL(object):
-    """Manages a single Arc-style ETL process."""
+    """Manages a single Arc-style ETL process.
 
-    def __init__(self, name=None):
-        self.name = name if name else 'Unnamed ETL'
+    Attributes:
+        name (str): Name for the ETL being managed.
+        transform_path (str): Path of the current transform dataset.
+    """
+
+    def __init__(self, name='Unnamed ETL'):
+        """Initialize instance.
+
+        Args:
+            name (str): Name for the ETL.
+        """
+        self.name = name
         self.transform_path = None
         LOG.info("Initialized ArcETL instance for %s.", self.name)
 
@@ -28,13 +38,24 @@ class ArcETL(object):
         """Clean up instance."""
         LOG.info("Closing ArcETL instance for %s.", self.name)
         # Clear the transform dataset.
-        if all([self.transform_path, dataset.is_valid(self.transform_path)]):
+        if all((self.transform_path, dataset.is_valid(self.transform_path))):
             dataset.delete(self.transform_path, log_level=None)
             self.transform_path = None
         LOG.info("Closed.")
 
     def extract(self, extract_path, extract_where_sql=None, schema_only=False):
-        """Extract features to transform workspace."""
+        """Extract features to transform workspace.
+
+        Args:
+            extract_path (str): Path of the dataset to extract.
+            extract_where_sql (str): SQL where-clause for extract
+                subselection.
+            schema_only (bool): Flag to extract only the schema, ignoring
+                all dataset features.
+
+        Returns:
+            str: Path of the transform-dataset with extracted features.
+        """
         LOG.info("Start: Extract %s.", extract_path)
         self.transform_path = dataset.copy(
             dataset_path=extract_path,
@@ -46,7 +67,19 @@ class ArcETL(object):
         return self.transform_path
 
     def load(self, load_path, load_where_sql=None, preserve_features=False):
-        """Load features from transform- to load-dataset."""
+        """Load features from transform- to load-dataset.
+
+        Args:
+            load_path (str): Path of the dataset to load.
+            load_where_sql (str): SQL where-clause for loading
+                subselection.
+            preserve_features (bool): Flag to indicate whether to remove
+                features in the load-dataset before adding the transformed
+                features.
+
+        Returns:
+            str: Path of the dataset loaded.
+        """
         LOG.info("Start: Load %s.", load_path)
         # Load to an existing dataset.
         if dataset.is_valid(load_path):
@@ -63,12 +96,18 @@ class ArcETL(object):
         LOG.info("End: Load.")
         return load_path
 
-    def make_asssertion(self, assertion_name, **kwargs):
-        """Check whether an assertion is valid or not."""
-        raise NotImplementedError
-
     def transform(self, transformation, **kwargs):
-        """Run transform operation as defined in the workspace."""
+        """Run transform operation as defined in the workspace.
+
+        Args:
+            transformation: Function or method to perform a transformation
+                upon the transform-dataset.
+            **kwargs: Arbitrary keyword arguments; passed through to the
+                transformation.
+
+        Returns:
+            Result object of the transformation.
+        """
         # Unless otherwise stated, dataset path is self.transform_path.
         if 'dataset_path' not in kwargs:
             kwargs['dataset_path'] = self.transform_path
@@ -76,12 +115,12 @@ class ArcETL(object):
         if all(['output_path' in funcsigs.signature(transformation).parameters,
                 'output_path' not in kwargs]):
             kwargs['output_path'] = helpers.unique_temp_dataset_path(
-                transformation.__name__
+                getattr(transformation, '__name__', 'transform')
                 )
         result = transformation(**kwargs)
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:
             if dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path, log_level=None)
-            self.transform_path = result
+            self.transform_path = kwargs['output_path']
         return result
