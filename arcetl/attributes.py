@@ -404,7 +404,11 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                                    row[args_idx:]))
             new_value = function(*func_args, **func_kwargs)
             if row[0] != new_value:
-                cursor.updateRow([new_value] + row[1:])
+                try:
+                    cursor.updateRow([new_value] + row[1:])
+                except RuntimeError:
+                    LOG.error("Offending value is %s", new_value)
+                    raise RuntimeError
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -437,8 +441,8 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by function %s mapping with key in %s."),
             field_name, dataset_path, function, key_field_name)
-    update_function = functools.partial(function().get,
-                                        kwargs.get('default_value'))
+    update_map = function()
+    update_function = (lambda x: update_map.get(x, kwargs.get('default_value')))
     update_by_function(
         dataset_path, field_name, update_function,
         field_as_first_arg=False, arg_field_names=(key_field_name,),

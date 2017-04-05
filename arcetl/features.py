@@ -235,7 +235,8 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
     return dataset_path
 
 
-def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
+def insert_from_dicts(dataset_path, insert_features, field_names,
+                      **kwargs):
     """Insert features into the dataset from an iterable of dictionaries.
 
     Args:
