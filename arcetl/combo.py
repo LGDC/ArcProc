@@ -42,7 +42,7 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
             dataset_path)
     shp_field_convert_types = (
-        'Date', 'Double', 'Single', 'Integer', 'SmallInteger', 'String',
+        'date', 'double', 'single', 'integer', 'smallinteger', 'string',
         # Shapefile loader handles these types.
         # 'Geometry', 'OID',
         # Invalid shapefile types.
@@ -69,18 +69,19 @@ def adjust_for_shapefile(dataset_path, **kwargs):
                 value = kwargs.get('string_null_replacement', '')
             return value
         type_convertor = {
-            'Date': _date_convertor,
-            'Double': _numeric_convertor,
-            'Integer': _integer_convertor,
-            'Single': _numeric_convertor,
-            'SmallInteger': _integer_convertor,
-            'String': _string_convertor,
+            'date': _date_convertor,
+            'double': _numeric_convertor,
+            'integer': _integer_convertor,
+            'single': _numeric_convertor,
+            'smallinteger': _integer_convertor,
+            'string': _string_convertor,
             }
         return type_convertor[field_type.lower()]
     for field in arcobj.dataset_metadata(dataset_path)['fields']:
         # Ignore fields that conversion won't affect in copying to shapefiles.
-        if field['type'] not in shp_field_convert_types:
+        if field['type'].lower() not in shp_field_convert_types:
             continue
+        LOG.info("Adjusting values in %s for shapefile output.", field['name'])
         attributes.update_by_function(
             dataset_path, field['name'],
             function=shp_value_convertor_factory(field['type']),
