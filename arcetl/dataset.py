@@ -63,6 +63,8 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
 def add_field_from_metadata(dataset_path, add_metadata, **kwargs):
     """Add field to dataset from metadata dictionary.
 
+    Wraps add_field.
+
     Args:
         dataset_path (str): Path of the dataset.
         add_metadata (dict): Metadata with field properties for adding.
@@ -76,17 +78,13 @@ def add_field_from_metadata(dataset_path, add_metadata, **kwargs):
     Returns:
         str: Name of the field added.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Add field %s to %s.",
-            add_metadata['name'], dataset_path)
     field_keywords = ('name', 'type', 'length', 'precision', 'scale',
                       'is_nullable', 'is_required')
     add_kwargs = {'field_{}'.format(keyword): add_metadata[keyword]
                   for keyword in field_keywords if keyword in add_metadata}
-    add_field(dataset_path, exist_ok=kwargs.get('exist_ok', False),
-              log_level=None, **add_kwargs)
-    LOG.log(log_level, "End: Add.")
-    return add_metadata['name']
+    add_kwargs.update(kwargs)
+    result = add_field(dataset_path, **add_kwargs)
+    return result
 
 
 def add_index(dataset_path, field_names, **kwargs):
