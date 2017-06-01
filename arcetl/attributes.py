@@ -16,6 +16,66 @@ from arcetl import helpers
 LOG = logging.getLogger(__name__)
 
 
+class FeatureMatcher(object):
+    """Object for tracking features that match under certain criteria."""
+
+    def __init__(self, dataset_path, identifier_field_names,
+                 dataset_where_sql=None):
+        """Initialize instance.
+
+        Args:
+            dataset_path (str): Path of the dataset.
+            activate_on_init (bool): Flag to indicate extension should be
+                activated automatically.
+            identifier_field_names (iter): Iterable of the field names used
+                to identify a feature.
+            dataset_where_sql (str): SQL where-clause for dataset
+                subselection. Default is None.
+        """
+        self.assigned = collections.Counter()
+        self.matched = collections.Counter(
+            as_iters(dataset_path, identifier_field_names,
+                     dataset_where_sql=dataset_where_sql)
+            )
+
+    def assigned_count(self, identifier_values):
+        """Return the assigned count for features with the given identifier.
+
+        Args:
+            identifier_values (iter): Iterable of the attribute values that
+                identify the feature(s) to query.
+        """
+        return self.assigned[tuple(identifier_values)]
+
+    def increment_assigned(self, identifier_values):
+        """Increment the assigned count for features wtih given identifier.
+
+        Args:
+            identifier_values (iter): Iterable of the attribute values that
+                identify the feature(s) to query.
+        """
+        self.assigned[tuple(identifier_values)] += 1
+        return self.assigned[tuple(identifier_values)]
+
+    def is_duplicate(self, identifier_values):
+        """Return True if more than one feature with given identifier.
+
+        Args:
+            identifier_values (iter): Iterable of the attribute values that
+                identify the feature(s) to query.
+        """
+        return self.matched[tuple(identifier_values)] > 1
+
+    def match_count(self, identifier_values):
+        """Return the match count for features with given identifier.
+
+        Args:
+            identifier_values (iter): Iterable of the attribute values that
+                identify the feature(s) to query.
+        """
+        return self.matched[tuple(identifier_values)]
+
+
 def as_dicts(dataset_path, field_names=None, **kwargs):
     """Generator for dictionaries of feature attributes.
 
@@ -331,9 +391,9 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
     """Update attribute values by aggregating info about matching features.
 
     Valid update_type codes:
-        'flag-value': Apply the flag_value argument value to matched features.
-        'match-count': Apply the count of matched features.
-        'sort-order': Apply the position of the feature sorted with matches.
+        'flag_value': Apply the flag_value argument value to matched features.
+        'match_count': Apply the count of matched features.
+        'sort_order': Apply the position of the feature sorted with matches.
 
     Args:
         dataset_path (str): Path of the dataset.
@@ -347,10 +407,10 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         flag_value: Value to apply to matched features. Only used when
-            update_type='flag-value'.
+            update_type='flag_value'.
         log_level (str): Level to log the function at. Defaults to 'info'.
         sort_field_names (iter): Iterable of field names used to sort matched
-            features. Only used when update_type='sort-order'.
+            features. Only affects output when update_type='sort_order'.
 
     Returns:
         str: Name of the field updated.
@@ -359,10 +419,44 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by feature-matching %s on identifiers (%s)."),
             field_name, dataset_path, update_type, identifier_field_names)
-    # valid_update_value_types = ('flag-value', 'match-count', 'sort-order')
-    raise NotImplementedError
-    # LOG.log(log_level, "End: Update.")
-    # return field_name
+    matcher = FeatureMatcher(dataset_path, identifier_field_names,
+                             kwargs.get('dataset_where_sql'))
+
+    valid_update_types = ('flag_value', 'match_count', 'sort_order')
+    if update_type not in valid_update_types:
+        raise ValueError("update_type must be one of: {}.".format(
+            ",".join(valid_update_types)))
+    if update_type == 'flag_value' and 'flag_value' not in kwargs:
+        raise TypeError("When update_type == 'flag_value',"
+                        " flag_value is a required keyword argument.")
+    field_names = (tuple(identifier_field_names)
+                   + tuple(kwargs.get('sort_field_names', ()))
+                   + (field_name,))
+    postfix_sql = "order by " + ", ".join(kwargs.get('sort_field_names', ()))
+    with arcpy.da.UpdateCursor(dataset_path, field_names,
+                               kwargs.get('dataset_where_sql'),
+                               sql_clause=(None, postfix_sql)) as cursor:
+        for row in cursor:
+            identifier_values = row[:len(identifier_field_names)]
+            old_value = row[-1]
+            if update_type == 'flag_value':
+                new_value = (kwargs['flag_value']
+                             if matcher.is_duplicate(identifier_values)
+                             else old_value)
+            elif update_type == 'match_count':
+                new_value = matcher.match_count(identifier_values)
+            elif update_type == 'sort_order':
+                matcher.increment_assigned(identifier_values)
+                new_value = matcher.assigned_count(identifier_values)
+            if old_value != new_value:
+                new_row = row[:-1] + [new_value]
+                try:
+                    cursor.updateRow(new_row)
+                except RuntimeError:
+                    LOG.error("Offending value is %s", new_value)
+                    raise RuntimeError
+    LOG.log(log_level, "End: Update.")
+    return field_name
 
 
 def update_by_function(dataset_path, field_name, function, **kwargs):
@@ -405,7 +499,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
             new_value = function(*func_args, **func_kwargs)
             if row[0] != new_value:
                 try:
-                    cursor.updateRow([new_value] + row[1:])
+                    cursor.updateRow([new_value,] + row[1:])
                 except RuntimeError:
                     LOG.error("Offending value is %s", new_value)
                     raise RuntimeError
