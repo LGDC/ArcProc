@@ -195,6 +195,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
     Returns:
         str: Path of the CSV-file.
     """
+    field_names = tuple(field_names)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Convert rows to CSVfile %s.", output_path)
     with open(output_path, kwargs.get('file_mode', 'wb')) as csvfile:

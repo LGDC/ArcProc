@@ -237,7 +237,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
         attributes.update_by_function(
             output_path, kwargs['id_field_name'],
             function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
-            field_as_first_arg=False, arg_field_names=['Name'], log_level=None
+            field_as_first_arg=False, arg_field_names=('Name',), log_level=None
             )
     LOG.log(log_level, "End: Generate.")
     return output_path
@@ -331,7 +331,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
         attributes.update_by_function(
             output_path, kwargs['id_field_name'],
             function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
-            field_as_first_arg=False, arg_field_names=['Name'], log_level=None
+            field_as_first_arg=False, arg_field_names=('Name',), log_level=None
             )
     LOG.log(log_level, "End: Generate.")
     return output_path

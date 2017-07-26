@@ -121,6 +121,8 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
     Returns:
         str: Path of the dataset updated.
     """
+    dissolve_field_names = (tuple(dissolve_field_names)
+                            if dissolve_field_names else None)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
@@ -252,6 +254,7 @@ def insert_from_dicts(dataset_path, insert_features, field_names,
     Returns:
         str: Path of the dataset updated.
     """
+    field_names = tuple(field_names)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
@@ -283,6 +286,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     Returns:
         str: Path of the dataset updated.
     """
+    field_names = tuple(field_names)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
@@ -315,6 +319,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     Returns:
         str: Path of the dataset updated.
     """
+    field_names = tuple(field_names) if field_names else None
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)

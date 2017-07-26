@@ -119,6 +119,7 @@ def add_index(dataset_path, field_names, **kwargs):
         RuntimeError: If more than one field and any are geometry-types.
         arcpy.ExecuteError: If dataset lock prevents adding index.
     """
+    field_names = tuple(field_names)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Add index to field(s) %s on %s.",
             field_names, dataset_path)
@@ -136,7 +137,7 @@ def add_index(dataset_path, field_names, **kwargs):
         add_kwargs = {
             'in_table': dataset_path, 'fields': field_names,
             'index_name': kwargs.get('index_name',
-                                     '_'.join(('ndx',) + tuple(field_names))),
+                                     '_'.join(('ndx',) + field_names)),
             'unique': kwargs.get('is_unique', False),
             'ascending': kwargs.get('is_ascending', False),
             }

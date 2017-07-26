@@ -95,9 +95,10 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     Yields:
         dict: Mapping of feature attribute field names to values.
     """
+    field_names = tuple(field_names) if field_names else '*'
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_id'))
     with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=field_names if field_names else '*',
+        in_table=dataset_path, field_names=field_names,
         where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
         ) as cursor:
         for feature in cursor:
@@ -125,9 +126,10 @@ def as_iters(dataset_path, field_names=None, **kwargs):
     Yields:
         iter: Collection of attribute values.
     """
+    field_names = tuple(field_names) if field_names else '*'
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_id'))
     with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=field_names if field_names else '*',
+        in_table=dataset_path, field_names=field_names,
         where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
         ) as cursor:
         for feature in cursor:
@@ -350,7 +352,7 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
     update_by_function(
         dataset_path, field_name,
         function=domain_meta['code_description_map'].get,
-        field_as_first_arg=False, arg_field_names=[code_field_name],
+        field_as_first_arg=False, arg_field_names=(code_field_name,),
         dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
         )
     LOG.log(log_level, "End: Update.")
@@ -379,9 +381,10 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
             field_name, dataset_path, expression)
     with arcobj.DatasetView(dataset_path,
                             kwargs.get('dataset_where_sql')) as dataset_view:
-        arcpy.management.CalculateField(in_table=dataset_view.name,
-                                        field=field_name, expression=expression,
-                                        expression_type='python_9.3')
+        arcpy.management.CalculateField(
+            in_table=dataset_view.name, field=field_name,
+            expression=expression, expression_type='python_9.3'
+            )
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -415,6 +418,8 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
     Returns:
         str: Name of the field updated.
     """
+    identifier_field_names = tuple(identifier_field_names)
+    sort_field_names = tuple(kwargs.get('sort_field_names', ()))
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by feature-matching %s on identifiers (%s)."),
@@ -429,13 +434,16 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
     if update_type == 'flag_value' and 'flag_value' not in kwargs:
         raise TypeError("When update_type == 'flag_value',"
                         " flag_value is a required keyword argument.")
-    field_names = (tuple(identifier_field_names)
-                   + tuple(kwargs.get('sort_field_names', ()))
-                   + (field_name,))
-    postfix_sql = "order by " + ", ".join(kwargs.get('sort_field_names', ()))
-    with arcpy.da.UpdateCursor(dataset_path, field_names,
-                               kwargs.get('dataset_where_sql'),
-                               sql_clause=(None, postfix_sql)) as cursor:
+    cursor_kwargs = {
+        'field_names': (identifier_field_names + sort_field_names
+                        + (field_name,)),
+        'where_clause': kwargs.get('dataset_where_sql'),
+        }
+    if sort_field_names:
+        cursor_kwargs['sql_clause'] = (
+            None, "order by " + ", ".join(sort_field_names)
+            )
+    with arcpy.da.UpdateCursor(dataset_path, **cursor_kwargs) as cursor:
         for row in cursor:
             identifier_values = row[:len(identifier_field_names)]
             old_value = row[-1]
@@ -481,21 +489,21 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     Returns:
         str: Name of the field updated.
     """
+    arg_field_names = tuple(kwargs.get('arg_field_names', ()))
+    kwarg_field_names = tuple(kwargs.get('kwarg_field_names', ()))
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Update attributes in %s on %s by function %s.",
             field_name, dataset_path, function)
-    field_names = ((field_name,) + tuple(kwargs.get('arg_field_names', ()))
-                   + tuple(kwargs.get('kwarg_field_names', ())))
+    field_names = ((field_name,) + arg_field_names + kwarg_field_names)
     with arcpy.da.UpdateCursor(dataset_path, field_names,
                                kwargs.get('dataset_where_sql')) as cursor:
         for row in cursor:
-            args_idx = len(kwargs.get('arg_field_names', ())) + 1
+            args_idx = len(arg_field_names) + 1
             if kwargs.get('field_as_first_arg', True):
                 func_args = row[0:args_idx]
             else:
                 func_args = row[1:args_idx]
-            func_kwargs = dict(zip(kwargs.get('kwarg_field_names', ()),
-                                   row[args_idx:]))
+            func_kwargs = dict(zip(kwarg_field_names, row[args_idx:]))
             new_value = function(*func_args, **func_kwargs)
             if row[0] != new_value:
                 try:
