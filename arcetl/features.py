@@ -270,11 +270,11 @@ def insert_from_dicts(dataset_path, insert_features, field_names,
 
 
 def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
-    """Insert features into the dataset from an iterable of iterables.
+    """Insert features into the dataset from an iterable of iterable items.
 
     Args:
         dataset_path (str): Path of the dataset.
-        insert_features (iter): Iterable containing iterables
+        insert_features (iter): Iterable containing iterable items
             representing features.
         field_names (iter): Collection of field names to insert. These must
             match the order of their attributes in the insert_features items.

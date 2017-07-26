@@ -1,4 +1,3 @@
-# -*- coding=utf-8 -*-
 """Test context for ArcETL."""
 import os
 import sys
