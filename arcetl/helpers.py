@@ -87,18 +87,24 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
             )
 
 
-def unique_name(prefix='', suffix='', unique_length=4):
+def unique_name(prefix='', suffix='', unique_length=4,
+                allow_initial_digit=True):
     """Generate unique name.
 
     Args:
         prefix (str): String to insert before the unique part of the name.
         suffix (str): String to append after the unique part of the name.
         unique_length (int): Number of unique characters to generate.
+        allow_initial_number (bool): Flag indicating whether to let the
+            initial character be a number. Defaults to True.
 
     Returns:
         str: Unique name.
     """
-    return prefix + next(unique_ids(str, unique_length)) + suffix
+    name = prefix + next(unique_ids(str, unique_length)) + suffix
+    if not allow_initial_digit and name[0].isdigit():
+        name = unique_name(prefix, suffix, unique_length, allow_initial_digit)
+    return name
 
 
 def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,
@@ -114,5 +120,6 @@ def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,
     Returns:
         str: Path of the created dataset.
     """
-    return os.path.join(workspace_path,
-                        unique_name(prefix, suffix, unique_length))
+    name = unique_name(prefix, suffix, unique_length,
+                       allow_initial_digit=False)
+    return os.path.join(workspace_path, name)
