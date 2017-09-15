@@ -667,6 +667,51 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     return field_name
 
 
+def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
+                       **kwargs):
+    """Update attribute values by passing them to a function.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        from_id_field_name (str): Name of the from-ID field.
+        to_id_field_name (str): Name of the to-ID field.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
+    Returns:
+        tuple: Names (str) of the fields updated.
+    """
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(log_level, "Start: Update attributes in %s on %s by node IDs.",
+            (from_id_field_name, to_id_field_name), dataset_path)
+    oid_nodes = id_node_map(
+        dataset_path, from_id_field_name, to_id_field_name, update_nodes=True,
+        field_names_as_keys=True,
+        )
+    cursor = arcpy.da.UpdateCursor(
+        dataset_path,
+        field_names=('oid@', from_id_field_name, to_id_field_name),
+        where_clause=kwargs.get('dataset_where_sql'),
+        )
+    with cursor:
+        for row in cursor:
+            oid = row[0]
+            new_row = (oid, oid_nodes[oid][from_id_field_name],
+                       oid_nodes[oid][to_id_field_name])
+            if row != new_row:
+                try:
+                    cursor.updateRow(new_row)
+                except RuntimeError:
+                    LOG.error("Offending values one of %s, %s",
+                              new_row[1], new_row[2])
+                    raise RuntimeError
+    LOG.log(log_level, "End: Update.")
+    return (from_id_field_name, to_id_field_name)
+
+
 def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
                       overlay_field_name, **kwargs):
     """Update attribute values by finding overlay feature value.
