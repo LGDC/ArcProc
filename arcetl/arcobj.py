@@ -39,22 +39,19 @@ class ArcExtension(object):
         }
     """dict: Information mapped to each extension result string."""
 
-    def __init__(self, name, activate_on_init=True):
+    def __init__(self, name):
         """Initialize instance.
 
         Args:
             name (str): Name of the extension.
-            activate_on_init (bool): Flag to indicate extension should be
-                activated automatically.
         """
         self.name = name
         # For now assume name & code are same.
         self.code = name
-        self.activated = None
-        if activate_on_init:
-            self.activate()
+        self.activated = False
 
     def __enter__(self):
+        self.activate()
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):

@@ -25,8 +25,6 @@ class FeatureMatcher(object):
 
         Args:
             dataset_path (str): Path of the dataset.
-            activate_on_init (bool): Flag to indicate extension should be
-                activated automatically.
             identifier_field_names (iter): Iterable of the field names used
                 to identify a feature.
             dataset_where_sql (str): SQL where-clause for dataset
