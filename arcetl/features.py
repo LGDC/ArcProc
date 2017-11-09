@@ -307,8 +307,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
         dataset_path (str): Path of the dataset.
         insert_dataset_path (str): Path of dataset to insert features from.
         field_names (iter): Collection of field names to insert. Listed field
-            names must be present in both datasets. If field_names is not
-            defined, all fields will be inserted.
+            names must be present in both datasets. If field_names is
+            NoneType, all fields will be inserted.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -319,45 +319,44 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     Returns:
         str: Path of the dataset updated.
     """
-    field_names = tuple(field_names) if field_names else None
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
             insert_dataset_path, dataset_path)
-    _dataset = {'meta': arcobj.dataset_metadata(dataset_path)}
-    _insert = {'meta': arcobj.dataset_metadata(insert_dataset_path)}
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path),
+            'insert':arcobj.dataset_metadata(insert_dataset_path)}
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
     # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
     # Append tool does not auto-map to the same field name if naming
     # convention differs.
-    if field_names:
-        _dataset['field_names'] = [name.lower() for name in field_names]
+    _field_names = {
+        'insert': {name.lower() for name in meta['insert']['field_names']}
+        }
+    if field_names is None:
+        _field_names['dataset'] = [name.lower() for name
+                                   in meta['dataset']['field_names']]
     else:
-        _dataset['field_names'] = [name.lower() for name
-                                   in _dataset['meta']['field_names']]
-    _insert['field_names'] = [name.lower() for name
-                              in _insert['meta']['field_names']]
+        _field_names['dataset'] = [name.lower() for name in field_names]
     # Append takes care of geometry & OIDs independent of the field maps.
-    for field_name_type in ['geometry_field_name', 'oid_field_name']:
-        if _dataset['meta'].get(field_name_type):
-            _dataset['field_names'].remove(
-                _dataset['meta'][field_name_type].lower()
-                )
-            _insert['field_names'].remove(
-                _insert['meta'][field_name_type].lower()
-                )
+    for field_name_type in ('geometry_field_name', 'oid_field_name'):
+        for _set in ('dataset', 'insert'):
+            if meta[_set].get(field_name_type) is None:
+                continue
+            field_name = meta[_set][field_name_type].lower()
+            if field_name and field_name in _field_names[_set]:
+                _field_names[_set].remove(field_name)
     field_maps = arcpy.FieldMappings()
-    for field_name in _dataset['field_names']:
-        if field_name in _insert['field_names']:
+    for field_name in _field_names['dataset']:
+        if field_name in _field_names['insert']:
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
     with arcobj.DatasetView(
         insert_dataset_path, kwargs.get('insert_where_sql'),
         # Insert view must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not _dataset['meta']['is_spatial'])
-        ) as _insert['view']:
-        arcpy.management.Append(inputs=_insert['view'].name,
+        force_nonspatial=(not meta['dataset']['is_spatial'])
+        ) as insert_view:
+        arcpy.management.Append(inputs=insert_view.name,
                                 target=dataset_path, schema_type='no_test',
                                 field_mapping=field_maps)
     LOG.log(log_level, "End: Insert.")
