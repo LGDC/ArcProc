@@ -98,7 +98,6 @@ class DatasetView(object):
         dataset_path (str): Path of the dataset.
         dataset_meta (dict): Metadata dictionary for the dataset.
         is_spatial (bool): Flag indicating if the view is spatial.
-        activated (bool): Flag indicating whether the view is activated.
     """
 
     def __init__(self, dataset_path, dataset_where_sql=None, view_name=None,
@@ -118,9 +117,9 @@ class DatasetView(object):
         self.is_spatial = all((self.dataset_meta['is_spatial'],
                                not force_nonspatial))
         self._where_sql = dataset_where_sql
-        self.activated = self.create()
 
     def __enter__(self):
+        self.create()
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):
@@ -135,6 +134,11 @@ class DatasetView(object):
         return count
 
     @property
+    def exists(self):
+        """bool: Flag indicating the view currently exists."""
+        return arcpy.Exists(self.name)
+
+    @property
     def where_sql(self):
         """str: SQL where-clause property of dataset view subselection.
 
@@ -144,7 +148,7 @@ class DatasetView(object):
 
     @where_sql.setter
     def where_sql(self, value):
-        if self.activated:
+        if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name, selection_type='new_selection',
                 where_clause=value
@@ -153,7 +157,7 @@ class DatasetView(object):
 
     @where_sql.deleter
     def where_sql(self):
-        if self.activated:
+        if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name, selection_type='clear_selection',
                 )
@@ -194,18 +198,17 @@ class DatasetView(object):
 
     def create(self):
         """Create view."""
-        if self.is_spatial:
-            function = arcpy.management.MakeFeatureLayer
-        else:
-            function = arcpy.management.MakeTableView
+        function = (arcpy.management.MakeFeatureLayer if self.is_spatial
+                    else arcpy.management.MakeTableView)
         function(self.dataset_path, self.name, where_clause=self.where_sql,
                  workspace=self.dataset_meta['workspace_path'])
+        return self.exists
 
     def discard(self):
         """Discard view."""
-        if arcpy.Exists(self.name):
+        if self.exists:
             arcpy.management.Delete(self.name)
-        self.activated = False
+        return not self.exists
 
 
 class TempDatasetCopy(object):
