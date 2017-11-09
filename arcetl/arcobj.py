@@ -246,29 +246,33 @@ class TempDatasetCopy(object):
         self.is_spatial = all((self.dataset_meta['is_spatial'],
                                not force_nonspatial))
         self.where_sql = dataset_where_sql
-        self.activated = self.create()
 
     def __enter__(self):
+        self.create()
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.discard()
 
+    @property
+    def exists(self):
+        """bool: Flag indicating the dataset currently exists."""
+        return arcpy.Exists(self.path)
+
     def create(self):
         """Create dataset."""
-        if self.is_spatial:
-            function = arcpy.management.CopyFeatures
-        else:
-            function = arcpy.management.CopyRows
+        function = (arcpy.management.CopyFeatures if self.is_spatial
+                    else arcpy.management.CopyRows)
         with DatasetView(self.dataset_path, dataset_where_sql=self.where_sql,
                          force_nonspatial=not self.is_spatial) as dataset_view:
             function(dataset_view.name, self.path)
+        return self.exists
 
     def discard(self):
         """Discard dataset."""
-        if arcpy.Exists(self.path):
+        if self.exists:
             arcpy.management.Delete(self.path)
-        self.activated = False
+        return not self.exists
 
 
 def _domain_object_metadata(domain_object):
