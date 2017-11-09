@@ -82,6 +82,8 @@ def identity(dataset_path, field_name, identity_dataset_path,
                 out_feature_class=temp_output_path, join_attributes='all',
                 cluster_tolerance=kwargs.get('tolerance'), relationship=False
                 )
+            # Clean up bad or null geometry created in processing.
+            arcpy.management.RepairGeometry(in_features=temp_output_path)
             # Push identity (or replacement) value from temp to update field.
             attributes.update_by_function(
                 temp_output_path, field_name, update_function,
@@ -188,6 +190,9 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
                                        join_features=temp_overlay.path,
                                        out_feature_class=temp_output_path,
                                        **join_kwargs)
+            # Clean up bad or null geometry created in processing.
+            arcpy.management.RepairGeometry(in_features=temp_output_path)
+            # Push identity (or replacement) value from temp to update field.
             attributes.update_by_function(
                 temp_output_path, field_name, update_function,
                 field_as_first_arg=False,
@@ -270,6 +275,9 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
                 out_feature_class=temp_output_path, join_attributes='all',
                 cluster_tolerance=kwargs.get('tolerance'), gaps=False
                 )
+            # Clean up bad or null geometry created in processing.
+            arcpy.management.RepairGeometry(in_features=temp_output_path)
+            # Push identity (or replacement) value from temp to update field.
             attributes.update_by_function(
                 temp_output_path, field_name, update_function,
                 field_as_first_arg=False,
