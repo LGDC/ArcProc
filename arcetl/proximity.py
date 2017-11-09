@@ -40,7 +40,6 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
             spatial reference.
             'angle' value (float) is in decimal degrees.
     """
-    near_rank = kwargs.get('near_rank', 1)
     dataset_view = arcobj.DatasetView(dataset_path,
                                       kwargs.get('dataset_where_sql'))
     near_view = arcobj.DatasetView(near_dataset_path,
@@ -50,15 +49,17 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
         arcpy.analysis.GenerateNearTable(
             in_features=dataset_view.name, near_features=near_view.name,
             out_table=temp_near_path, search_radius=max_near_distance,
-            location=True, angle=True, closest=False, closest_count=near_rank
+            location=True, angle=True, closest=False,
+            closest_count=kwargs.get('near_rank', 1),
             )
-        oid_id_map = attributes.id_map(dataset_view.name, dataset_id_field_name)
+        oid_id_map = attributes.id_map(dataset_view.name,
+                                       dataset_id_field_name)
         near_oid_id_map = attributes.id_map(near_view.name, near_id_field_name)
     field_names = ('in_fid', 'near_fid', 'near_dist', 'near_angle',
                    'near_x', 'near_y', 'near_rank')
     near_info_map = {}
     for near_info in attributes.as_dicts(temp_near_path, field_names):
-        if near_info['near_rank'] == near_rank:
+        if near_info['near_rank'] == kwargs.get('near_rank', 1):
             _id = oid_id_map[near_info['in_fid']]
             near_info_map[_id] = {
                 'id': _id,

@@ -146,7 +146,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             closest_info = {
                 'dataset_id': _dataset['oid_id'][drow['IncidentID']],
                 'facility_id': _facility['oid_id'][drow['FacilityID']],
-                'cost': drow['total_{}'.format(cost_attribute)],
+                'cost': drow['total_' + cost_attribute],
                 'geometry': drow['shape@'],
                 }
             yield closest_info
