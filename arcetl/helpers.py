@@ -65,7 +65,8 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
         Unique ID.
     """
     if data_type in (float, int):
-        unique_id = data_type()
+        # Skip 0 (problematic - some processing functions use 0 for null).
+        unique_id = data_type(1)
         while True:
             yield unique_id
             unique_id += 1
