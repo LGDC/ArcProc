@@ -229,7 +229,7 @@ def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
-        id_field_names (iterm, str): Name(s) of the ID field(s). Defaults to
+        id_field_names (iter, str): Name(s) of the ID field(s). Defaults to
             feature object ID.
         field_names (iter, str): Name(s) of the field(s).
         **kwargs: Arbitrary keyword arguments. See below.
