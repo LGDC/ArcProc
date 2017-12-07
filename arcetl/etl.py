@@ -66,6 +66,41 @@ class ArcETL(object):
         LOG.info("End: Extract.")
         return self.transform_path
 
+    def init_schema(self, template_path=None, **kwargs):
+        """Initialize dataset schema. Use only when extracting dataset.
+
+        Keyword arguments that describe the schema will only be referenced
+        if template_path is undefined.
+
+        Args:
+            template_path (str): Path of the dataset to use as schema
+                template.
+            **kwargs: Arbitrary keyword arguments. See below.
+
+        Keyword Args:
+            field_metadata_list (iter): Collection of field metadata
+                dictionaries.
+            geometry_type (str): Name of the geometry type. Valid geometry
+                types are: point, multipoint, polygon, polyline. If argument
+                not included or another value, dataset will be nonspatial.
+            spatial_reference_id (int): EPSG code for spatial reference, if a
+                spatial dataset. Defaults to 4326 (WGS 84).
+        """
+        LOG.info("Start: Initialize schema.")
+        self.transform_path = helpers.unique_temp_dataset_path('init')
+        if template_path:
+            dataset.copy(dataset_path=template_path,
+                         output_path=self.transform_path,
+                         schema_only=True, log_level=None)
+        else:
+            init_kwargs = {key: val for key, val in kwargs.items()
+                           if key in ('field_metadata_list', 'geometry_type',
+                                      'spatial_reference_id')}
+            dataset.create(dataset_path=self.transform_path, log_level=None,
+                           **init_kwargs)
+        LOG.info("End: Initialize.")
+        return self.transform_path
+
     def load(self, load_path, load_where_sql=None, preserve_features=False):
         """Load features from transform- to load-dataset.
 
