@@ -43,7 +43,7 @@ class ArcETL(object):
             self.transform_path = None
         LOG.info("Closed.")
 
-    def extract(self, extract_path, extract_where_sql=None, schema_only=False):
+    def extract(self, extract_path, extract_where_sql=None):
         """Extract features to transform workspace.
 
         Args:
@@ -60,7 +60,7 @@ class ArcETL(object):
         self.transform_path = dataset.copy(
             dataset_path=extract_path,
             output_path=helpers.unique_temp_dataset_path('extract'),
-            dataset_where_sql=extract_where_sql, schema_only=schema_only,
+            dataset_where_sql=extract_where_sql,
             log_level=None
             )
         LOG.info("End: Extract.")
