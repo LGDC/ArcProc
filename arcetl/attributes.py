@@ -839,10 +839,17 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         data_type=arcobj.python_type(field_meta['type']),
         string_length=field_meta.get('length', 16)
         )
-    with arcpy.da.UpdateCursor(dataset_path, (field_name,),
-                               kwargs.get('dataset_where_sql')) as cursor:
-        for _ in cursor:
-            cursor.updateRow([next(unique_id_pool)])
+    oid_id_map = id_map(dataset_path, (field_name,), id_field_names=('oid@',))
+    used_ids = set()
+    for oid in sorted(oid_id_map):
+        while oid_id_map[oid] is None or oid_id_map[oid] in used_ids:
+            oid_id_map[oid] = next(unique_id_pool)
+        used_ids.add(oid_id_map[oid])
+    update_by_function_map(dataset_path, field_name,
+                           function=(lambda: oid_id_map),
+                           key_field_name='oid@',
+                           dataset_where_sql=kwargs.get('dataset_where_sql'),
+                           log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
