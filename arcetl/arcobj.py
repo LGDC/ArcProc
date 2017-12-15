@@ -211,6 +211,68 @@ class DatasetView(object):
         return not self.exists
 
 
+class Editor(object):
+    """Context manager for editing features.
+
+    Attributes:
+        workspace_path (str):  Path for the editing workspace
+    """
+
+    def __init__(self, workspace_path, use_edit_session=True):
+        """Initialize instance.
+
+        Args:
+            use_edit_session (bool): Flag directing edits to be made in an
+                edit session. Default is True.
+            workspace_path (str): Path for the editing workspace.
+        """
+        self._editor = (arcpy.da.Editor(workspace_path) if use_edit_session
+                        else None)
+        self.workspace_path = workspace_path
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.stop(save_changes=False if exception_type else True)
+
+    @property
+    def active(self):
+        """bool: Flag indicating whether edit session is active."""
+        if self._editor:
+            return self._editor.isEditing
+        else:
+            return False
+
+    def start(self):
+        """Start an active edit session.
+
+        Returns:
+            bool: Indicator that session is active.
+        """
+        if self._editor and not self._editor.isEditing:
+            self._editor.startEditing(with_undo=True, multiuser_mode=True)
+            self._editor.startOperation()
+        return self.active
+
+    def stop(self, save_changes=True):
+        """Stop an active edit session.
+
+        Args:
+            save_changes (bool): Flag indicating whether edits should be
+                saved.
+
+        Returns:
+            bool: Indicator that session is not active.
+        """
+        if self._editor and self._editor.isEditing:
+            (self._editor.stopOperation if save_changes
+             else self._editor.abortOperation)()
+            self._editor.stopEditing(save_changes)
+        return not self.active
+
+
 class TempDatasetCopy(object):
     """Context manager for a temporary copy of a dataset.
 
