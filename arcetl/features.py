@@ -63,13 +63,15 @@ def delete(dataset_path, **kwargs):
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Delete features from %s.", dataset_path)
-    truncate_type_error_codes = (
+    truncate_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
         'ERROR 000187',
         # "Operation not supported on a versioned table."
@@ -79,23 +81,29 @@ def delete(dataset_path, **kwargs):
         # Operation not supported on a feature class in a controller dataset.
         'ERROR 001395',
         )
-    with arcobj.DatasetView(dataset_path,
-                            kwargs.get('dataset_where_sql')) as dataset_view:
-        # Can use (faster) truncate when no sub-selection
-        run_truncate = kwargs.get('dataset_where_sql') is None
-        if run_truncate:
-            try:
-                arcpy.management.TruncateTable(in_table=dataset_view.name)
-            except arcpy.ExecuteError:
-                # Avoid arcpy.GetReturnCode(); error code position inconsistent.
-                # Search messages for 'ERROR ######' instead.
-                if any(code in arcpy.GetMessages()
-                       for code in truncate_type_error_codes):
-                    LOG.debug("Truncate unsupported; will try deleting rows.")
-                    run_truncate = False
-                else:
-                    raise
-        if not run_truncate:
+    # Can use (faster) truncate when no sub-selection or edit session.
+    run_truncate = (kwargs.get('dataset_where_sql') is None
+                    and kwargs.get('use_edit_session', False) is False)
+    if run_truncate:
+        try:
+            arcpy.management.TruncateTable(in_table=dataset_path)
+        except arcpy.ExecuteError:
+            # Avoid arcpy.GetReturnCode(); error code position inconsistent.
+            # Search messages for 'ERROR ######' instead.
+            if any(code in arcpy.GetMessages()
+                   for code in truncate_error_codes):
+                LOG.debug("Truncate unsupported; will try deleting rows.")
+                run_truncate = False
+            else:
+                raise
+    if not run_truncate:
+        session = arcobj.Editor(
+            arcobj.dataset_metadata(dataset_path)['workspace_path'],
+            kwargs.get('use_edit_session', False),
+            )
+        dataset_view = arcobj.DatasetView(dataset_path,
+                                          kwargs.get('dataset_where_sql'))
+        with session, dataset_view:
             arcpy.management.DeleteRows(in_rows=dataset_view.name)
     LOG.log(log_level, "End: Delete.")
     return dataset_path
@@ -117,6 +125,8 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
         tolerance (float): Tolerance for coincidence, in dataset's units.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
@@ -126,21 +136,30 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Dissolve features in %s on fields: %s.",
             dataset_path, dissolve_field_names)
-    with arcobj.DatasetView(dataset_path,
-                            kwargs.get('dataset_where_sql')) as dataset_view:
-        if kwargs.get('tolerance') is not None:
-            old_tolerance = arcpy.env.XYTolerance
-            arcpy.env.XYTolerance = kwargs['tolerance']
-        temp_output_path = helpers.unique_temp_dataset_path('output')
+    if kwargs.get('tolerance') is not None:
+        old_tolerance = arcpy.env.XYTolerance
+        arcpy.env.XYTolerance = kwargs['tolerance']
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    temp_output_path = helpers.unique_temp_dataset_path('output')
+    with dataset_view:
         arcpy.management.Dissolve(
             in_features=dataset_view.name, out_feature_class=temp_output_path,
             dissolve_field=dissolve_field_names, multi_part=multipart,
             unsplit_lines=unsplit_lines
             )
-        if kwargs.get('tolerance') is not None:
-            arcpy.env.XYTolerance = old_tolerance
-        delete(dataset_view.name, log_level=None)
-    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    if kwargs.get('tolerance') is not None:
+        arcpy.env.XYTolerance = old_tolerance
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    with session:
+        delete(dataset_path,
+               dataset_where_sql=kwargs.get('dataset_where_sql'),
+               log_level=None)
+        insert_from_path(dataset_path, insert_dataset_path=temp_output_path,
+                         log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Dissolve.")
     return dataset_path
@@ -167,6 +186,8 @@ def eliminate_interior_rings(dataset_path, max_area=None,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
@@ -182,17 +203,26 @@ def eliminate_interior_rings(dataset_path, max_area=None,
         condition = 'area'
     else:
         condition = 'percent'
-    with arcobj.DatasetView(dataset_path,
-                            kwargs.get('dataset_where_sql')) as dataset_view:
-        temp_output_path = helpers.unique_temp_dataset_path('output')
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    temp_output_path = helpers.unique_temp_dataset_path('output')
+    with dataset_view:
         arcpy.management.EliminatePolygonPart(
             in_features=dataset_view.name, out_feature_class=temp_output_path,
             condition=condition, part_area=max_area,
             part_area_percent=max_percent_total_area,
             part_option='contained_only'
             )
-        delete(dataset_view.name, log_level=None)
-    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    with session:
+        delete(dataset_path,
+               dataset_where_sql=kwargs.get('dataset_where_sql'),
+               log_level=None)
+        insert_from_path(dataset_path, insert_dataset_path=temp_output_path,
+                         log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Eliminate.")
     return dataset_path
@@ -213,6 +243,8 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
             subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
         tolerance (float): Tolerance for coincidence, in dataset's units.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
@@ -224,14 +256,22 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
                                       kwargs.get('dataset_where_sql'))
     erase_view = arcobj.DatasetView(erase_dataset_path,
                                     kwargs.get('erase_where_sql'))
+    temp_output_path = helpers.unique_temp_dataset_path('output')
     with dataset_view, erase_view:
-        temp_output_path = helpers.unique_temp_dataset_path('output')
         arcpy.analysis.Erase(in_features=dataset_view.name,
                              erase_features=erase_view.name,
                              out_feature_class=temp_output_path,
                              cluster_tolerance=kwargs.get('tolerance'))
-        delete(dataset_view.name, log_level=None)
-    insert_from_path(dataset_path, temp_output_path, log_level=None)
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    with session:
+        delete(dataset_path,
+               dataset_where_sql=kwargs.get('dataset_where_sql'),
+               log_level=None)
+        insert_from_path(dataset_path, insert_dataset_path=temp_output_path,
+                         log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Erase.")
     return dataset_path
@@ -250,21 +290,27 @@ def insert_from_dicts(dataset_path, insert_features, field_names,
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
     """
-    field_names = tuple(field_names)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
             dataset_path)
+    field_names = tuple(field_names)  # Ensures not generator (names used 2x).
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     iters = (
         (feature[name] if name in feature else None for name in field_names)
         for feature in insert_features
         )
-    result = insert_from_iters(dataset_path, iters, field_names, log_level=None)
+    result = insert_from_iters(
+        dataset_path, iters, field_names,
+        use_edit_session=kwargs.get('use_edit_session', False),
+        log_level=None,
+        )
     LOG.log(log_level, "End: Insert.")
     return result
 
@@ -282,17 +328,23 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
 
     Keyword Args:
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
     """
-    field_names = tuple(field_names)
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Insert features from iterables into %s.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    with arcpy.da.InsertCursor(dataset_path, field_names) as cursor:
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    cursor = arcpy.da.InsertCursor(dataset_path, field_names)
+    with session, cursor:
         for row in insert_features:
             cursor.insertRow(tuple(row))
     LOG.log(log_level, "End: Insert.")
@@ -315,6 +367,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
         insert_where_sql (str): SQL where-clause for insert-dataset
             subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
@@ -351,11 +405,14 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
             field_map = arcpy.FieldMap()
             field_map.addInputField(insert_dataset_path, field_name)
             field_maps.addFieldMap(field_map)
-    with arcobj.DatasetView(
+    session = arcobj.Editor(meta['dataset']['workspace_path'],
+                            kwargs.get('use_edit_session', False))
+    insert_view = arcobj.DatasetView(
         insert_dataset_path, kwargs.get('insert_where_sql'),
         # Insert view must be nonspatial to append to nonspatial table.
         force_nonspatial=(not meta['dataset']['is_spatial'])
-        ) as insert_view:
+        )
+    with session, insert_view:
         arcpy.management.Append(inputs=insert_view.name,
                                 target=dataset_path, schema_type='no_test',
                                 field_mapping=field_maps)
@@ -376,6 +433,8 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         location_where_sql (str): SQL where-clause for location-dataset
             subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Path of the dataset updated.
@@ -383,11 +442,15 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Keep features in %s where overlapping %s.",
             dataset_path, location_dataset_path)
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
     dataset_view = arcobj.DatasetView(dataset_path,
                                       kwargs.get('dataset_where_sql'))
     location_view = arcobj.DatasetView(location_dataset_path,
                                        kwargs.get('location_where_sql'))
-    with dataset_view, location_view:
+    with session, dataset_view, location_view:
         arcpy.management.SelectLayerByLocation(
             in_layer=dataset_view.name, overlap_type='intersect',
             select_features=location_view.name, selection_type='new_selection'

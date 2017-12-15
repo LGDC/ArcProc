@@ -337,6 +337,8 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -347,12 +349,13 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
             field_name, dataset_path, code_field_name,
             domain_name, domain_workspace_path)
     domain_meta = arcobj.domain_metadata(domain_name, domain_workspace_path)
-    update_by_function(
-        dataset_path, field_name,
-        function=domain_meta['code_description_map'].get,
-        field_as_first_arg=False, arg_field_names=(code_field_name,),
-        dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
-        )
+    update_by_function(dataset_path, field_name,
+                       function=domain_meta['code_description_map'].get,
+                       field_as_first_arg=False,
+                       arg_field_names=(code_field_name,),
+                       dataset_where_sql=kwargs.get('dataset_where_sql'),
+                       use_edit_session=kwargs.get('use_edit_session', False),
+                       log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -369,6 +372,8 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -377,12 +382,17 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     LOG.log(log_level,
             "Start: Update attributes in %s on %s by expression: ```%s```.",
             field_name, dataset_path, expression)
-    with arcobj.DatasetView(dataset_path,
-                            kwargs.get('dataset_where_sql')) as dataset_view:
-        arcpy.management.CalculateField(
-            in_table=dataset_view.name, field=field_name,
-            expression=expression, expression_type='python_9.3'
-            )
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    dataset_view = arcobj.DatasetView(dataset_path,
+                                      kwargs.get('dataset_where_sql'))
+    with session, dataset_view:
+        arcpy.management.CalculateField(in_table=dataset_view.name,
+                                        field=field_name,
+                                        expression=expression,
+                                        expression_type='python_9.3')
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -412,36 +422,38 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
         log_level (str): Level to log the function at. Defaults to 'info'.
         sort_field_names (iter): Iterable of field names used to sort matched
             features. Only affects output when update_type='sort_order'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
     """
     identifier_field_names = tuple(identifier_field_names)
-    sort_field_names = tuple(kwargs.get('sort_field_names', ()))
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
                         " by feature-matching %s on identifiers (%s)."),
             field_name, dataset_path, update_type, identifier_field_names)
+    sort_field_names = tuple(kwargs.get('sort_field_names', ()))
     matcher = FeatureMatcher(dataset_path, identifier_field_names,
                              kwargs.get('dataset_where_sql'))
-
-    valid_update_types = ('flag_value', 'match_count', 'sort_order')
-    if update_type not in valid_update_types:
-        raise ValueError("update_type must be one of: {}.".format(
-            ",".join(valid_update_types)))
+    if update_type not in ('flag_value', 'match_count', 'sort_order'):
+        raise ValueError("Invalid update_type.")
     if update_type == 'flag_value' and 'flag_value' not in kwargs:
         raise TypeError("When update_type == 'flag_value',"
                         " flag_value is a required keyword argument.")
-    cursor_kwargs = {
-        'field_names': (identifier_field_names + sort_field_names
-                        + (field_name,)),
-        'where_clause': kwargs.get('dataset_where_sql'),
-        }
+    cursor_kwargs = {'field_names': (identifier_field_names + sort_field_names
+                                     + (field_name,)),
+                     'where_clause': kwargs.get('dataset_where_sql')}
     if sort_field_names:
         cursor_kwargs['sql_clause'] = (
             None, "order by " + ", ".join(sort_field_names)
             )
-    with arcpy.da.UpdateCursor(dataset_path, **cursor_kwargs) as cursor:
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    cursor = arcpy.da.UpdateCursor(dataset_path, **cursor_kwargs)
+    with session, cursor:
         for row in cursor:
             identifier_values = row[:len(identifier_field_names)]
             old_value = row[-1]
@@ -455,12 +467,11 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
                 matcher.increment_assigned(identifier_values)
                 new_value = matcher.assigned_count(identifier_values)
             if old_value != new_value:
-                new_row = row[:-1] + [new_value]
                 try:
-                    cursor.updateRow(new_row)
+                    cursor.updateRow(row[:-1] + [new_value])
                 except RuntimeError:
                     LOG.error("Offending value is %s", new_value)
-                    raise RuntimeError
+                    raise
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -483,29 +494,38 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         kwarg_field_names (iter): Iterable of the field names whose names &
             values will be the method keyword arguments.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
     """
-    arg_field_names = tuple(kwargs.get('arg_field_names', ()))
-    kwarg_field_names = tuple(kwargs.get('kwarg_field_names', ()))
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Update attributes in %s on %s by function %s.",
             field_name, dataset_path, function)
-    field_names = ((field_name,) + arg_field_names + kwarg_field_names)
-    with arcpy.da.UpdateCursor(dataset_path, field_names,
-                               kwargs.get('dataset_where_sql')) as cursor:
+    field_names = {
+        'args': tuple(kwargs.get('arg_field_names', ())),
+        'kwargs': tuple(kwargs.get('kwarg_field_names', ())),
+        }
+    field_names['row'] = ((field_name,) + field_names['args']
+                          + field_names['kwargs'])
+    args_idx = len(field_names['args']) + 1
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    cursor = arcpy.da.UpdateCursor(dataset_path, field_names['row'],
+                                   kwargs.get('dataset_where_sql'))
+    with session, cursor:
         for row in cursor:
-            args_idx = len(arg_field_names) + 1
-            if kwargs.get('field_as_first_arg', True):
-                func_args = row[0:args_idx]
-            else:
-                func_args = row[1:args_idx]
-            func_kwargs = dict(zip(kwarg_field_names, row[args_idx:]))
+            func_args = (row[0:args_idx]
+                         if kwargs.get('field_as_first_arg', True)
+                         else row[1:args_idx])
+            func_kwargs = dict(zip(field_names['kwargs'], row[args_idx:]))
             new_value = function(*func_args, **func_kwargs)
             if row[0] != new_value:
                 try:
-                    cursor.updateRow([new_value,] + row[1:])
+                    cursor.updateRow([new_value] + row[1:])
                 except RuntimeError:
                     LOG.error("Offending value is %s", new_value)
                     raise RuntimeError
@@ -533,6 +553,8 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
         default_value: Value to return from mapping if key value on feature
             not present. Defaults to NoneType.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -542,12 +564,15 @@ def update_by_function_map(dataset_path, field_name, function, key_field_name,
                         " by function %s mapping with key in %s."),
             field_name, dataset_path, function, key_field_name)
     update_map = function()
-    update_function = (lambda x: update_map.get(x, kwargs.get('default_value')))
-    update_by_function(
-        dataset_path, field_name, update_function,
-        field_as_first_arg=False, arg_field_names=(key_field_name,),
-        dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None,
+    update_function = (
+        lambda x: update_map.get(x, kwargs.get('default_value'))
         )
+    update_by_function(dataset_path, field_name,
+                       update_function, field_as_first_arg=False,
+                       arg_field_names=(key_field_name,),
+                       dataset_where_sql=kwargs.get('dataset_where_sql'),
+                       use_edit_session=kwargs.get('use_edit_session', False),
+                       log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -571,6 +596,8 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         log_level (str): Level to log the function at. Defaults to 'info'.
         spatial_reference_id (int): EPSG code indicating the spatial reference
             the geometry property will represent.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -605,11 +632,18 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
             properties = tuple(prop for props in properties for prop in props)
             value = functools.reduce(getattr, properties, geometry)
         return value
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_id'))
-    with arcpy.da.UpdateCursor(
-        in_table=dataset_path, field_names=(field_name, 'shape@'),
-        where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
-        ) as cursor:
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    cursor = arcpy.da.UpdateCursor(
+        dataset_path, field_names=(field_name, 'shape@'),
+        where_clause=kwargs.get('dataset_where_sql'),
+        spatial_reference=arcobj.spatial_reference(
+            kwargs.get('spatial_reference_id')
+            ),
+        )
+    with session, cursor:
         for old_value, geometry in cursor:
             if geometry is None:
                 new_value = None
@@ -638,6 +672,8 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -655,8 +691,13 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
         tuple(feature[1:]): feature[0]
         for feature in as_iters(join_dataset_path, field_names['join'])
         }
-    with arcpy.da.UpdateCursor(dataset_path, field_names['dataset'],
-                               kwargs.get('dataset_where_sql')) as cursor:
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    cursor = arcpy.da.UpdateCursor(dataset_path, field_names['dataset'],
+                                   kwargs.get('dataset_where_sql'))
+    with session, cursor:
         for row in cursor:
             new_value = join_value_map.get(tuple(row[1:]))
             if row[0] != new_value:
@@ -678,6 +719,8 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         tuple: Names (str) of the fields updated.
@@ -689,12 +732,16 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
         dataset_path, from_id_field_name, to_id_field_name, update_nodes=True,
         field_names_as_keys=True,
         )
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
     cursor = arcpy.da.UpdateCursor(
         dataset_path,
         field_names=('oid@', from_id_field_name, to_id_field_name),
         where_clause=kwargs.get('dataset_where_sql'),
         )
-    with cursor:
+    with session, cursor:
         for row in cursor:
             oid = row[0]
             new_row = (oid, oid_nodes[oid][from_id_field_name],
@@ -746,6 +793,8 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         replacement_value: Value to replace a present overlay-field value
             with.
         tolerance (float): Tolerance for coincidence, in dataset's units.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -808,7 +857,9 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         dataset_path, field_name,
         join_dataset_path=temp_output_path, join_field_name=field_name,
         on_field_pairs=((oid_field_name, 'target_fid'),),
-        dataset_where_sql=kwargs.get('dataset_where_sql'), log_level=None
+        dataset_where_sql=kwargs.get('dataset_where_sql'),
+        use_edit_session=kwargs.get('use_edit_session', False),
+        log_level=None,
         )
     dataset.delete(temp_output_path, log_level=None)
     LOG.log(log_level, "End: Update.")
@@ -826,6 +877,8 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -845,11 +898,13 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         while oid_id_map[oid] is None or oid_id_map[oid] in used_ids:
             oid_id_map[oid] = next(unique_id_pool)
         used_ids.add(oid_id_map[oid])
-    update_by_function_map(dataset_path, field_name,
-                           function=(lambda: oid_id_map),
-                           key_field_name='oid@',
-                           dataset_where_sql=kwargs.get('dataset_where_sql'),
-                           log_level=None)
+    update_by_function_map(
+        dataset_path, field_name,
+        function=(lambda: oid_id_map), key_field_name='oid@',
+        dataset_where_sql=kwargs.get('dataset_where_sql'),
+        use_edit_session=kwargs.get('use_edit_session', False),
+        log_level=None,
+        )
     LOG.log(log_level, "End: Update.")
     return field_name
 
@@ -860,12 +915,14 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
-        value (types.FunctionType): Static value to assign.
+        value (object): Static value to assign.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
 
     Returns:
         str: Name of the field updated.
@@ -873,8 +930,13 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, "Start: Update attributes in %s on %s by given value.",
             field_name, dataset_path)
-    with arcpy.da.UpdateCursor(dataset_path, (field_name,),
-                               kwargs.get('dataset_where_sql')) as cursor:
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', False),
+        )
+    cursor = arcpy.da.UpdateCursor(dataset_path, (field_name,),
+                                   kwargs.get('dataset_where_sql'))
+    with session, cursor:
         for row in cursor:
             if row[0] != value:
                 cursor.updateRow([value])
