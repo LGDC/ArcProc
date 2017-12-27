@@ -1,5 +1,5 @@
 """Attribute operations."""
-import collections
+from collections import Counter, defaultdict
 import copy
 import functools
 import logging
@@ -30,11 +30,9 @@ class FeatureMatcher(object):
             dataset_where_sql (str): SQL where-clause for dataset
                 subselection. Default is None.
         """
-        self.assigned = collections.Counter()
-        self.matched = collections.Counter(
-            as_iters(dataset_path, identifier_field_names,
-                     dataset_where_sql=dataset_where_sql)
-            )
+        self.assigned = Counter()
+        self.matched = Counter(as_iters(dataset_path, identifier_field_names,
+                                        dataset_where_sql=dataset_where_sql))
 
     def assigned_count(self, identifier_values):
         """Return the assigned count for features with the given identifier.
@@ -202,7 +200,7 @@ def coordinate_node_info_map(dataset_path, from_id_field_name,
             coord = (geom.X, geom.Y)
             if coord not in coord_node_info:
                 coord_node_info[coord] = {'node_id': feature[node['id_key']],
-                                          'ids': collections.defaultdict(set)}
+                                          'ids': defaultdict(set)}
             if coord_node_info[coord]['node_id'] is None:
                 coord_node_info[coord]['node_id'] = feature[node['id_key']]
             elif feature[node['id_key']] is not None:
@@ -301,7 +299,7 @@ def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
         end_key = {'from': from_id_field_name, 'to': to_id_field_name}
     else:
         end_key = {'from': from_id_field_name, 'to': to_id_field_name}
-    id_nodes = collections.defaultdict(dict)
+    id_nodes = defaultdict(dict)
     if update_nodes:
         coord_node_info = coordinate_node_info_map(
             dataset_path, from_id_field_name, to_id_field_name, update_nodes,
@@ -868,6 +866,8 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
 
 def update_by_unique_id(dataset_path, field_name, **kwargs):
     """Update attribute values by assigning a unique ID.
+
+    Existing IDs are preserved, if unique.
 
     Args:
         dataset_path (str): Path of the dataset.
