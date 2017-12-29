@@ -531,8 +531,8 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     return field_name
 
 
-def update_by_function_map(dataset_path, field_name, function, key_field_name,
-                           **kwargs):
+def update_by_mapping_function(dataset_path, field_name, function,
+                               key_field_name, **kwargs):
     """Update attribute values by finding them in a function-created mapping.
 
     Note:
@@ -898,7 +898,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         while oid_id_map[oid] is None or oid_id_map[oid] in used_ids:
             oid_id_map[oid] = next(unique_id_pool)
         used_ids.add(oid_id_map[oid])
-    update_by_function_map(
+    update_by_mapping_function(
         dataset_path, field_name,
         function=(lambda: oid_id_map), key_field_name='oid@',
         dataset_where_sql=kwargs.get('dataset_where_sql'),
