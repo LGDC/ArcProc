@@ -536,14 +536,14 @@ def update_by_mapping_function(dataset_path, field_name, function,
     """Update attribute values by finding them in a function-created mapping.
 
     Note:
-        Wraps update_by_function.
+        Wraps update_by_mapping.
 
     Args:
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
-        function (types.FunctionType): Function to get values from.
+        function (types.FunctionType): Function to get mapping from.
         key_field_name (str): Name of the field whose values will be the
-            mapping's key.
+            mapping's keys.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -559,14 +559,48 @@ def update_by_mapping_function(dataset_path, field_name, function,
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by function %s mapping with key in %s."),
+                        " by mapping function %s with key in %s."),
             field_name, dataset_path, function, key_field_name)
-    update_map = function()
-    update_function = (
-        lambda x: update_map.get(x, kwargs.get('default_value'))
-        )
+    mapping = function()
+    update_by_mapping(dataset_path, field_name, mapping, key_field_name,
+                      **kwargs)
+    LOG.log(log_level, "End: Update.")
+    return field_name
+
+
+def update_by_mapping(dataset_path, field_name, mapping, key_field_name,
+                      **kwargs):
+    """Update attribute values by finding them in a mapping.
+
+    Note:
+        Wraps update_by_function.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        mapping (object): Mapping to get values from.
+        key_field_name (str): Name of the field whose values will be the
+            mapping's keys.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        default_value: Value to return from mapping if key value on feature
+            not present. Defaults to NoneType.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
+
+    Returns:
+        str: Name of the field updated.
+    """
+    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(log_level,
+            "Start: Update attributes in %s on %s by mapping with key in %s.",
+            field_name, dataset_path, key_field_name)
+    function = (lambda x: mapping.get(x, kwargs.get('default_value')))
     update_by_function(dataset_path, field_name,
-                       update_function, field_as_first_arg=False,
+                       function, field_as_first_arg=False,
                        arg_field_names=(key_field_name,),
                        dataset_where_sql=kwargs.get('dataset_where_sql'),
                        use_edit_session=kwargs.get('use_edit_session', False),
