@@ -932,13 +932,11 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         while oid_id_map[oid] is None or oid_id_map[oid] in used_ids:
             oid_id_map[oid] = next(unique_id_pool)
         used_ids.add(oid_id_map[oid])
-    update_by_mapping_function(
-        dataset_path, field_name,
-        function=(lambda: oid_id_map), key_field_name='oid@',
-        dataset_where_sql=kwargs.get('dataset_where_sql'),
-        use_edit_session=kwargs.get('use_edit_session', False),
-        log_level=None,
-        )
+    update_by_mapping(dataset_path, field_name,
+                      mapping=oid_id_map, key_field_name='oid@',
+                      dataset_where_sql=kwargs.get('dataset_where_sql'),
+                      use_edit_session=kwargs.get('use_edit_session', False),
+                      log_level=None)
     LOG.log(log_level, "End: Update.")
     return field_name
 
