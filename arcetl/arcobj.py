@@ -541,17 +541,25 @@ def spatial_reference(item):
         item (int): Spatial reference ID.
              (str): Path of reference dataset/file.
              (arcpy.Geometry): Reference geometry object.
+             (arcpy.SpatialReference): Spatial reference object.
+
     Returns:
         arcpy.SpatialReference.
+
     """
     if item is None:
         arc_object = None
+    elif isinstance(item, arcpy.SpatialReference):
+        arc_object = item
     elif isinstance(item, int):
         arc_object = arcpy.SpatialReference(item)
     elif isinstance(item, arcpy.Geometry):
         arc_object = getattr(item, 'spatialReference')
     else:
-        arc_object = getattr(arcpy.Describe(item), 'spatialReference')
+        arc_object = arcpy.SpatialReference(
+            getattr(getattr(arcpy.Describe(item), 'spatialReference'),
+                    'factoryCode')
+            )
     return arc_object
 
 
