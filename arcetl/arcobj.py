@@ -267,9 +267,10 @@ class Editor(object):
     def active(self):
         """bool: Flag indicating whether edit session is active."""
         if self._editor:
-            return self._editor.isEditing
+            _active = self._editor.isEditing
         else:
-            return False
+            _active = False
+        return _active
 
     def start(self):
         """Start an active edit session.

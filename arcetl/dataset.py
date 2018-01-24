@@ -49,7 +49,8 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
             raise RuntimeError("Cannot add existing field (exist_ok=False).")
     else:
         arcpy.management.AddField(
-            in_table=dataset_path, field_name=field_name, field_type=field_type,
+            in_table=dataset_path,
+            field_name=field_name, field_type=field_type,
             field_length=kwargs.get('field_length', 64),
             field_precision=kwargs.get('field_precision'),
             field_scale=kwargs.get('field_scale'),
