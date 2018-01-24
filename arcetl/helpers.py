@@ -108,8 +108,8 @@ def unique_name(prefix='', suffix='', unique_length=4,
     return name
 
 
-def unique_temp_dataset_path(prefix='', suffix='', unique_length=4,
-                             workspace_path='in_memory'):
+def unique_dataset_path(prefix='', suffix='', unique_length=4,
+                        workspace_path='in_memory'):
     """Create unique temporary dataset path.
 
     Args:

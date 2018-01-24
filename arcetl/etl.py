@@ -59,7 +59,7 @@ class ArcETL(object):
         LOG.info("Start: Extract %s.", extract_path)
         self.transform_path = dataset.copy(
             dataset_path=extract_path,
-            output_path=helpers.unique_temp_dataset_path('extract'),
+            output_path=helpers.unique_dataset_path('extract'),
             dataset_where_sql=extract_where_sql,
             log_level=None
             )
@@ -87,7 +87,7 @@ class ArcETL(object):
                 spatial dataset. Defaults to 4326 (WGS 84).
         """
         LOG.info("Start: Initialize schema.")
-        self.transform_path = helpers.unique_temp_dataset_path('init')
+        self.transform_path = helpers.unique_dataset_path('init')
         if template_path:
             dataset.copy(dataset_path=template_path,
                          output_path=self.transform_path,
@@ -149,7 +149,7 @@ class ArcETL(object):
         # Add output_path to kwargs if needed.
         if all(['output_path' in funcsigs.signature(transformation).parameters,
                 'output_path' not in kwargs]):
-            kwargs['output_path'] = helpers.unique_temp_dataset_path(
+            kwargs['output_path'] = helpers.unique_dataset_path(
                 getattr(transformation, '__name__', 'transform')
                 )
         result = transformation(**kwargs)

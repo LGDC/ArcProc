@@ -867,7 +867,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         if kwargs.get('tolerance') is not None:
             old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
-        temp_output_path = helpers.unique_temp_dataset_path('output')
+        temp_output_path = helpers.unique_dataset_path('output')
         arcpy.analysis.SpatialJoin(target_features=dataset_view.name,
                                    join_features=temp_overlay.path,
                                    out_feature_class=temp_output_path,

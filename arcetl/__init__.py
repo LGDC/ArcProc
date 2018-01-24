@@ -21,8 +21,8 @@ from arcetl import helpers
 from arcetl.helpers import (
     sexagesimal_angle_to_decimal,
     unique_ids,
+    unique_dataset_path,
     unique_name,
-    unique_temp_dataset_path,
     )
 from arcetl import network
 from arcetl import proximity

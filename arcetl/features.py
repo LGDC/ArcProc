@@ -38,7 +38,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     clip_view = arcobj.DatasetView(clip_dataset_path,
                                    kwargs.get('clip_where_sql'))
     with dataset_view, clip_view:
-        temp_output_path = helpers.unique_temp_dataset_path('output')
+        temp_output_path = helpers.unique_dataset_path('output')
         arcpy.analysis.Clip(in_features=dataset_view.name,
                             clip_features=clip_view.name,
                             out_feature_class=temp_output_path,
@@ -141,7 +141,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
         arcpy.env.XYTolerance = kwargs['tolerance']
     dataset_view = arcobj.DatasetView(dataset_path,
                                       kwargs.get('dataset_where_sql'))
-    temp_output_path = helpers.unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_dataset_path('output')
     with dataset_view:
         arcpy.management.Dissolve(
             in_features=dataset_view.name, out_feature_class=temp_output_path,
@@ -205,7 +205,7 @@ def eliminate_interior_rings(dataset_path, max_area=None,
         condition = 'percent'
     dataset_view = arcobj.DatasetView(dataset_path,
                                       kwargs.get('dataset_where_sql'))
-    temp_output_path = helpers.unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_dataset_path('output')
     with dataset_view:
         arcpy.management.EliminatePolygonPart(
             in_features=dataset_view.name, out_feature_class=temp_output_path,
@@ -256,7 +256,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
                                       kwargs.get('dataset_where_sql'))
     erase_view = arcobj.DatasetView(erase_dataset_path,
                                     kwargs.get('erase_where_sql'))
-    temp_output_path = helpers.unique_temp_dataset_path('output')
+    temp_output_path = helpers.unique_dataset_path('output')
     with dataset_view, erase_view:
         arcpy.analysis.Erase(in_features=dataset_view.name,
                              erase_features=erase_view.name,
