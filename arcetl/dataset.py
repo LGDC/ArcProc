@@ -211,8 +211,8 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
 
     Keyword Args:
         geometry_type (str): Type of geometry, if a spatial dataset.
-        spatial_reference_id (int): EPSG code for spatial reference, if a
-            spatial dataset. Defaults to 4326 (WGS 84).
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived.
         log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
@@ -227,7 +227,7 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
         create_kwargs['geometry_type'] = kwargs['geometry_type']
         # Default to EPSG 4326 (unprojected WGS 84).
         create_kwargs['spatial_reference'] = arcobj.spatial_reference(
-            kwargs.get('spatial_reference_id', 4326)
+            kwargs.get('spatial_reference_item', 4326)
             )
     else:
         create_function = arcpy.management.CreateTable

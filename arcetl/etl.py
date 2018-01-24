@@ -83,8 +83,9 @@ class ArcETL(object):
             geometry_type (str): Name of the geometry type. Valid geometry
                 types are: point, multipoint, polygon, polyline. If argument
                 not included or another value, dataset will be nonspatial.
-            spatial_reference_id (int): EPSG code for spatial reference, if a
-                spatial dataset. Defaults to 4326 (WGS 84).
+            spatial_reference_item: Item from which the output geometry's
+                spatial reference will be derived.
+
         """
         LOG.info("Start: Initialize schema.")
         self.transform_path = helpers.unique_dataset_path('init')
@@ -95,7 +96,7 @@ class ArcETL(object):
         else:
             init_kwargs = {key: val for key, val in kwargs.items()
                            if key in ('field_metadata_list', 'geometry_type',
-                                      'spatial_reference_id')}
+                                      'spatial_reference_item')}
             dataset.create(dataset_path=self.transform_path, log_level=None,
                            **init_kwargs)
         LOG.info("End: Initialize.")

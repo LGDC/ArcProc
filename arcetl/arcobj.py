@@ -10,6 +10,21 @@ from arcetl import helpers
 
 LOG = logging.getLogger(__name__)
 
+RATIO = {
+    'meter': {
+        'foot': 0.3048, 'feet': 0.3048, 'ft': 0.3048,
+        'yard': 0.9144, 'yards': 0.9144, 'yd': 0.9144,
+        'mile': 1609.34, 'miles': 1609.34, 'mi': 1609.34,
+        'meter': 1.0, 'meters': 1.0, 'm': 1.0,
+        'kilometer': 1000.0, 'kilometers': 1000.0, 'km': 1000.0,
+        },
+    }
+"""dict: Two-level mapping of ratio between two types of measure.
+
+Usage: `RATIO['to_measure']['from_mesure']`
+
+"""
+
 
 class ArcExtension(object):
     """Context manager for an ArcGIS extension.
@@ -462,20 +477,41 @@ def field_metadata(dataset_path, field_name):
     return meta
 
 
-def linear_unit_string(measure, spatial_reference_source):
-    """Return unit of measure as a linear unit string.
+def linear_unit(measure_string, spatial_reference_item):
+    """Calculate linear unit of measure in reference units from string.
+
+    Args:
+        unit_string (str): String description of linear unit of measure.
+        spatial_reference_item: Item from which the linear unit's spatial
+            reference will be derived.
+
+    Returns:
+        float: Unit of measure in spatial reference's units.
+
+    """
+    s_measure, s_unit = measure_string.split(' ')
+    sref_unit = getattr(spatial_reference(spatial_reference_item),
+                        'linearUnitName', 'Unknown')
+    meter_measure = float(s_measure) * RATIO['meter'][s_unit.lower()]
+    measure = meter_measure / RATIO['meter'][sref_unit.lower()]
+    return measure
+
+
+def linear_unit_string(measure, spatial_reference_item):
+    """Return linear unit of measure as a linear unit string.
 
     Args:
         measure (float, int, str): Count of measure.
-        spatial_reference_source: Source object for determining the spatial
-            reference.
+        spatial_reference_item: Item from which the linear unit's spatial
+            reference will be derived.
 
     Returns:
         str: Linear unit as a string.
+
     """
-    linear_unit = getattr(spatial_reference(spatial_reference_source),
-                          'linearUnitName', 'Unknown'),
-    return '{} {}'.format(measure, linear_unit)
+    sref_unit = getattr(spatial_reference(spatial_reference_item),
+                        'linearUnitName', 'Unknown')
+    return '{} {}'.format(measure, sref_unit)
 
 
 def python_type(type_description):

@@ -85,14 +85,15 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived.
 
     Yields:
         dict: Mapping of feature attribute field names to values.
+
     """
     field_names = tuple(field_names) if field_names else '*'
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_id'))
+    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
         where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
@@ -116,14 +117,15 @@ def as_iters(dataset_path, field_names=None, **kwargs):
     Keyword Args:
         iter_type: Iterable type to yield. Defaults to tuple.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived.
 
     Yields:
         iter: Collection of attribute values.
+
     """
     field_names = tuple(field_names) if field_names else '*'
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_id'))
+    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
         where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
@@ -234,8 +236,8 @@ def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            output geometry will be in.
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived.
 
     Returns:
         dict: Mapping of feature ID to feature attribute(s).
@@ -248,7 +250,7 @@ def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
         id_field_names = (id_field_names,)
     else:
         id_field_names = tuple(id_field_names)
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_id'))
+    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         dataset_path, field_names=id_field_names + field_names,
         where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
@@ -626,8 +628,8 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         log_level (str): Level to log the function at. Defaults to 'info'.
-        spatial_reference_id (int): EPSG code indicating the spatial reference
-            the geometry property will represent.
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived..
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
 
@@ -668,12 +670,10 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         arcobj.dataset_metadata(dataset_path)['workspace_path'],
         kwargs.get('use_edit_session', False),
         )
+    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     cursor = arcpy.da.UpdateCursor(
         dataset_path, field_names=(field_name, 'shape@'),
-        where_clause=kwargs.get('dataset_where_sql'),
-        spatial_reference=arcobj.spatial_reference(
-            kwargs.get('spatial_reference_id')
-            ),
+        where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref,
         )
     with session, cursor:
         for old_value, geometry in cursor:

@@ -132,15 +132,15 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     return output_path
 
 
-def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
+def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     """Project dataset features to a new dataset.
 
     Args:
         dataset_path (str): Path of the dataset.
         output_path (str): Path of the output dataset.
-        spatial_reference_id (int): EPSG code indicating the spatial
-            reference output geometry will be in. Defaults to 4326
-            (unprojected WGS84).
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived. Defaults to 4326 (EPSG code for
+            unprojected WGS84).
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -151,8 +151,9 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
         str: Path of the converted dataset.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
+    sref = arcobj.spatial_reference(spatial_reference_item)
     LOG.log(log_level, "Start: Project %s to srid=%s in %s.",
-            dataset_path, spatial_reference_id, output_path)
+            dataset_path, sref.factoryCode, output_path)
     dataset_meta = arcobj.dataset_metadata(dataset_path)
     # Project tool cannot output to an in-memory workspace (will throw error
     # 000944). Not a bug. Esri's Project documentation (as of v10.4)
@@ -163,7 +164,7 @@ def project(dataset_path, output_path, spatial_reference_id=4326, **kwargs):
                    if field['type'].lower() not in ('geometry ', 'oid'))
     dataset.create(output_path, field_metas,
                    geometry_type=dataset_meta['geometry_type'],
-                   spatial_reference_id=spatial_reference_id, log_level=None)
+                   spatial_reference_item=sref, log_level=None)
     dataset.copy(dataset_path, output_path,
                  dataset_where_sql=kwargs.get('dataset_where_sql'),
                  log_level=None)
@@ -217,7 +218,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
 
 
 def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
-                    spatial_reference_id=4326, **kwargs):
+                    spatial_reference_item=4326, **kwargs):
     """Convert coordinate table to a new point dataset.
 
     Args:
@@ -225,9 +226,9 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
         output_path (str): Path of the output dataset.
         x_field_name (str): Name of the field with x-coordinate.
         y_field_name (str): Name of the field with y-coordinate.
-        spatial_reference_id (int): EPSG code indicating the spatial
-            reference output geometry will be in. Defaults to 4326
-            (unprojected WGS84).
+        spatial_reference_item: Item from which the output geometry's spatial
+            reference will be derived. Defaults to 4326 (EPSG code for
+            unprojected WGS84).
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -242,7 +243,7 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
     LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
             dataset_path, output_path)
     view_name = helpers.unique_name()
-    sref = arcobj.spatial_reference(spatial_reference_id)
+    sref = arcobj.spatial_reference(spatial_reference_item)
     arcpy.management.MakeXYEventLayer(
         table=dataset_path, out_layer=view_name, in_x_field=x_field_name,
         in_y_field=y_field_name, in_z_field=kwargs.get('z_field_name'),
