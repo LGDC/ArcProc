@@ -86,6 +86,9 @@ class ArcETL(object):
             spatial_reference_item: Item from which the output geometry's
                 spatial reference will be derived.
 
+        Returns:
+            str: Path of the current transformation output dataset.
+
         """
         LOG.info("Start: Initialize schema.")
         self.transform_path = helpers.unique_dataset_path('init')
@@ -115,6 +118,7 @@ class ArcETL(object):
 
         Returns:
             str: Path of the dataset loaded.
+
         """
         LOG.info("Start: Load %s.", load_path)
         # Load to an existing dataset.

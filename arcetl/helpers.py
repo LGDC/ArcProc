@@ -63,6 +63,7 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
 
     Yields:
         Unique ID.
+
     """
     if data_type in (float, int):
         # Skip 0 (problematic - some processing functions use 0 for null).
@@ -101,6 +102,7 @@ def unique_name(prefix='', suffix='', unique_length=4,
 
     Returns:
         str: Unique name.
+
     """
     name = prefix + next(unique_ids(str, unique_length)) + suffix
     if not allow_initial_digit and name[0].isdigit():

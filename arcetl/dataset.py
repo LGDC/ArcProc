@@ -25,7 +25,7 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
             same as field being added. Defaults to False.
         field_is_nullable (bool): Flag to indicate if field can be null.
             Defaults to True.
-        field_is_required (bool): Dlag to indicate if field is required.
+        field_is_required (bool): Flag to indicate if field is required.
             Defaults to False.
         field_length (int): Length of field. Only applies to text fields.
             Defaults to 64.

@@ -33,6 +33,7 @@ class ArcExtension(object):
         name (str): Name of the extension. Currently, name is same as code.
         code (str): Internal code for the extension.
         activated (bool): Flag to indicate extension is activated or not.
+
     """
 
     _result = {
@@ -59,6 +60,7 @@ class ArcExtension(object):
 
         Args:
             name (str): Name of the extension.
+
         """
         self.name = name
         # For now assume name & code are same.
@@ -81,6 +83,7 @@ class ArcExtension(object):
         Returns:
             bool: Indicator that extension is activated (True) or deactivated/
                 failure (False).
+
         """
         result = self._result[exec_function(self.code)]
         LOG.log(result['log_level'], result['message'])
@@ -91,6 +94,7 @@ class ArcExtension(object):
 
         Returns:
             bool: Indicator that extension is activated or not.
+
         """
         self.activated = self._exec_activation(arcpy.CheckOutExtension)
         return self.activated
@@ -100,6 +104,7 @@ class ArcExtension(object):
 
         Returns:
             bool: Indicator that extension is deactivated or not.
+
         """
         self.activated = self._exec_activation(arcpy.CheckInExtension)
         return not self.activated
@@ -113,6 +118,7 @@ class DatasetView(object):
         dataset_path (str): Path of the dataset.
         dataset_meta (dict): Metadata dictionary for the dataset.
         is_spatial (bool): Flag indicating if the view is spatial.
+
     """
 
     def __init__(self, dataset_path, dataset_where_sql=None, view_name=None,
@@ -125,6 +131,7 @@ class DatasetView(object):
                 subselection.
             view_name (str): Name of the view to create.
             force_nonspatial (bool): Flag that forces a nonspatial view.
+
         """
         self.name = view_name if view_name else helpers.unique_name('view')
         self.dataset_path = dataset_path
@@ -158,6 +165,7 @@ class DatasetView(object):
         """str: SQL where-clause property of dataset view subselection.
 
         Setting this property will change the view's dataset subselection.
+
         """
         return self._where_sql
 
@@ -189,6 +197,7 @@ class DatasetView(object):
 
         Yields:
             DatasetView.
+
         """
         # ArcPy where clauses cannot use 'between'.
         chunk_where_sql_template = ("{oid_field_name} >= {from_oid}"
@@ -231,6 +240,7 @@ class Editor(object):
 
     Attributes:
         workspace_path (str):  Path for the editing workspace
+
     """
 
     def __init__(self, workspace_path, use_edit_session=True):
@@ -240,6 +250,7 @@ class Editor(object):
             use_edit_session (bool): Flag directing edits to be made in an
                 edit session. Default is True.
             workspace_path (str): Path for the editing workspace.
+
         """
         self._editor = (arcpy.da.Editor(workspace_path) if use_edit_session
                         else None)
@@ -265,6 +276,7 @@ class Editor(object):
 
         Returns:
             bool: Indicator that session is active.
+
         """
         if self._editor and not self._editor.isEditing:
             self._editor.startEditing(with_undo=True, multiuser_mode=True)
@@ -280,6 +292,7 @@ class Editor(object):
 
         Returns:
             bool: Indicator that session is not active.
+
         """
         if self._editor and self._editor.isEditing:
             (self._editor.stopOperation if save_changes
@@ -299,6 +312,7 @@ class TempDatasetCopy(object):
         where_sql (str): SQL where-clause property of copy subselection.
         activated (bool): Flag indicating whether the temporary copy is
             activated.
+
     """
 
     def __init__(self, dataset_path, dataset_where_sql=None, output_path=None,
@@ -394,6 +408,7 @@ def dataset_metadata(dataset_path):
 
     Returns:
         dict: Metadata for dataset.
+
     """
     arc_object = arcpy.Describe(dataset_path)
     meta = {
@@ -443,6 +458,7 @@ def domain_metadata(domain_name, workspace_path):
 
     Returns:
         dict: Metadata for domain.
+
     """
     domain_object = next(
         domain for domain in arcpy.da.ListDomains(workspace_path)
@@ -464,6 +480,7 @@ def field_metadata(dataset_path, field_name):
 
     Returns:
         dict: Metadata for field.
+
     """
     try:
         field_object = arcpy.ListFields(dataset=dataset_path,
@@ -522,6 +539,7 @@ def python_type(type_description):
 
     Returns:
         Python object representing the type.
+
     """
     instance = {
         'date': datetime.datetime,
@@ -573,6 +591,7 @@ def spatial_reference_metadata(item):
 
     Returns:
         dict: Metadata for the derived spatial reference.
+
     """
     ##TODO: Finish stub.
     ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
@@ -594,6 +613,7 @@ def workspace_metadata(workspace_path):
 
     Returns:
         dict: Metadata for workspace.
+
     """
     ##TODO: Finish stub.
     ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
