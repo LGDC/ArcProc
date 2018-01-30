@@ -16,10 +16,10 @@ from arcetl.etl import (
     ArcETL,
     )
 from arcetl import features
+from arcetl import geometry
 from arcetl import geoset
 from arcetl import helpers
 from arcetl.helpers import (
-    sexagesimal_angle_to_decimal,
     unique_ids,
     unique_dataset_path,
     unique_name,

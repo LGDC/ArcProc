@@ -24,35 +24,6 @@ def log_level(name=None):
     return level[name]
 
 
-def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0,
-                                 fourths=0):
-    """Convert sexagesimal-parsed angles to a decimal.
-
-    Args:
-        degrees (int): Angle degrees count.
-        minutes (int): Angle minutes count.
-        seconds (int): Angle seconds count.
-        thirds (int): Angle thirds count.
-        fourths (int): Angle fourths count.
-
-    Returns:
-        float: Angle in decimal degrees.
-    """
-    if degrees is None:
-        return None
-    # The degrees must be absolute or it won't sum right with subdivisions.
-    absolute_decimal = abs(float(degrees))
-    try:
-        sign_multiplier = abs(float(degrees))/float(degrees)
-    except ZeroDivisionError:
-        sign_multiplier = 1
-    for count, divisor in ((minutes, 60), (seconds, 3600), (thirds, 216000),
-                           (fourths, 12960000)):
-        if count:
-            absolute_decimal += float(count)/divisor
-    return absolute_decimal * sign_multiplier
-
-
 def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generator for unique IDs.
 
