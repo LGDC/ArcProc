@@ -23,7 +23,7 @@ jobs=1
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
-unsafe-load-any-extension=no
+unsafe-load-any-extension=yes
 
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
@@ -96,7 +96,7 @@ evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / stateme
 bad-functions=map,filter
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=i,j,k,ex,Run,_
+good-names=i,j,k,,x,y,z,ex,Run,_
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,bar,baz,toto,tutu,tata
