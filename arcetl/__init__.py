@@ -4,6 +4,7 @@ from arcetl import arcobj
 from arcetl.arcobj import (
     ArcExtension,
     DatasetView,
+    Editor,
     TempDatasetCopy,
     spatial_reference_metadata,
     )
