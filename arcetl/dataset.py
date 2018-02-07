@@ -331,6 +331,19 @@ def feature_count(dataset_path, **kwargs):
     return count
 
 
+def field_names(dataset_path):
+    """Generate names of fields on dataset.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+
+    Yields:
+        str: Name of a field.
+
+    """
+    return arcobj.dataset_metadata(dataset_path)['field_names']
+
+
 field_metadata = arcobj.field_metadata  # pylint: disable=invalid-name
 
 
