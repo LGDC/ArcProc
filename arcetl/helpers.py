@@ -1,12 +1,29 @@
 """Internal module helper objects."""
+from collections import Iterable
+import inspect
 import logging
 import os
 import random
 import string
 import uuid
 
+import six
+
 
 LOG = logging.getLogger(__name__)
+
+
+def contain(obj, nonetypes_as_empty=True):
+    """Return a generating container of object if not already one."""
+    if nonetypes_as_empty and obj is None:
+        return
+    if inspect.isgeneratorfunction(obj):
+        obj = obj()
+    if isinstance(obj, Iterable) and not isinstance(obj, six.string_types):
+        for i in obj:
+            yield i
+    else:
+        yield obj
 
 
 def log_level(name=None):

@@ -20,6 +20,7 @@ from arcetl import geometry
 from arcetl import geoset
 from arcetl import helpers
 from arcetl.helpers import (
+    contain,
     unique_ids,
     unique_dataset_path,
     unique_name,

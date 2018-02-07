@@ -80,7 +80,8 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         field_names (iter): Collection of field names. Names will be the keys
-            in the dictionary mapping to their values.
+            in the dictionary mapping to their values. If value is None, all
+            attributes fields will be used.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -92,7 +93,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         dict: Mapping of feature attribute field names to values.
 
     """
-    field_names = tuple(field_names) if field_names else '*'
+    field_names = tuple(helpers.contain(field_names)) if field_names else '*'
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
@@ -102,7 +103,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
             yield dict(zip(cursor.fields, feature))
 
 
-def as_iters(dataset_path, field_names=None, **kwargs):
+def as_iters(dataset_path, field_names, **kwargs):
     """Generator for iterables of feature attributes.
 
     Use ArcPy cursor token names for object IDs and geometry objects/properties.
@@ -124,7 +125,7 @@ def as_iters(dataset_path, field_names=None, **kwargs):
         iter: Collection of attribute values.
 
     """
-    field_names = tuple(field_names) if field_names else '*'
+    field_names = tuple(helpers.contain(field_names))
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
@@ -241,14 +242,8 @@ def id_map(dataset_path, id_field_names, field_names, **kwargs):
     Returns:
         dict: Mapping of feature ID to feature attribute(s).
     """
-    if isinstance(field_names, six.string_types):
-        field_names = (field_names,)
-    else:
-        field_names = tuple(field_names)
-    if isinstance(id_field_names, six.string_types):
-        id_field_names = (id_field_names,)
-    else:
-        id_field_names = tuple(id_field_names)
+    field_names = tuple(helpers.contain(field_names))
+    id_field_names = tuple(helpers.contain(id_field_names))
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         dataset_path, field_names=id_field_names + field_names,
