@@ -296,22 +296,20 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
     Returns:
         str: Path of the dataset updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Insert features into %s from dictionaries.",
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Insert features into %s from dictionaries.",
             dataset_path)
-    field_names = tuple(field_names)  # Ensures not generator (names used 2x).
+    keys = {'row': tuple(helpers.contain(field_names))}
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
-    iters = (
-        (feature[name] if name in feature else None for name in field_names)
-        for feature in insert_features
-        )
+    iters = ((feature[key] for key in keys['row'])
+             for feature in insert_features)
     result = insert_from_iters(
         dataset_path, iters, field_names,
         use_edit_session=kwargs.get('use_edit_session', False),
         log_level=None,
         )
-    LOG.log(log_level, "End: Insert.")
+    LOG.log(_level, "End: Insert.")
     return result
 
 
@@ -333,21 +331,23 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
 
     Returns:
         str: Path of the dataset updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Insert features into %s from iterables.",
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Insert features into %s from iterables.",
             dataset_path)
+    keys = {'row': tuple(helpers.contain(field_names))}
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     session = arcobj.Editor(
         arcobj.dataset_metadata(dataset_path)['workspace_path'],
         kwargs.get('use_edit_session', False),
         )
-    cursor = arcpy.da.InsertCursor(dataset_path, field_names)
+    cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys['row'])
     with session, cursor:
         for row in insert_features:
             cursor.insertRow(tuple(row))
-    LOG.log(log_level, "End: Insert.")
+    LOG.log(_level, "End: Insert.")
     return dataset_path
 
 
@@ -373,51 +373,36 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     Returns:
         str: Path of the dataset updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Insert features into %s from %s.",
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Insert features into %s from %s.",
             dataset_path, insert_dataset_path)
-    meta = {'dataset': arcobj.dataset_metadata(dataset_path),
-            'insert': arcobj.dataset_metadata(insert_dataset_path)}
-    # Create field maps.
-    # Added because ArcGIS Pro's no-test append is case-sensitive (verified
-    # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
-    # Append tool does not auto-map to the same field name if naming
-    # convention differs.
-    _field_names = {
-        'insert': {name.lower() for name in meta['insert']['field_names']}
-        }
     if field_names is None:
-        _field_names['dataset'] = [name.lower() for name
-                                   in meta['dataset']['field_names']]
-    else:
-        _field_names['dataset'] = [name.lower() for name in field_names]
-    # Append takes care of geometry & OIDs independent of the field maps.
-    for field_name_type in ('geometry_field_name', 'oid_field_name'):
-        for _set in ('dataset', 'insert'):
-            if meta[_set].get(field_name_type) is None:
-                continue
-            field_name = meta[_set][field_name_type].lower()
-            if field_name and field_name in _field_names[_set]:
-                _field_names[_set].remove(field_name)
-    field_maps = arcpy.FieldMappings()
-    for field_name in _field_names['dataset']:
-        if field_name in _field_names['insert']:
-            field_map = arcpy.FieldMap()
-            field_map.addInputField(insert_dataset_path, field_name)
-            field_maps.addFieldMap(field_map)
-    session = arcobj.Editor(meta['dataset']['workspace_path'],
-                            kwargs.get('use_edit_session', False))
-    insert_view = arcobj.DatasetView(
-        insert_dataset_path, kwargs.get('insert_where_sql'),
-        # Insert view must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not meta['dataset']['is_spatial'])
+        meta = {'dataset': arcobj.dataset_metadata(dataset_path),
+                'insert': arcobj.dataset_metadata(insert_dataset_path)}
+        field_names = (
+            set(n.lower() for n in meta['dataset']['field_names'])
+            & set(n.lower() for n in meta['insert']['field_names'])
+            )
+        for _meta in meta.values():
+            for name, token in (
+                    (_meta['oid_field_name'].lower(), 'oid@'),
+                    (_meta['geom_field_name'].lower(), 'shape@'),
+                ):
+                if name in field_names:
+                    field_names.remove(name)
+                    field_names.add(token)
+    keys = {'row': tuple(helpers.contain(field_names))}
+    iters = attributes.as_iters(
+        insert_dataset_path, keys['row'],
+        dataset_where_sql=kwargs.get('insert_where_sql'),
         )
-    with session, insert_view:
-        arcpy.management.Append(inputs=insert_view.name,
-                                target=dataset_path, schema_type='no_test',
-                                field_mapping=field_maps)
-    LOG.log(log_level, "End: Insert.")
-    return dataset_path
+    result = insert_from_iters(
+        dataset_path, insert_features=iters, field_names=keys['row'],
+        use_edit_session=kwargs.get('use_edit_session', True),
+        log_level=None,
+        )
+    LOG.log(_level, "End: Insert.")
+    return result
 
 
 def keep_by_location(dataset_path, location_dataset_path, **kwargs):
