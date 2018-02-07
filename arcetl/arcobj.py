@@ -233,9 +233,9 @@ class Editor(object):
         """Initialize instance.
 
         Args:
+            workspace_path (str): Path for the editing workspace.
             use_edit_session (bool): Flag directing edits to be made in an
                 edit session. Default is True.
-            workspace_path (str): Path for the editing workspace.
 
         """
         self._editor = (arcpy.da.Editor(workspace_path) if use_edit_session

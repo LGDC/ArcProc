@@ -24,8 +24,8 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     Keyword Args:
         clip_where_sql (str): SQL where-clause for clip dataset subselection.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         tolerance (float): Tolerance for coincidence, in dataset's units.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -62,9 +62,9 @@ def delete(dataset_path, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -123,10 +123,10 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         tolerance (float): Tolerance for coincidence, in dataset's units.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -185,9 +185,9 @@ def eliminate_interior_rings(dataset_path, max_area=None,
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -241,10 +241,10 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         erase_where_sql (str): SQL where-clause for erase-dataset
             subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         tolerance (float): Tolerance for coincidence, in dataset's units.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -277,27 +277,26 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
     return dataset_path
 
 
-def insert_from_dicts(dataset_path, insert_features, field_names,
-                      **kwargs):
-    """Insert features into the dataset from an iterable of dictionaries.
+def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
+    """Insert features into dataset from dictionaries.
 
     Args:
         dataset_path (str): Path of the dataset.
-        insert_features (iter): Colelction of dictionaries representing
-            features.
+        insert_features (iter of dict): Collection of dictionaries
+            representing features.
         field_names (iter): Collection of field names/keys to insert.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Insert features from dictionaries into %s.",
+    LOG.log(log_level, "Start: Insert features into %s from dictionaries.",
             dataset_path)
     field_names = tuple(field_names)  # Ensures not generator (names used 2x).
     if inspect.isgeneratorfunction(insert_features):
@@ -316,26 +315,26 @@ def insert_from_dicts(dataset_path, insert_features, field_names,
 
 
 def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
-    """Insert features into the dataset from an iterable of iterable items.
+    """Insert features into dataset from iterables.
 
     Args:
         dataset_path (str): Path of the dataset.
-        insert_features (iter): Iterable containing iterable items
-            representing features.
+        insert_features (iter of iter): Collection of iterables representing
+            features.
         field_names (iter): Collection of field names to insert. These must
             match the order of their attributes in the insert_features items.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Insert features from iterables into %s.",
+    LOG.log(log_level, "Start: Insert features into %s from iterables.",
             dataset_path)
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
@@ -353,31 +352,31 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
 
 def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
                      **kwargs):
-    """Insert features from a dataset referred to by a system path.
+    """Insert features into dataset from another dataset.
 
     Args:
         dataset_path (str): Path of the dataset.
         insert_dataset_path (str): Path of dataset to insert features from.
         field_names (iter): Collection of field names to insert. Listed field
-            names must be present in both datasets. If field_names is
-            NoneType, all fields will be inserted.
+            must be present in both datasets. If field_names is None, all
+            fields will be inserted.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         insert_where_sql (str): SQL where-clause for insert-dataset
             subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
     """
     log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Insert features from dataset path %s into %s.",
-            insert_dataset_path, dataset_path)
+    LOG.log(log_level, "Start: Insert features into %s from %s.",
+            dataset_path, insert_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path),
-            'insert':arcobj.dataset_metadata(insert_dataset_path)}
+            'insert': arcobj.dataset_metadata(insert_dataset_path)}
     # Create field maps.
     # Added because ArcGIS Pro's no-test append is case-sensitive (verified
     # 1.0-1.1.1). BUG-000090970 - ArcGIS Pro 'No test' field mapping in
@@ -432,9 +431,9 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         location_where_sql (str): SQL where-clause for location-dataset
             subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
