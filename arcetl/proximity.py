@@ -52,9 +52,10 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
             location=True, angle=True, closest=False,
             closest_count=kwargs.get('near_rank', 1),
             )
-        oid_id_map = attributes.id_map(dataset_view.name,
+        oid_id_map = attributes.id_map(dataset_view.name, 'oid@',
                                        dataset_id_field_name)
-        near_oid_id_map = attributes.id_map(near_view.name, near_id_field_name)
+        near_oid_id_map = attributes.id_map(near_view.name, 'oid@',
+                                            near_id_field_name)
     field_names = ('in_fid', 'near_fid', 'near_dist', 'near_angle',
                    'near_x', 'near_y', 'near_rank')
     near_info_map = {}

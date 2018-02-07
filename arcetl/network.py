@@ -108,7 +108,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
                 append=False, exclude_restricted_elements=True
                 )
         _facility['oid_id'] = attributes.id_map(
-            dataset_path='closest/Facilities', field_names=('facility_id',)
+            dataset_path='closest/Facilities',
+            id_field_names='oid@', field_names='facility_id',
             )
         # Load dataset locations.
         _dataset = {
@@ -134,7 +135,8 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
                 exclude_restricted_elements=True
                 )
         _dataset['oid_id'] = attributes.id_map(
-            dataset_path='closest/Incidents', field_names=('dataset_id',)
+            dataset_path='closest/Incidents',
+            id_field_names='oid@', field_names='dataset_id',
             )
         arcpy.na.Solve(in_network_analysis_layer='closest',
                        ignore_invalids=True, terminate_on_solve_error=True)

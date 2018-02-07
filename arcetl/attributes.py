@@ -219,7 +219,7 @@ def coordinate_node_info_map(dataset_path, from_id_field_name,
     return coord_node_info
 
 
-def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
+def id_map(dataset_path, id_field_names, field_names, **kwargs):
     """Return dictionary mapping of field attribute for each feature ID.
 
     Note:
@@ -229,8 +229,7 @@ def id_map(dataset_path, field_names, id_field_names=('oid@',), **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
-        id_field_names (iter, str): Name(s) of the ID field(s). Defaults to
-            feature object ID.
+        id_field_names (iter, str): Name(s) of the ID field(s).
         field_names (iter, str): Name(s) of the field(s).
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -926,7 +925,8 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         data_type=arcobj.python_type(field_meta['type']),
         string_length=field_meta.get('length', 16)
         )
-    oid_id_map = id_map(dataset_path, (field_name,), id_field_names=('oid@',))
+    oid_id_map = id_map(dataset_path, id_field_names='oid@',
+                        field_names=field_name)
     used_ids = set()
     for oid in sorted(oid_id_map):
         while oid_id_map[oid] is None or oid_id_map[oid] in used_ids:
