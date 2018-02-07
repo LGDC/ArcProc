@@ -410,7 +410,9 @@ def dataset_metadata(dataset_path):
         'oid_field_name': getattr(arc_object, 'OIDFieldName', None),
         'is_spatial': hasattr(arc_object, 'shapeType'),
         'geometry_type': getattr(arc_object, 'shapeType', None),
+        'geom_type': getattr(arc_object, 'shapeType', None),
         'geometry_field_name': getattr(arc_object, 'shapeFieldName', None),
+        'geom_field_name': getattr(arc_object, 'shapeFieldName', None),
         }
     meta['field_names'] = tuple(field.name for field
                                 in getattr(arc_object, 'fields', ()))
