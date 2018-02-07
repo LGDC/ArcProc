@@ -5,6 +5,7 @@ import logging
 import arcpy
 
 from arcetl import arcobj
+from arcetl import attributes
 from arcetl import dataset
 from arcetl import helpers
 
@@ -460,3 +461,189 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         delete(dataset_view.name, log_level=None)
     LOG.log(log_level, "End: Keep.")
     return dataset_path
+
+
+def update_from_dicts(dataset_path, update_features, id_field_names,
+                      field_names, **kwargs):
+    """Update features in dataset from dictionaries.
+
+    Note:
+        There is no guarantee that the ID field(s) are unique.
+        Use ArcPy cursor token names for object IDs and geometry objects/
+        properties.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        update_features (iter of dict): Collection of dictionaries
+            representing features.
+        id_field_names (iter, str): Name(s) of the ID field/key(s).
+        field_names (iter): Collection of field names/keys to check & update.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        delete_missing_features (bool): True if update should delete features
+            missing from update_features, False otherwise. Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is True.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
+    Returns:
+        str: Path of the dataset updated.
+
+    """
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Update features in %s from dictionaries.",
+            dataset_path)
+    keys = {'id': tuple(helpers.contain(id_field_names)),
+            'attr': tuple(helpers.contain(field_names))}
+    keys['row'] = keys['id'] + keys['attr']
+    if inspect.isgeneratorfunction(update_features):
+        update_features = update_features()
+    iters = ((feature[key] for key in keys['row'])
+             for feature in update_features)
+    result = update_from_iters(
+        dataset_path, update_features=iters,
+        id_field_names=keys['id'], field_names=keys['row'],
+        delete_missing_features=kwargs.get('delete_missing_features', False),
+        use_edit_session=kwargs.get('use_edit_session', True),
+        log_level=None,
+        )
+    LOG.log(_level, "End: Update.")
+    return result
+
+
+def update_from_iters(dataset_path, update_features, id_field_names,
+                      field_names, **kwargs):
+    """Update features in dataset from iterables.
+
+    Note:
+        There is no guarantee that the ID field(s) are unique.
+        Use ArcPy cursor token names for object IDs and geometry objects/
+        properties.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        update_features (iter of dict): Collection of iterables representing
+            features.
+        id_field_names (iter, str): Name(s) of the ID field/key(s). All ID
+            fields must also be in field_names.
+        field_names (iter): Collection of field names/keys to check & update.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        delete_missing_features (bool): True if update should delete features
+            missing from update_features, False otherwise. Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is True.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
+    Returns:
+        str: Path of the dataset updated.
+
+    """
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Update features in %s from iterables.",
+            dataset_path)
+    keys = {'id': tuple(helpers.contain(id_field_names)),
+            'row': tuple(helpers.contain(field_names))}
+    if not set(keys['id']).issubset(keys['row']):
+        raise ValueError("id_field_names must be a subset of field_names.")
+    ids = {'dataset': set(attributes.as_iters(dataset_path, keys['id'])),
+           'delete': set()}
+    if inspect.isgeneratorfunction(update_features):
+        update_features = update_features()
+    insert_rows = set()
+    id_update_row = {}
+    for row in update_features:
+        row = tuple(row)
+        _id = tuple(row[keys['row'].index(key)] for key in keys['id'])
+        if _id not in ids['dataset']:
+            insert_rows.add(row)
+        else:
+            id_update_row[_id] = row
+    if kwargs.get('delete_missing_features', False):
+        ids['delete'] = {_id for _id in ids['dataset']
+                         if _id not in id_update_row}
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', True),
+        )
+    cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['row'])
+    with session, cursor:
+        for row in cursor:
+            _id = tuple(row[keys['row'].index(key)] for key in keys['id'])
+            if _id in ids['delete']:
+                cursor.deleteRow()
+            # Don't pop this. Otherwise if ID isn't unique, will get only
+            # one row with ID updated.
+            update_row = id_update_row.get(_id, row)
+            if row != update_row:
+                cursor.updateRow(tuple(update_row))
+    cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys['row'])
+    with session, cursor:
+        for row in insert_rows:
+            cursor.insertRow(row)
+    LOG.log(_level, "End: Update.")
+    return dataset_path
+
+
+def update_from_path(dataset_path, update_dataset_path, id_field_names,
+                     field_names=None, **kwargs):
+    """Update features in dataset from another dataset.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        update_dataset_path (str): Path of dataset to update features from.
+        id_field_names (iter, str): Name(s) of the ID field/key(s).
+        field_names (iter): Collection of field names/keys to check & update.
+            Listed field must be present in both datasets. If field_names is
+            None, all fields will be inserted.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        update_where_sql (str): SQL where-clause for update-dataset
+            subselection.
+        delete_missing_features (bool): True if update should delete features
+            missing from update_features, False otherwise. Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is True.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
+    Returns:
+        str: Path of the dataset updated.
+
+    """
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Update features in %s from %s.",
+            dataset_path, update_dataset_path)
+    if field_names is None:
+        meta = {'dataset': arcobj.dataset_metadata(dataset_path),
+                'update': arcobj.dataset_metadata(update_dataset_path)}
+        field_names = (
+            set(n.lower() for n in meta['dataset']['field_names'])
+            & set(n.lower() for n in meta['update']['field_names'])
+            )
+        for _meta in meta.values():
+            for name, token in (
+                    (_meta['oid_field_name'].lower(), 'oid@'),
+                    (_meta['geom_field_name'].lower(), 'shape@'),
+                ):
+                if name in field_names:
+                    field_names.remove(name)
+                    field_names.add(token)
+    keys = {'id': tuple(helpers.contain(id_field_names)),
+            'attr': tuple(helpers.contain(field_names))}
+    keys['row'] = keys['id'] + keys['attr']
+    iters = attributes.as_iters(
+        update_dataset_path, keys['row'],
+        dataset_where_sql=kwargs.get('update_where_sql'),
+        )
+    result = update_from_iters(
+        dataset_path, update_features=iters,
+        id_field_names=keys['id'], field_names=keys['row'],
+        delete_missing_features=kwargs.get('delete_missing_features', False),
+        use_edit_session=kwargs.get('use_edit_session', True),
+        log_level=None,
+        )
+    LOG.log(_level, "End: Update.")
+    return result

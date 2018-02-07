@@ -164,3 +164,35 @@ class ArcETL(object):
                 dataset.delete(self.transform_path, log_level=None)
             self.transform_path = kwargs['output_path']
         return result
+
+    def update(self, dataset_path, id_field_names, field_names=None,
+               **kwargs):
+        """Update features from transform- to load-dataset.
+
+        Args:
+            dataset_path (str): Path of the dataset.
+            id_field_names (iter, str): Name(s) of the ID field/key(s).
+            field_names (iter, str)): Collection of field names/keys to check
+                & update. Listed field must be present in both datasets. If
+                field_names is None, all fields will be inserted.
+            **kwargs: Arbitrary keyword arguments. See below.
+
+        Keyword Args:
+            update_where_sql (str): SQL where-clause for update-dataset
+                subselection.
+            delete_missing_features (bool): True if update should delete
+                features missing from update_features, False otherwise.
+                Default is False.
+            use_edit_session (bool): Flag to perform updates in an edit
+                session. Default is True.
+
+        Returns:
+            str: Path of the dataset updated.
+
+        """
+        LOG.info("Start: Update %s.", dataset_path)
+        features.update_from_path(dataset_path, self.transform_path,
+                                  id_field_names, field_names,
+                                  log_level=None, **kwargs)
+        LOG.info("End: Update.")
+        return dataset_path
