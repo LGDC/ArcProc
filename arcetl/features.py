@@ -455,21 +455,25 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     _level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(_level, "Start: Insert features into %s from %s.",
             dataset_path, insert_dataset_path)
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path),
+            'insert': arcobj.dataset_metadata(insert_dataset_path)}
     if field_names is None:
-        meta = {'dataset': arcobj.dataset_metadata(dataset_path),
-                'insert': arcobj.dataset_metadata(insert_dataset_path)}
         field_names = (
             set(n.lower() for n in meta['dataset']['field_names'])
             & set(n.lower() for n in meta['insert']['field_names'])
             )
-        for _meta in meta.values():
-            for name, token in (
-                    (_meta['oid_field_name'].lower(), 'oid@'),
-                    (_meta['geom_field_name'].lower(), 'shape@'),
-                ):
-                if name in field_names:
-                    field_names.remove(name)
-                    field_names.add(token)
+    else:
+        field_names = set(n.lower() for n in field_names)
+    # If field names include OID or geometry, use the token instead.
+    for _meta in meta.values():
+        for key, token in ((_meta['oid_field_name'], 'oid@'),
+                           (_meta['geom_field_name'], 'shape@')):
+            key = key.lower() if key else key
+            if key and key in field_names:
+                field_names.remove(key)
+                field_names.add(token)
+    # But OIDs have no business being part of an insert.
+    field_names.discard('oid@')
     keys = {'row': tuple(helpers.contain(field_names))}
     iters = attributes.as_iters(
         insert_dataset_path, keys['row'],
@@ -477,7 +481,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
         )
     result = insert_from_iters(
         dataset_path, insert_features=iters, field_names=keys['row'],
-        use_edit_session=kwargs.get('use_edit_session', True),
+        use_edit_session=kwargs.get('use_edit_session', False),
         log_level=None,
         )
     LOG.log(_level, "End: Insert.")
@@ -628,25 +632,33 @@ def update_from_iters(dataset_path, update_features, id_field_names,
     if kwargs.get('delete_missing_features', False):
         ids['delete'] = {_id for _id in ids['dataset']
                          if _id not in id_update_row}
+    feature_count = Counter()
     session = arcobj.Editor(
         arcobj.dataset_metadata(dataset_path)['workspace_path'],
         kwargs.get('use_edit_session', True),
         )
-    cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['row'])
-    with session, cursor:
-        for row in cursor:
-            _id = tuple(row[keys['row'].index(key)] for key in keys['id'])
-            if _id in ids['delete']:
-                cursor.deleteRow()
-            # Don't pop this. Otherwise if ID isn't unique, will get only
-            # one row with ID updated.
-            update_row = id_update_row.get(_id, row)
-            if row != update_row:
-                cursor.updateRow(tuple(update_row))
-    cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys['row'])
-    with session, cursor:
-        for row in insert_rows:
-            cursor.insertRow(row)
+    if ids['delete'] or id_update_row:
+        cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['row'])
+        with session, cursor:
+            for row in cursor:
+                _id = tuple(row[keys['row'].index(key)] for key in keys['id'])
+                if _id in ids['delete']:
+                    cursor.deleteRow()
+                    feature_count['deleted'] += 1
+                elif (_id in id_update_row
+                      and not _is_same(row, id_update_row[_id])):
+                    cursor.updateRow(id_update_row[_id])
+                    feature_count['altered'] += 1
+                else:
+                    feature_count['unchanged'] += 1
+    if insert_rows:
+        cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys['row'])
+        with session, cursor:
+            for row in insert_rows:
+                cursor.insertRow(row)
+                feature_count['inserted'] += 1
+    for key in ('deleted', 'altered', 'unchanged', 'inserted'):
+        LOG.info("%s features %s.", feature_count[key], key)
     LOG.log(_level, "End: Update.")
     return dataset_path
 
@@ -680,21 +692,17 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
     _level = helpers.log_level(kwargs.get('log_level', 'info'))
     LOG.log(_level, "Start: Update features in %s from %s.",
             dataset_path, update_dataset_path)
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path),
+            'update': arcobj.dataset_metadata(update_dataset_path)}
     if field_names is None:
-        meta = {'dataset': arcobj.dataset_metadata(dataset_path),
-                'update': arcobj.dataset_metadata(update_dataset_path)}
         field_names = (
-            set(n.lower() for n in meta['dataset']['field_names'])
-            & set(n.lower() for n in meta['update']['field_names'])
+            set(n.lower() for n in meta['dataset']['field_names_tokenized'])
+            & set(n.lower() for n in meta['update']['field_names_tokenized'])
             )
-        for _meta in meta.values():
-            for name, token in (
-                    (_meta['oid_field_name'].lower(), 'oid@'),
-                    (_meta['geom_field_name'].lower(), 'shape@'),
-                ):
-                if name in field_names:
-                    field_names.remove(name)
-                    field_names.add(token)
+    else:
+        field_names = set(n.lower() for n in field_names)
+    # But OIDs have no business being part of an update.
+    field_names.discard('oid@')
     keys = {'id': tuple(helpers.contain(id_field_names)),
             'attr': tuple(helpers.contain(field_names))}
     keys['row'] = keys['id'] + keys['attr']
