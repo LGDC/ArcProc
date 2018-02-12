@@ -93,7 +93,12 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         dict: Mapping of feature attribute field names to values.
 
     """
-    field_names = tuple(helpers.contain(field_names)) if field_names else '*'
+    if field_names is None:
+        meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
+        field_names = tuple(n.lower() for n
+                            in meta['dataset']['field_names_tokenized'])
+    else:
+        field_names = tuple(helpers.contain(field_names))
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
