@@ -414,8 +414,13 @@ def dataset_metadata(dataset_path):
         'geometry_field_name': getattr(arc_object, 'shapeFieldName', None),
         'geom_field_name': getattr(arc_object, 'shapeFieldName', None),
         }
+    meta['field_token'] = {meta['oid_field_name']: 'oid@',
+                           meta['geom_field_name']: 'shape@'}
+    meta['field_token'].pop(None, None)
     meta['field_names'] = tuple(field.name for field
                                 in getattr(arc_object, 'fields', ()))
+    meta['field_names_tokenized'] = tuple(meta['field_token'].get(name, name)
+                                          for name in meta['field_names'])
     meta['fields'] = tuple(_field_object_metadata(field) for field
                            in getattr(arc_object, 'fields', ()))
     meta['user_field_names'] = tuple(
