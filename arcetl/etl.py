@@ -105,7 +105,8 @@ class ArcETL(object):
         LOG.info("End: Initialize.")
         return self.transform_path
 
-    def load(self, load_path, load_where_sql=None, preserve_features=False):
+    def load(self, load_path, load_where_sql=None, preserve_features=False,
+             **kwargs):
         """Load features from transform- to load-dataset.
 
         Args:
@@ -116,6 +117,10 @@ class ArcETL(object):
                 features in the load-dataset before adding the transformed
                 features.
 
+        Keyword Args:
+            use_edit_session (bool): Flag to perform updates in an edit
+                session. Default is False.
+
         Returns:
             str: Path of the dataset loaded.
 
@@ -124,11 +129,18 @@ class ArcETL(object):
         # Load to an existing dataset.
         if dataset.is_valid(load_path):
             if not preserve_features:
-                features.delete(load_path, log_level=None)
-            features.insert_from_path(dataset_path=load_path,
-                                      insert_dataset_path=self.transform_path,
-                                      insert_where_sql=load_where_sql,
-                                      log_level=None)
+                features.delete(
+                    load_path,
+                    use_edit_session=kwargs.get('use_edit_session', False),
+                    log_level=None,
+                    )
+            features.insert_from_path(
+                dataset_path=load_path,
+                insert_dataset_path=self.transform_path,
+                insert_where_sql=load_where_sql,
+                use_edit_session=kwargs.get('use_edit_session', False),
+                log_level=None,
+                )
         # Load to a new dataset.
         else:
             dataset.copy(self.transform_path, load_path,
