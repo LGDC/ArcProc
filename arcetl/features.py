@@ -1,4 +1,6 @@
 """Feature operations."""
+from collections import Counter
+import datetime
 import inspect
 import logging
 
@@ -11,6 +13,32 @@ from arcetl import helpers
 
 
 LOG = logging.getLogger(__name__)
+
+
+def _is_same(*rows):
+    """Determine whether feature representations are the same.
+
+    Args:
+        *rows (iter of iter): Collection of features to compare.
+
+    Returns:
+        bool: True if rows are the same, False otherwise.
+
+    """
+    for i, row in enumerate(rows):
+        if i == 0:
+            cmp_bools = [True for val in row]
+            continue
+        cmp_row = rows[i-1]
+        for num, (val, cmp_val) in enumerate(zip(row, cmp_row)):
+            if all(isinstance(v, datetime.datetime) for v in (val, cmp_val)):
+                _bool = (val - cmp_val).total_seconds() < 1
+            elif all(isinstance(v, arcpy.Geometry) for v in (val, cmp_val)):
+                _bool = val.equals(cmp_val)
+            else:
+                _bool = val == cmp_val
+            cmp_bools[num] = cmp_bools[num] and _bool
+    return all(cmp_bools)
 
 
 def clip(dataset_path, clip_dataset_path, **kwargs):
@@ -107,6 +135,57 @@ def delete(dataset_path, **kwargs):
         with session, dataset_view:
             arcpy.management.DeleteRows(in_rows=dataset_view.name)
     LOG.log(log_level, "End: Delete.")
+    return dataset_path
+
+
+def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
+    """Delete features in dataset with given IDs.
+
+    Note:
+        There is no guarantee that the ID field(s) are unique.
+        Use ArcPy cursor token names for object IDs and geometry objects/
+        properties.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        delete_ids (iter): Collection of feature IDs.
+        id_field_names (iter, str): Name(s) of the ID field/key(s).
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is True.
+        log_level (str): Level to log the function at. Defaults to 'info'.
+
+    Returns:
+        str: Path of the dataset updated.
+
+    """
+    _level = helpers.log_level(kwargs.get('log_level', 'info'))
+    LOG.log(_level, "Start: Delete features in %s with given IDs.",
+            dataset_path)
+    keys = {'id': tuple(helpers.contain(id_field_names))}
+    if inspect.isgeneratorfunction(delete_ids):
+        delete_ids = delete_ids()
+    ids = {'delete': {tuple(helpers.contain(_id)) for _id in delete_ids}}
+    feature_count = Counter()
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)['workspace_path'],
+        kwargs.get('use_edit_session', True),
+        )
+    if ids['delete']:
+        cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['id'])
+        with session, cursor:
+            for row in cursor:
+                _id = tuple(row)
+                if _id in ids['delete']:
+                    cursor.deleteRow()
+                    feature_count['deleted'] += 1
+                else:
+                    feature_count['unchanged'] += 1
+    for key in ('deleted', 'unchanged'):
+        LOG.info("%s features %s.", feature_count[key], key)
+    LOG.log(_level, "End: Delete.")
     return dataset_path
 
 
