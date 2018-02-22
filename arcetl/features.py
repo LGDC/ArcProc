@@ -120,30 +120,36 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         clip_where_sql (str): SQL where-clause for clip dataset subselection.
         tolerance (float): Tolerance for coincidence, in dataset's units.
+        use_edit_session (bool): Flag to perform updates in an edit session.
+            Default is False.
         log_level (str): Level to log the function at. Defaults to 'info'.
-
+`
     Returns:
         str: Path of the dataset updated.
 
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('clip_where_sql')
+    kwargs.setdefault('use_edit_session', False)
     kwargs.setdefault('tolerance')
     log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Clip features in %s where overlapping %s.",
         dataset_path, clip_dataset_path)
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     view = {'dataset': arcobj.DatasetView(dataset_path,
                                           kwargs['dataset_where_sql']),
             'clip': arcobj.DatasetView(clip_dataset_path,
                                        kwargs['clip_where_sql'])}
-    with view['dataset'], view['clip']:
-        temp_output_path = helpers.unique_dataset_path('output')
+    temp_output_path = helpers.unique_dataset_path('output')
+    session = arcobj.Editor(meta['dataset']['workspace_path'],
+                            kwargs['use_edit_session'])
+    with view['dataset'], view['clip'], session:
         arcpy.analysis.Clip(in_features=view['dataset'].name,
                             clip_features=view['clip'].name,
                             out_feature_class=temp_output_path,
                             cluster_tolerance=kwargs['tolerance'])
         delete(view['dataset'].name, log_level=None)
-    insert_from_path(dataset_path, temp_output_path, log_level=None)
+        insert_from_path(dataset_path, temp_output_path, log_level=None)
     dataset.delete(temp_output_path, log_level=None)
     log("End: Clip.")
     return dataset_path
