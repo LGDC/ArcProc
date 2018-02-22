@@ -33,6 +33,22 @@ def contain(obj, nonetypes_as_empty=True):
         yield obj
 
 
+def leveled_logger(logger, level_repr=None):
+    """Return function to log into logger at the given level.
+
+    Args:
+        logger (logging.Logger): Logger to log to.
+        level_repr: Representation of the logging level.
+
+    Returns:
+        function.
+
+    """
+    def _logger(msg, *args, **kwargs):
+        return logger.log(log_level(level_repr), msg, *args, **kwargs)
+    return _logger
+
+
 def log_level(level_repr=None):
     """Return integer for logging module level.
 
