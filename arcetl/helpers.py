@@ -14,7 +14,14 @@ LOG = logging.getLogger(__name__)
 
 
 def contain(obj, nonetypes_as_empty=True):
-    """Return a generating container of object if not already one."""
+    """Generate contained items if a collection, otherwise generate object.
+
+    Args:
+        obj: Any object, collection or otherwise.
+        nontypes_as_empty (bool): True if NoneTypes treated as an empty
+            collection, otherwise False.
+
+    """
     if nonetypes_as_empty and obj is None:
         return
     if inspect.isgeneratorfunction(obj):
