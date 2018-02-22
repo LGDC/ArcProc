@@ -14,6 +14,67 @@ from arcetl import helpers
 
 LOG = logging.getLogger(__name__)
 
+def _insert_from_path_with_append(dataset_path, insert_dataset_path,
+                                  field_names, **kwargs):
+    """Insert features into dataset from another dataset with append tool.
+
+    Refer to insert_from_path for arguments.
+
+    Returns:
+        str: Path of the dataset updated.
+
+    """
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
+    # Create field maps.
+    append_kwargs = {'inputs': helpers.unique_name('view'),
+                     'target': dataset_path,
+                     'schema_type': 'no_test',
+                     'field_mapping': arcpy.FieldMappings()}
+    # ArcGIS Pro's no-test append is case-sensitive (verified 1.0-1.1.1).
+    # Avoid this problem by using field mapping.
+    # BUG-000090970 - ArcGIS Pro 'No test' field mapping in Append tool does
+    # not auto-map to the same field name if naming convention differs.
+    for name in field_names:
+        # Append takes care of geometry independent of field maps.
+        if name == 'shape@':
+            continue
+        field_map = arcpy.FieldMap()
+        field_map.addInputField(insert_dataset_path, name)
+        append_kwargs['field_mapping'].addFieldMap(field_map)
+    session = arcobj.Editor(meta['dataset']['workspace_path'],
+                            kwargs['use_edit_session'])
+    insert_view = arcobj.DatasetView(
+        insert_dataset_path, kwargs['insert_where_sql'],
+        view_name=append_kwargs['inputs'],
+        # Insert view must be nonspatial to append to nonspatial table.
+        force_nonspatial=(not meta['dataset']['is_spatial'])
+        )
+    with session, insert_view:
+        arcpy.management.Append(**append_kwargs)
+    return dataset_path
+
+
+def _insert_from_path_with_cursor(dataset_path, insert_dataset_path,
+                                  field_names, **kwargs):
+    """Insert features into dataset from another dataset with cursor.
+
+    Refer to insert_from_path for arguments.
+
+    Returns:
+        str: Path of the dataset updated.
+
+    """
+    insert_features = attributes.as_iters(
+        insert_dataset_path, field_names,
+        dataset_where_sql=kwargs['insert_where_sql'],
+        )
+    result = insert_from_iters(
+        dataset_path, insert_features, field_names,
+        use_edit_session=kwargs['use_edit_session'],
+        log_level=None,
+        )
+    return result
+
 
 def _is_same(*rows):
     """Determine whether feature representations are the same.
@@ -447,44 +508,49 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
             subselection.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
+        insert_with_cursor (bool): Flag to insert features using a cursor,
+            instead of the Append tool. Default is False: the Append tool
+            does a better job handling unusual geometries.
         log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Path of the dataset updated.
+
     """
-    _level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(_level, "Start: Insert features into %s from %s.",
-            dataset_path, insert_dataset_path)
-    meta = {'dataset': arcobj.dataset_metadata(dataset_path),
-            'insert': arcobj.dataset_metadata(insert_dataset_path)}
+    kwargs.setdefault('insert_where_sql', None)
+    kwargs.setdefault('use_edit_session', False)
+    kwargs.setdefault('insert_with_cursor', False)
+    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Insert features into %s from %s.",
+        dataset_path, insert_dataset_path)
+    metas = (arcobj.dataset_metadata(dataset_path),
+             arcobj.dataset_metadata(insert_dataset_path))
     if field_names is None:
-        field_names = (
-            set(n.lower() for n in meta['dataset']['field_names'])
-            & set(n.lower() for n in meta['insert']['field_names'])
+        keys = set.intersection(
+            *(set(name.lower() for name in meta['field_names'])
+              for meta in metas)
             )
     else:
-        field_names = set(n.lower() for n in field_names)
-    # If field names include OID or geometry, use the token instead.
-    for _meta in meta.values():
-        for key, token in ((_meta['oid_field_name'], 'oid@'),
-                           (_meta['geom_field_name'], 'shape@')):
-            key = key.lower() if key else key
-            if key and key in field_names:
-                field_names.remove(key)
-                field_names.add(token)
-    # But OIDs have no business being part of an insert.
-    field_names.discard('oid@')
-    keys = {'row': tuple(helpers.contain(field_names))}
-    iters = attributes.as_iters(
-        insert_dataset_path, keys['row'],
-        dataset_where_sql=kwargs.get('insert_where_sql'),
-        )
-    result = insert_from_iters(
-        dataset_path, insert_features=iters, field_names=keys['row'],
-        use_edit_session=kwargs.get('use_edit_session', False),
-        log_level=None,
-        )
-    LOG.log(_level, "End: Insert.")
+        keys = set(n.lower() for n in helpers.contain(field_names))
+    for meta in metas:
+        # OIDs have no business being part of an insert.
+        for key in (meta['oid_field_name'], 'oid@'):
+            keys.discard(key)
+        # If field names include geometry, use token.
+        if meta['geom_field_name'] and (meta['geom_field_name'].lower()
+                                        in keys):
+            keys.remove(meta['geom_field_name'].lower())
+            keys.add('shape@')
+    if kwargs['insert_with_cursor']:
+        log("Features will be inserted with cursor.")
+        result = _insert_from_path_with_cursor(
+            dataset_path, insert_dataset_path, keys, **kwargs
+            )
+    else:
+        result = _insert_from_path_with_append(
+            dataset_path, insert_dataset_path, keys, **kwargs
+            )
+    log("End: Insert.")
     return result
 
 

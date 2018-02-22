@@ -125,20 +125,23 @@ class ArcETL(object):
             str: Path of the dataset loaded.
 
         """
+        kwargs.setdefault('use_edit_session', False)
+        kwargs.setdefault('insert_with_cursor', False)
         LOG.info("Start: Load %s.", load_path)
         # Load to an existing dataset.
         if dataset.is_valid(load_path):
             if not preserve_features:
                 features.delete(
                     load_path,
-                    use_edit_session=kwargs.get('use_edit_session', False),
+                    use_edit_session=kwargs['use_edit_session'],
                     log_level=None,
                     )
             features.insert_from_path(
                 dataset_path=load_path,
                 insert_dataset_path=self.transform_path,
                 insert_where_sql=load_where_sql,
-                use_edit_session=kwargs.get('use_edit_session', False),
+                use_edit_session=kwargs['use_edit_session'],
+                insert_with_cursor=kwargs['insert_with_cursor'],
                 log_level=None,
                 )
         # Load to a new dataset.

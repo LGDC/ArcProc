@@ -268,9 +268,9 @@ class Differ(object):
                         }
                     for path, field in ((view.name, self.field['id']),
                                         (over_path, over_field)):
-                        fmap = arcpy.FieldMap()
-                        fmap.addInputField(path, field)
-                        join_kwargs['field_mapping'].addFieldMap(fmap)
+                        field_map = arcpy.FieldMap()
+                        field_map.addInputField(path, field)
+                        join_kwargs['field_mapping'].addFieldMap(field_map)
                     arcpy.analysis.SpatialJoin(**join_kwargs)
                 for _id, attr in attributes.as_iters(
                         join_kwargs['out_feature_class'],
