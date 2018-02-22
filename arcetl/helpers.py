@@ -26,19 +26,28 @@ def contain(obj, nonetypes_as_empty=True):
         yield obj
 
 
-def log_level(name=None):
+def log_level(level_repr=None):
     """Return integer for logging module level.
 
     Args:
-        name: Name/code of the logging level.
+        level_repr: Representation of the logging level.
 
     Returns:
         int: Logging module level.
+
     """
     level = {None: 0, 'debug': logging.DEBUG, 'info': logging.INFO,
              'warning': logging.WARNING, 'error': logging.ERROR,
              'critical': logging.CRITICAL}
-    return level[name]
+    if level_repr in level.values():
+        result = level_repr
+    elif level_repr is None:
+        result = level[level_repr]
+    elif isinstance(level_repr, six.string_types):
+        result = level[level_repr.lower()]
+    else:
+        raise RuntimeError("level_repr invalid.")
+    return result
 
 
 def unique_dataset_path(prefix='', suffix='', unique_length=4,
@@ -53,6 +62,7 @@ def unique_dataset_path(prefix='', suffix='', unique_length=4,
 
     Returns:
         str: Path of the created dataset.
+
     """
     name = unique_name(prefix, suffix, unique_length,
                        allow_initial_digit=False)
