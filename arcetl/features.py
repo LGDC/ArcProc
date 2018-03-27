@@ -82,7 +82,7 @@ def _insert_from_path_with_cursor(dataset_path, insert_dataset_path,
     return feature_count
 
 
-def _is_same(*rows):
+def _same_feature(*features):
     """Determine whether feature representations are the same.
 
     Args:
@@ -92,12 +92,12 @@ def _is_same(*rows):
         bool: True if rows are the same, False otherwise.
 
     """
-    for i, row in enumerate(rows):
+    for i, feat in enumerate(features):
         if i == 0:
-            cmp_bools = [True for val in row]
+            cmp_bools = [True for val in feat]
             continue
-        cmp_row = rows[i-1]
-        for num, (val, cmp_val) in enumerate(zip(row, cmp_row)):
+        cmp_feat = features[i-1]
+        for num, (val, cmp_val) in enumerate(zip(feat, cmp_feat)):
             if all(isinstance(v, datetime.datetime) for v in (val, cmp_val)):
                 _bool = (val - cmp_val).total_seconds() < 1
             elif all(isinstance(v, arcpy.Geometry) for v in (val, cmp_val)):
@@ -759,7 +759,7 @@ def update_from_iters(dataset_path, update_features, id_field_names,
                     feature_count['deleted'] += 1
                     continue
                 elif (_id in feats['id_update']
-                      and not _is_same(feat, feats['id_update'][_id])):
+                      and not _same_feature(feat, feats['id_update'][_id])):
                     cursor.updateRow(feats['id_update'][_id])
                     feature_count['altered'] += 1
                 else:
