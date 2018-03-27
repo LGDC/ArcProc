@@ -14,7 +14,7 @@ from arcetl import helpers
 
 LOG = logging.getLogger(__name__)
 
-UPDATE_TYPES = ('deleted', 'altered', 'unchanged', 'inserted')
+UPDATE_TYPES = ('deleted', 'inserted', 'altered', 'unchanged')
 
 
 def _insert_from_path_with_append(dataset_path, insert_dataset_path,
@@ -56,7 +56,8 @@ def _insert_from_path_with_append(dataset_path, insert_dataset_path,
                             kwargs['use_edit_session'])
     with view['insert'], session:
         arcpy.management.Append(**append_kwargs)
-    return dataset_path
+        feature_count = Counter({'inserted': view['insert'].count})
+    return feature_count
 
 
 def _insert_from_path_with_cursor(dataset_path, insert_dataset_path,
@@ -73,12 +74,12 @@ def _insert_from_path_with_cursor(dataset_path, insert_dataset_path,
         insert_dataset_path, field_names,
         dataset_where_sql=kwargs['insert_where_sql'],
         )
-    result = insert_from_iters(
+    feature_count = insert_from_iters(
         dataset_path, insert_features, field_names,
         use_edit_session=kwargs['use_edit_session'],
         log_level=None,
         )
-    return result
+    return feature_count
 
 
 def _is_same(*rows):
@@ -193,7 +194,10 @@ def delete(dataset_path, **kwargs):
     # Can use (faster) truncate when no sub-selection or edit session.
     run_truncate = (kwargs['dataset_where_sql'] is None
                     and kwargs['use_edit_session'] is False)
+    feature_count = Counter()
     if run_truncate:
+        feature_count['deleted'] = dataset.feature_count(dataset_path)
+        feature_count['unchanged'] = 0
         try:
             arcpy.management.TruncateTable(in_table=dataset_path)
         except arcpy.ExecuteError:
@@ -211,9 +215,13 @@ def delete(dataset_path, **kwargs):
         session = arcobj.Editor(meta['dataset']['workspace_path'],
                                 kwargs['use_edit_session'])
         with view['dataset'], session:
+            feature_count['deleted'] = view['dataset'].count
             arcpy.management.DeleteRows(in_rows=view['dataset'].name)
+        feature_count['unchanged'] = dataset.feature_count(dataset_path)
+    for key in ('deleted', 'unchanged'):
+        log("%s features %s.", feature_count[key], key)
     log("End: Delete.")
-    return dataset_path
+    return feature_count
 
 
 def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
@@ -261,9 +269,9 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
                 else:
                     feature_count['unchanged'] += 1
     for key in ('deleted', 'unchanged'):
-        LOG.info("%s features %s.", feature_count[key], key)
+        log("%s features %s.", feature_count[key], key)
     log("End: Delete.")
-    return dataset_path
+    return feature_count
 
 
 def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
@@ -467,11 +475,13 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
         insert_features = insert_features()
     iters = ((feature[key] for key in keys['row'])
              for feature in insert_features)
-    result = insert_from_iters(dataset_path, iters, field_names,
-                               use_edit_session=kwargs['use_edit_session'],
-                               log_level=None)
+    feature_count = insert_from_iters(
+        dataset_path, iters, field_names,
+        use_edit_session=kwargs['use_edit_session'], log_level=None,
+        )
+    log("%s features inserted.", feature_count['inserted'])
     log("End: Insert.")
-    return result
+    return feature_count
 
 
 def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
@@ -504,11 +514,14 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     session = arcobj.Editor(meta['dataset']['workspace_path'],
                             kwargs['use_edit_session'])
     cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys['row'])
+    feature_count = Counter()
     with session, cursor:
         for row in insert_features:
             cursor.insertRow(tuple(row))
+            feature_count['inserted'] += 1
+    log("%s features inserted.", feature_count['inserted'])
     log("End: Insert.")
-    return dataset_path
+    return feature_count
 
 
 def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
@@ -564,15 +577,16 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
             keys['insert'].add('shape@')
     if kwargs['insert_with_cursor']:
         log("Features will be inserted with cursor.")
-        result = _insert_from_path_with_cursor(
+        feature_count = _insert_from_path_with_cursor(
             dataset_path, insert_dataset_path, keys['insert'], **kwargs
             )
     else:
-        result = _insert_from_path_with_append(
+        feature_count = _insert_from_path_with_append(
             dataset_path, insert_dataset_path, keys['insert'], **kwargs
             )
+    log("%s features inserted.", feature_count['inserted'])
     log("End: Insert.")
-    return result
+    return feature_count
 
 
 def keep_by_location(dataset_path, location_dataset_path, **kwargs):
@@ -617,9 +631,11 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         arcpy.management.SelectLayerByLocation(
             in_layer=view['dataset'].name, selection_type='switch_selection',
             )
-        delete(view['dataset'].name, log_level=None)
+        feature_count = delete(view['dataset'].name, log_level=None)
+    for key in ('deleted', 'unchanged'):
+        log("%s features %s.", feature_count[key], key)
     log("End: Keep.")
-    return dataset_path
+    return feature_count
 
 
 def update_from_dicts(dataset_path, update_features, id_field_names,
