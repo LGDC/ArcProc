@@ -4,6 +4,8 @@ import datetime
 import inspect
 import logging
 
+from more_itertools import pairwise
+
 import arcpy
 
 from arcetl import arcobj
@@ -86,26 +88,32 @@ def _same_feature(*features):
     """Determine whether feature representations are the same.
 
     Args:
-        *rows (iter of iter): Collection of features to compare.
+        *features (iter of iter): Collection of features to compare.
 
     Returns:
-        bool: True if rows are the same, False otherwise.
+        bool: True if features are the same, False otherwise.
 
     """
-    for i, feat in enumerate(features):
-        if i == 0:
-            cmp_bools = [True for val in feat]
-            continue
-        cmp_feat = features[i-1]
-        for num, (val, cmp_val) in enumerate(zip(feat, cmp_feat)):
-            if all(isinstance(v, datetime.datetime) for v in (val, cmp_val)):
-                _bool = (val - cmp_val).total_seconds() < 1
-            elif all(isinstance(v, arcpy.Geometry) for v in (val, cmp_val)):
-                _bool = val.equals(cmp_val)
-            else:
-                _bool = val == cmp_val
-            cmp_bools[num] = cmp_bools[num] and _bool
-    return all(cmp_bools)
+    return all(_same_value(*vals) for pair in pairwise(features) for vals in zip(*pair))
+
+
+def _same_value(*values):
+    """Determine whether values are the same.
+
+    Args:
+        *values (iter of iter): Collection of values to compare.
+
+    Returns:
+        bool: True if values are the same, False otherwise.
+
+    """
+    same = all(val1 == val2 for val1, val2 in pairwise(values))
+    # Some types are quite as simple.
+    if all(isinstance(val, datetime.datetime) for val in values):
+        same = all((val1 - val2).total_seconds() < 1 for val1, val2 in pairwise(values))
+    elif all(isinstance(val, arcpy.Geometry) for val in values):
+        same = all(val1.equals(val2) for val1, val2 in pairwise(values))
+    return same
 
 
 def clip(dataset_path, clip_dataset_path, **kwargs):
