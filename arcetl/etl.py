@@ -43,11 +43,11 @@ class ArcETL(object):
             self.transform_path = None
         LOG.info("Closed.")
 
-    def extract(self, extract_path, extract_where_sql=None):
+    def extract(self, dataset_path, extract_where_sql=None):
         """Extract features to transform workspace.
 
         Args:
-            extract_path (str): Path of the dataset to extract.
+            dataset_path (str): Path of the dataset to extract.
             extract_where_sql (str): SQL where-clause for extract
                 subselection.
             schema_only (bool): Flag to extract only the schema, ignoring
@@ -55,10 +55,11 @@ class ArcETL(object):
 
         Returns:
             str: Path of the transform-dataset with extracted features.
+
         """
-        LOG.info("Start: Extract %s.", extract_path)
+        LOG.info("Start: Extract %s.", dataset_path)
         self.transform_path = dataset.copy(
-            dataset_path=extract_path,
+            dataset_path=dataset_path,
             output_path=helpers.unique_dataset_path('extract'),
             dataset_where_sql=extract_where_sql,
             log_level=None
