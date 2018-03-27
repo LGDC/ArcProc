@@ -757,6 +757,7 @@ def update_from_iters(dataset_path, update_features, id_field_names,
                 if _id in ids['delete']:
                     cursor.deleteRow()
                     feature_count['deleted'] += 1
+                    continue
                 elif (_id in feats['id_update']
                       and not _is_same(feat, feats['id_update'][_id])):
                     cursor.updateRow(feats['id_update'][_id])

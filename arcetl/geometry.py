@@ -16,7 +16,7 @@ RATIO = {
     }
 """dict: Two-level mapping of ratio between two types of measure.
 
-Usage: `RATIO['to_measure']['from_mesure']`
+Usage: `RATIO['to_measure']['from_measure']`
 
 """
 
