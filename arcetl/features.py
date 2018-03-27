@@ -657,7 +657,7 @@ def update_from_dicts(dataset_path, update_features, id_field_names,
 
     Keyword Args:
         delete_missing_features (bool): True if update should delete features
-            missing from update_features, False otherwise. Default is False.
+            missing from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is True.
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -666,7 +666,7 @@ def update_from_dicts(dataset_path, update_features, id_field_names,
         str: Path of the dataset updated.
 
     """
-    kwargs.setdefault('delete_missing_features', False)
+    kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
     log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update features in %s from dictionaries.", dataset_path)
@@ -710,7 +710,7 @@ def update_from_iters(dataset_path, update_features, id_field_names,
 
     Keyword Args:
         delete_missing_features (bool): True if update should delete features
-            missing from update_features, False otherwise. Default is False.
+            missing from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is True.
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -719,7 +719,7 @@ def update_from_iters(dataset_path, update_features, id_field_names,
         collections.Counter: Counts for each update type.
 
     """
-    kwargs.setdefault('delete_missing_features', False)
+    kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
     log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update features in %s from iterables.", dataset_path)
@@ -799,7 +799,7 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
         update_where_sql (str): SQL where-clause for update-dataset
             subselection.
         delete_missing_features (bool): True if update should delete features
-            missing from update_features, False otherwise. Default is False.
+            missing from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is True.
         log_level (str): Level to log the function at. Defaults to 'info'.
@@ -809,7 +809,7 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
 
     """
     kwargs.setdefault('update_where_sql')
-    kwargs.setdefault('delete_missing_features', False)
+    kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
     log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update features in %s from %s.",
