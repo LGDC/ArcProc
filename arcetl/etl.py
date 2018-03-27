@@ -106,12 +106,12 @@ class ArcETL(object):
         LOG.info("End: Initialize.")
         return self.transform_path
 
-    def load(self, load_path, load_where_sql=None, preserve_features=False,
+    def load(self, dataset_path, load_where_sql=None, preserve_features=False,
              **kwargs):
         """Load features from transform- to load-dataset.
 
         Args:
-            load_path (str): Path of the dataset to load.
+            dataset_path (str): Path of the dataset to load.
             load_where_sql (str): SQL where-clause for loading
                 subselection.
             preserve_features (bool): Flag to indicate whether to remove
@@ -128,17 +128,17 @@ class ArcETL(object):
         """
         kwargs.setdefault('use_edit_session', False)
         kwargs.setdefault('insert_with_cursor', False)
-        LOG.info("Start: Load %s.", load_path)
+        LOG.info("Start: Load %s.", dataset_path)
         # Load to an existing dataset.
-        if dataset.is_valid(load_path):
+        if dataset.is_valid(dataset_path):
             if not preserve_features:
                 features.delete(
-                    load_path,
+                        dataset_path=dataset_path,
+                features.insert_from_path(
+                    dataset_path=dataset_path,
                     use_edit_session=kwargs['use_edit_session'],
                     log_level=None,
                     )
-            features.insert_from_path(
-                dataset_path=load_path,
                 insert_dataset_path=self.transform_path,
                 insert_where_sql=load_where_sql,
                 use_edit_session=kwargs['use_edit_session'],
@@ -147,7 +147,7 @@ class ArcETL(object):
                 )
         # Load to a new dataset.
         else:
-            dataset.copy(self.transform_path, load_path,
+            dataset.copy(self.transform_path, dataset_path,
                          dataset_where_sql=load_where_sql, log_level=None)
         LOG.info("End: Load.")
         return load_path
