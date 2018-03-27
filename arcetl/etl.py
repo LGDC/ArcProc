@@ -51,8 +51,6 @@ class ArcETL(object):
             dataset_path (str): Path of the dataset to extract.
             extract_where_sql (str): SQL where-clause for extract
                 subselection.
-            schema_only (bool): Flag to extract only the schema, ignoring
-                all dataset features.
 
         Returns:
             str: Path of the transform-dataset with extracted features.
