@@ -2,6 +2,8 @@
 import logging
 import math
 
+from more_itertools import pairwise
+
 
 LOG = logging.getLogger(__name__)
 
@@ -54,24 +56,24 @@ def coordinate_distance(*coordinates):
     """Return total distance between coordinates.
 
     Args:
-        *coordinates: Variable length coordinate collection. Coordinates can
-            be x,y or x,y,z.
+        *coordinates: Collection of coordinates to compare. Coordinates can be x,y
+            or x,y,z.
 
     Returns:
         float: Euclidian distance between the coordinates.
 
     """
     distance = 0.0
-    p_coord = {}
-    for i, coord in enumerate(coordinates):
-        coord = tuple(coord)
-        n_coord = {'x': coord[0], 'y': coord[1],
-                   'z': coord[3] if len(coord) == 3 else 0}
-        if i != 0:
-            distance += math.sqrt((n_coord['x'] - p_coord['x'])**2
-                                  + (n_coord['y'] - p_coord['y'])**2
-                                  + (n_coord['z'] - p_coord['z'])**2)
-        p_coord = n_coord
+    for coord1, coord2 in pairwise(coordinates):
+        coord = {1: dict(zip(('x', 'y', 'z'), coord1)),
+                 2: dict(zip(('x', 'y', 'z'), coord2))}
+        coord[1].setdefault('z', 0)
+        coord[2].setdefault('z', 0)
+        distance += math.sqrt(sum(
+            (coord[2]['x'] - coord[1]['x'])**2,
+            (coord[2]['y'] - coord[1]['y'])**2,
+            (coord[2]['z'] - coord[1]['z'])**2,
+            ))
     return distance
 
 
