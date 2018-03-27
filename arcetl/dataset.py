@@ -323,12 +323,9 @@ def feature_count(dataset_path, **kwargs):
     Returns:
         int: Number of features counted.
     """
-    with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=('oid@',),
-        where_clause=kwargs.get('dataset_where_sql')
-        ) as cursor:
-        count = len(tuple(None for _ in cursor))
-    return count
+    view = arcobj.DatasetView(dataset_path, **kwargs)
+    with view:
+        return view.count
 
 
 def field_names(dataset_path):

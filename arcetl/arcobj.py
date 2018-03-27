@@ -136,10 +136,7 @@ class DatasetView(object):
     @property
     def count(self):
         """int: Number of features in the view."""
-        with arcpy.da.SearchCursor(in_table=self.name,
-                                   field_names=('oid@',)) as cursor:
-            count = len(tuple(None for _ in cursor))
-        return count
+        return int(arcpy.management.GetCount(self.name).getOutput(0))
 
     @property
     def exists(self):
