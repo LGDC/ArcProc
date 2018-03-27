@@ -767,7 +767,14 @@ def update_from_iters(dataset_path, update_features, id_field_names,
         cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys['feat'])
         with session, cursor:
             for feat in feats['insert']:
-                cursor.insertRow(feat)
+                try:
+                    cursor.insertRow(feat)
+                except RuntimeError:
+                    LOG.error("Feature failed to write to cursor."
+                              " Offending row:")
+                    for key, val in zip(keys['feat'], feat):
+                        LOG.error("%s: %s", key, val)
+                    raise
                 feature_count['inserted'] += 1
     for key in UPDATE_TYPES:
         log("%s features %s.", feature_count[key], key)
