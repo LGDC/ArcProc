@@ -1,4 +1,5 @@
 """ETL objects."""
+from collections import Counter
 import logging
 
 import funcsigs
@@ -123,34 +124,43 @@ class ArcETL(object):
                 session. Default is False.
 
         Returns:
-            str: Path of the dataset loaded.
+            collections.Counter: Counts for each update type.
 
         """
         kwargs.setdefault('use_edit_session', False)
         kwargs.setdefault('insert_with_cursor', False)
         LOG.info("Start: Load %s.", dataset_path)
+        feature_count = Counter()
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
             if not preserve_features:
-                features.delete(
+                feature_count.update(
+                    features.delete(
                         dataset_path=dataset_path,
+                        use_edit_session=kwargs['use_edit_session'],
+                        log_level=None,
+                        )
+                    )
+            feature_count.update(
                 features.insert_from_path(
                     dataset_path=dataset_path,
+                    insert_dataset_path=self.transform_path,
+                    insert_where_sql=load_where_sql,
                     use_edit_session=kwargs['use_edit_session'],
+                    insert_with_cursor=kwargs['insert_with_cursor'],
                     log_level=None,
                     )
-                insert_dataset_path=self.transform_path,
-                insert_where_sql=load_where_sql,
-                use_edit_session=kwargs['use_edit_session'],
-                insert_with_cursor=kwargs['insert_with_cursor'],
-                log_level=None,
                 )
         # Load to a new dataset.
         else:
             dataset.copy(self.transform_path, dataset_path,
                          dataset_where_sql=load_where_sql, log_level=None)
+            feature_count['deleted'] = 0
+            feature_count['inserted'] = dataset.feature_count(dataset_path)
+        for key in ('deleted', 'inserted'):
+            LOG.info("%s features %s.", feature_count[key], key)
         LOG.info("End: Load.")
-        return load_path
+        return feature_count
 
     def transform(self, transformation, **kwargs):
         """Run transform operation as defined in the workspace.
@@ -198,17 +208,23 @@ class ArcETL(object):
                 subselection.
             delete_missing_features (bool): True if update should delete
                 features missing from update_features, False otherwise.
-                Default is False.
+                Default is True.
             use_edit_session (bool): Flag to perform updates in an edit
                 session. Default is True.
 
         Returns:
-            str: Path of the dataset updated.
+            collections.Counter: Counts for each update type.
 
         """
+        kwargs.setdefault('update_where_sql')
+        kwargs.setdefault('delete_missing_features', True)
+        kwargs.setdefault('use_edit_session', True)
         LOG.info("Start: Update %s.", dataset_path)
-        features.update_from_path(dataset_path, self.transform_path,
-                                  id_field_names, field_names,
-                                  log_level=None, **kwargs)
+        feature_count = features.update_from_path(
+            dataset_path, self.transform_path,
+            id_field_names, field_names, log_level=None, **kwargs
+            )
+        for key in features.UPDATE_TYPES:
+            LOG.info("%s features %s.", feature_count[key], key)
         LOG.info("End: Update.")
-        return dataset_path
+        return feature_count
