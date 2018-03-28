@@ -740,7 +740,7 @@ def update_from_iters(dataset_path, update_features, id_field_names,
             'feat': tuple(contain(field_names))}
     if not set(keys['id']).issubset(keys['feat']):
         raise ValueError("id_field_names must be a subset of field_names.")
-    ids = {'dataset': {tuple(freeze_values(_id)) for _id
+    ids = {'dataset': {tuple(freeze_values(*_id)) for _id
                        in attributes.as_iters(dataset_path, keys['id'])}}
     feats = {'update': (update_features()
                         if inspect.isgeneratorfunction(update_features)
@@ -748,8 +748,8 @@ def update_from_iters(dataset_path, update_features, id_field_names,
              'insert': set(),
              'id_update': dict()}
     for feat in feats['update']:
-        feat = tuple(feat)
-        _id = tuple(freeze_values(feat[keys['feat'].index(key)] for key in keys['id']))
+        feat = tuple(freeze_values(*feat))
+        _id = tuple(feat[keys['feat'].index(key)] for key in keys['id'])
         if _id not in ids['dataset']:
             feats['insert'].add(feat)
         else:
@@ -764,8 +764,8 @@ def update_from_iters(dataset_path, update_features, id_field_names,
         cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['feat'])
         with session, cursor:
             for feat in cursor:
-                _id = tuple(freeze_values(feat[keys['feat'].index(key)]
-                                          for key in keys['id']))
+                _id = tuple(freeze_values(*(feat[keys['feat'].index(key)]
+                                            for key in keys['id'])))
                 if _id in ids['delete']:
                     cursor.deleteRow()
                     feature_count['deleted'] += 1
