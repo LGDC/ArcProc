@@ -23,9 +23,10 @@ from arcetl import geoset
 from arcetl import helpers
 from arcetl.helpers import (
     contain,
+    freeze_values,
     unique_ids,
-    unique_dataset_path,
     unique_name,
+    unique_path,
     )
 from arcetl import network
 from arcetl import proximity

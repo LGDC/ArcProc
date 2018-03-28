@@ -93,25 +93,6 @@ def log_level(level_repr=None):
     return result
 
 
-def unique_dataset_path(prefix='', suffix='', unique_length=4,
-                        workspace_path='in_memory'):
-    """Create unique temporary dataset path.
-
-    Args:
-        prefix (str): String to insert before the unique part of the name.
-        suffix (str): String to append after the unique part of the name.
-        unique_length (int): Number of unique characters to generate.
-        workspace_path (str): Path of workspace to create the dataset in.
-
-    Returns:
-        str: Path of the created dataset.
-
-    """
-    name = unique_name(prefix, suffix, unique_length,
-                       allow_initial_digit=False)
-    return os.path.join(workspace_path, name)
-
-
 def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generator for unique IDs.
 
@@ -169,4 +150,19 @@ def unique_name(prefix='', suffix='', unique_length=4,
     return name
 
 
-unique_path = unique_dataset_path
+def unique_path(prefix='', suffix='', unique_length=4, workspace_path='in_memory'):
+    """Create unique temporary dataset path.
+
+    Args:
+        prefix (str): String to insert before the unique part of the name.
+        suffix (str): String to append after the unique part of the name.
+        unique_length (int): Number of unique characters to generate.
+        workspace_path (str): Path of workspace to create the dataset in.
+
+    Returns:
+        str: Path of the created dataset.
+
+    """
+    name = unique_name(prefix, suffix, unique_length,
+                       allow_initial_digit=False)
+    return os.path.join(workspace_path, name)

@@ -314,8 +314,7 @@ class TempDatasetCopy(object):
             output_path (str): Path of the dataset to create.
             force_nonspatial (bool): Flag that forces a nonspatial copy.
         """
-        self.path = (output_path if output_path
-                     else helpers.unique_dataset_path('temp'))
+        self.path = output_path if output_path else helpers.unique_path('temp')
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.is_spatial = all((self.dataset_meta['is_spatial'],

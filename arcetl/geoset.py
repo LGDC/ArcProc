@@ -75,7 +75,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
-            temp_output_path = helpers.unique_dataset_path('output')
+            temp_output_path = helpers.unique_path('output')
             arcpy.analysis.Identity(
                 in_features=chunk_view.name,
                 identity_features=temp_identity.path,
@@ -185,7 +185,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
-            temp_output_path = helpers.unique_dataset_path('output')
+            temp_output_path = helpers.unique_path('output')
             arcpy.analysis.SpatialJoin(target_features=chunk_view.name,
                                        join_features=temp_overlay.path,
                                        out_feature_class=temp_output_path,
@@ -269,7 +269,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
-            temp_output_path = helpers.unique_dataset_path('output')
+            temp_output_path = helpers.unique_path('output')
             arcpy.analysis.Union(
                 in_features=(chunk_view.name, temp_union.path),
                 out_feature_class=temp_output_path, join_attributes='all',

@@ -263,7 +263,7 @@ class Differ(object):
                     join_kwargs = {
                         'target_features': view.name,
                         'join_features': over_path,
-                        'out_feature_class': helpers.unique_dataset_path(),
+                        'out_feature_class': helpers.unique_path(),
                         'field_mapping': arcpy.FieldMappings(),
                         }
                     for path, field in ((view.name, self.field['id']),
