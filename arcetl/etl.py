@@ -5,7 +5,7 @@ import logging
 import funcsigs
 
 from arcetl import dataset, features
-from arcetl import helpers
+from arcetl.helpers import unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class ArcETL(object):
 
         Args:
             name (str): Name for the ETL.
+
         """
         self.name = name
         self.transform_path = None
@@ -58,11 +59,9 @@ class ArcETL(object):
         """
         LOG.info("Start: Extract %s.", dataset_path)
         self.transform_path = dataset.copy(
-            dataset_path=dataset_path,
-            output_path=helpers.unique_path('extract'),
-            dataset_where_sql=extract_where_sql,
-            log_level=None
-            )
+            dataset_path=dataset_path, output_path=unique_path('extract'),
+            dataset_where_sql=extract_where_sql, log_level=None,
+        )
         LOG.info("End: Extract.")
         return self.transform_path
 
@@ -91,7 +90,7 @@ class ArcETL(object):
 
         """
         LOG.info("Start: Initialize schema.")
-        self.transform_path = helpers.unique_path('init')
+        self.transform_path = unique_path('init')
         if template_path:
             dataset.copy(dataset_path=template_path,
                          output_path=self.transform_path,
@@ -178,9 +177,8 @@ class ArcETL(object):
         # Add output_path to kwargs if needed.
         if all(['output_path' in funcsigs.signature(transformation).parameters,
                 'output_path' not in kwargs]):
-            kwargs['output_path'] = helpers.unique_path(
-                getattr(transformation, '__name__', 'transform')
-                )
+            kwargs['output_path'] = unique_path(getattr(transformation, '__name__',
+                                                        'transform'))
         result = transformation(**kwargs)
         # If there's a new output, replace old transform.
         if 'output_path' in kwargs:

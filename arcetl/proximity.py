@@ -6,7 +6,7 @@ import arcpy
 from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
-from arcetl import helpers
+from arcetl.helpers import unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
     near_view = arcobj.DatasetView(near_dataset_path,
                                    kwargs.get('near_where_sql'))
     with dataset_view, near_view:
-        temp_near_path = helpers.unique_path('near')
+        temp_near_path = unique_path('near')
         arcpy.analysis.GenerateNearTable(
             in_features=dataset_view.name, near_features=near_view.name,
             out_table=temp_near_path, search_radius=max_near_distance,

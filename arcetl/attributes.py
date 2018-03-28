@@ -10,7 +10,7 @@ import arcpy
 
 from arcetl import arcobj
 from arcetl import dataset
-from arcetl import helpers
+from arcetl.helpers import contain, leveled_logger, unique_ids, unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         field_names = tuple(n.lower() for n
                             in meta['dataset']['field_names_tokenized'])
     else:
-        field_names = tuple(helpers.contain(field_names))
+        field_names = tuple(contain(field_names))
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
@@ -130,7 +130,7 @@ def as_iters(dataset_path, field_names, **kwargs):
         iter: Collection of attribute values.
 
     """
-    field_names = tuple(helpers.contain(field_names))
+    field_names = tuple(contain(field_names))
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         in_table=dataset_path, field_names=field_names,
@@ -173,10 +173,8 @@ def coordinate_node_info_map(dataset_path, from_id_field_name,
                     if node['node_id'] is not None}
         node_id_type = arcobj.python_type(node_id_metadata['type'])
         node_id_length = node_id_metadata['length']
-        unused_ids = (
-            i for i in helpers.unique_ids(node_id_type, node_id_length)
-            if i not in used_ids
-            )
+        unused_ids = (i for i in unique_ids(node_id_type, node_id_length)
+                      if i not in used_ids)
         id_coords = {}
         for coord, node in coord_node_info.items():
             count = node_feature_count(node)
@@ -247,8 +245,8 @@ def id_map(dataset_path, id_field_names, field_names, **kwargs):
     Returns:
         dict: Mapping of feature ID to feature attribute(s).
     """
-    field_names = tuple(helpers.contain(field_names))
-    id_field_names = tuple(helpers.contain(id_field_names))
+    field_names = tuple(contain(field_names))
+    id_field_names = tuple(contain(id_field_names))
     sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
     with arcpy.da.SearchCursor(
         dataset_path, field_names=id_field_names + field_names,
@@ -342,11 +340,10 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by domain code in %s, using domain %s in %s."),
-            field_name, dataset_path, code_field_name,
-            domain_name, domain_workspace_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s"
+        " by domain code in %s, using domain %s in %s.",
+        field_name, dataset_path, code_field_name, domain_name, domain_workspace_path)
     domain_meta = arcobj.domain_metadata(domain_name, domain_workspace_path)
     update_by_function(dataset_path, field_name,
                        function=domain_meta['code_description_map'].get,
@@ -355,7 +352,7 @@ def update_by_domain_code(dataset_path, field_name, code_field_name,
                        dataset_where_sql=kwargs.get('dataset_where_sql'),
                        use_edit_session=kwargs.get('use_edit_session', False),
                        log_level=None)
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -377,10 +374,9 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level,
-            "Start: Update attributes in %s on %s by expression: ```%s```.",
-            field_name, dataset_path, expression)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by expression: `%s`.",
+        field_name, dataset_path, expression)
     session = arcobj.Editor(
         arcobj.dataset_metadata(dataset_path)['workspace_path'],
         kwargs.get('use_edit_session', False),
@@ -392,7 +388,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
                                         field=field_name,
                                         expression=expression,
                                         expression_type='python_9.3')
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -426,12 +422,13 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
 
     Returns:
         str: Name of the field updated.
+
     """
     identifier_field_names = tuple(identifier_field_names)
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by feature-matching %s on identifiers (%s)."),
-            field_name, dataset_path, update_type, identifier_field_names)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s"
+        " by feature-matching %s on identifiers (%s).",
+        field_name, dataset_path, update_type, identifier_field_names)
     sort_field_names = tuple(kwargs.get('sort_field_names', ()))
     matcher = FeatureMatcher(dataset_path, identifier_field_names,
                              kwargs.get('dataset_where_sql'))
@@ -471,7 +468,7 @@ def update_by_feature_match(dataset_path, field_name, identifier_field_names,
                 except RuntimeError:
                     LOG.error("Offending value is %s", new_value)
                     raise
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -499,9 +496,9 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Update attributes in %s on %s by function %s.",
-            field_name, dataset_path, function)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by function %s.",
+        field_name, dataset_path, function)
     field_names = {
         'args': tuple(kwargs.get('arg_field_names', ())),
         'kwargs': tuple(kwargs.get('kwarg_field_names', ())),
@@ -528,7 +525,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                 except RuntimeError:
                     LOG.error("Offending value is %s", new_value)
                     raise RuntimeError
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -558,14 +555,13 @@ def update_by_mapping_function(dataset_path, field_name, function,
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by mapping function %s with key in %s."),
-            field_name, dataset_path, function, key_field_name)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by mapping function %s with key in %s.",
+        field_name, dataset_path, function, key_field_name)
     mapping = function()
     update_by_mapping(dataset_path, field_name, mapping, key_field_name,
                       **kwargs)
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -595,10 +591,9 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_name,
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level,
-            "Start: Update attributes in %s on %s by mapping with key in %s.",
-            field_name, dataset_path, key_field_name)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by mapping with key in %s.",
+        field_name, dataset_path, key_field_name)
     function = (lambda x: mapping.get(x, kwargs.get('default_value')))
     update_by_function(dataset_path, field_name,
                        function, field_as_first_arg=False,
@@ -606,7 +601,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_name,
                        dataset_where_sql=kwargs.get('dataset_where_sql'),
                        use_edit_session=kwargs.get('use_edit_session', False),
                        log_level=None)
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -634,11 +629,11 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
 
     Returns:
         str: Name of the field updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by geometry properties %s."),
-            field_name, dataset_path, geometry_properties)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by geometry properties %s.",
+        field_name, dataset_path, geometry_properties)
     def geometry_property_value(properties, geometry):
         """Return value of geometry property via ordered object properties."""
         property_transform = {
@@ -683,7 +678,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
                                                     geometry)
             if new_value != old_value:
                 cursor.updateRow((new_value, geometry))
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -709,10 +704,9 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by joined values in %s on %s."),
-            field_name, dataset_path, join_field_name, join_dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by joined values in %s on %s.",
+        field_name, dataset_path, join_field_name, join_dataset_path)
     # Build join-reference.
     field_names = {
         'dataset': (field_name,) + tuple(pair[0] for pair in on_field_pairs),
@@ -733,7 +727,7 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
             new_value = join_value_map.get(tuple(row[1:]))
             if row[0] != new_value:
                 cursor.updateRow([new_value] + list(row[1:]))
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -755,10 +749,11 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
 
     Returns:
         tuple: Names (str) of the fields updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Update attributes in %s on %s by node IDs.",
-            (from_id_field_name, to_id_field_name), dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by node IDs.",
+        (from_id_field_name, to_id_field_name), dataset_path)
     oid_nodes = id_node_map(
         dataset_path, from_id_field_name, to_id_field_name, update_nodes=True,
         field_names_as_keys=True,
@@ -784,7 +779,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
                     LOG.error("Offending values one of %s, %s",
                               new_row[1], new_row[2])
                     raise RuntimeError
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return (from_id_field_name, to_id_field_name)
 
 
@@ -829,11 +824,11 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
 
     Returns:
         str: Name of the field updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Update attributes in %s on %s"
-                        " by overlay values in %s on %s."),
-            field_name, dataset_path, overlay_field_name, overlay_dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by overlay values in %s on %s.",
+        field_name, dataset_path, overlay_field_name, overlay_dataset_path)
     # Check flags & set details for spatial join call.
     if kwargs.get('overlay_most_coincident', False):
         raise NotImplementedError(
@@ -855,18 +850,16 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         # Avoid field name collisions with neutral holding field.
         temp_overlay_field_name = dataset.duplicate_field(
             temp_overlay.path, overlay_field_name,
-            new_field_name=helpers.unique_name(overlay_field_name),
-            log_level=None
-            )
+            new_field_name=unique_name(overlay_field_name), log_level=None,
+        )
         update_by_function(temp_overlay.path, temp_overlay_field_name,
                            function=(lambda x: x), field_as_first_arg=False,
-                           arg_field_names=(overlay_field_name,),
-                           log_level=None)
+                           arg_field_names=(overlay_field_name,), log_level=None)
         # Create temp output of the overlay.
         if kwargs.get('tolerance') is not None:
             old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
-        temp_output_path = helpers.unique_path('output')
+        temp_output_path = unique_path('output')
         arcpy.analysis.SpatialJoin(target_features=dataset_view.name,
                                    join_features=temp_overlay.path,
                                    out_feature_class=temp_output_path,
@@ -893,7 +886,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         log_level=None,
         )
     dataset.delete(temp_output_path, log_level=None)
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -916,15 +909,12 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level,
-            "Start: Update attributes in %s on %s by assigning unique IDs.",
-            field_name, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by assigning unique IDs.",
+        field_name, dataset_path)
     field_meta = arcobj.field_metadata(dataset_path, field_name)
-    unique_id_pool = helpers.unique_ids(
-        data_type=arcobj.python_type(field_meta['type']),
-        string_length=field_meta.get('length', 16)
-        )
+    unique_id_pool = unique_ids(data_type=arcobj.python_type(field_meta['type']),
+                                string_length=field_meta.get('length', 16))
     oid_id_map = id_map(dataset_path, id_field_names='oid@',
                         field_names=field_name)
     used_ids = set()
@@ -937,7 +927,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                       dataset_where_sql=kwargs.get('dataset_where_sql'),
                       use_edit_session=kwargs.get('use_edit_session', False),
                       log_level=None)
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name
 
 
@@ -959,9 +949,9 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     Returns:
         str: Name of the field updated.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Update attributes in %s on %s by given value.",
-            field_name, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Update attributes in %s on %s by given value.",
+        field_name, dataset_path)
     session = arcobj.Editor(
         arcobj.dataset_metadata(dataset_path)['workspace_path'],
         kwargs.get('use_edit_session', False),
@@ -972,5 +962,5 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         for row in cursor:
             if row[0] != value:
                 cursor.updateRow([value])
-    LOG.log(log_level, "End: Update.")
+    log("End: Update.")
     return field_name

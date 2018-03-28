@@ -5,7 +5,7 @@ import os
 import arcpy
 
 from arcetl import arcobj
-from arcetl import helpers
+from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
@@ -24,10 +24,10 @@ def build_locator(locator_path, **kwargs):
     Returns:
         str: Path of the built locator.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Build locator %s.", locator_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Build locator %s.", locator_path)
     arcpy.geocoding.RebuildAddressLocator(locator_path)
-    LOG.log(log_level, "End: Build.")
+    log("End: Build.")
     return locator_path
 
 
@@ -44,11 +44,11 @@ def build_network(network_path, **kwargs):
     Returns:
         str: Path of the built network dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Build network %s.", network_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Build network %s.", network_path)
     with arcobj.ArcExtension('Network'):
         arcpy.na.BuildNetwork(in_network_dataset=network_path)
-    LOG.log(log_level, "End: Build.")
+    log("End: Build.")
     return network_path
 
 
@@ -70,8 +70,8 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
         ValueError: If `workspace_path` doesn't reference a compressable
             geodatabase.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Compress workspace %s.", workspace_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Compress workspace %s.", workspace_path)
     workspace_meta = metadata(workspace_path)
     if workspace_meta['is_file_geodatabase']:
         compress_func = arcpy.management.CompressFileGeodatabaseData
@@ -87,7 +87,7 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
     if all((workspace_meta['is_enterprise_database'], disconnect_users)):
         arcpy.AcceptConnections(sde_workspace=workspace_path,
                                 accept_connections=True)
-    LOG.log(log_level, "End: Compress.")
+    log("End: Compress.")
     return workspace_path
 
 
@@ -109,8 +109,8 @@ def create_file_geodatabase(geodatabase_path, xml_workspace_path=None,
     Returns:
         str: Path of the created file geodatabase.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Create file geodatabase %s.", geodatabase_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Create file geodatabase %s.", geodatabase_path)
     if os.path.exists(geodatabase_path):
         LOG.warning("Geodatabase already exists.")
         return geodatabase_path
@@ -125,7 +125,7 @@ def create_file_geodatabase(geodatabase_path, xml_workspace_path=None,
             import_type='data' if include_xml_data else 'schema_only',
             config_keyword='defaults'
             )
-    LOG.log(log_level, "End: Create.")
+    log("End: Create.")
     return geodatabase_path
 
 
@@ -147,15 +147,15 @@ def create_geodatabase_xml_backup(geodatabase_path, output_path,
     Returns:
         str: Path of the created XML workspace document.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Create XML backup of geodatabase %s at %s.",
-            geodatabase_path, output_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Create XML backup of geodatabase %s at %s.",
+        geodatabase_path, output_path)
     arcpy.management.ExportXMLWorkspaceDocument(
         in_data=geodatabase_path, out_file=output_path,
         export_type='data' if include_data else 'schema_only',
         storage_type='binary', export_metadata=include_metadata
         )
-    LOG.log(log_level, "End: Create.")
+    log("End: Create.")
     return output_path
 
 
@@ -249,8 +249,8 @@ def execute_sql(statement, database_path, **kwargs):
     Raises:
         AttributeError: If statement SQL syntax is incorrect.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Execute SQL statement.")
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Execute SQL statement.")
     conn = arcpy.ArcSDESQLExecute(server=database_path)
     try:
         result = conn.execute(statement)
@@ -259,7 +259,7 @@ def execute_sql(statement, database_path, **kwargs):
         raise
     finally:
         del conn  # Yeah, what can you do?
-    LOG.log(log_level, "End: Execute.")
+    log("End: Execute.")
     return result
 
 

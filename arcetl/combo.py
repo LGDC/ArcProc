@@ -4,7 +4,7 @@ import logging
 
 from arcetl import arcobj
 from arcetl import attributes
-from arcetl import helpers
+from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
@@ -38,9 +38,8 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     Returns:
         str: Path of the adjusted dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Adjust features for shapefile output in %s.",
-            dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Adjust features for shapefile output in %s.", dataset_path)
     shp_field_convert_types = (
         'date', 'double', 'single', 'integer', 'smallinteger', 'string',
         # Shapefile loader handles these types.
@@ -88,5 +87,5 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             dataset_where_sql=kwargs.get('dataset_where_sql'),
             log_level=None
             )
-    LOG.log(log_level, "End: Adjust.")
+    log("End: Adjust.")
     return dataset_path

@@ -8,7 +8,7 @@ import arcpy
 from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
-from arcetl import helpers
+from arcetl.helpers import leveled_logger, unique_name
 
 
 LOG = logging.getLogger(__name__)
@@ -37,16 +37,15 @@ def planarize(dataset_path, output_path, **kwargs):
     Returns:
         str: Path of the converted dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Planarize geometry in %s to lines in %s.",
-            dataset_path, output_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Planarize geometry in %s to lines in %s.", dataset_path, output_path)
     with arcobj.DatasetView(dataset_path,
                             kwargs.get('dataset_where_sql')) as dataset_view:
         arcpy.management.FeatureToLine(
             in_features=dataset_view.name, out_feature_class=output_path,
             cluster_tolerance=kwargs.get('tolerance'), attributes=True
             )
-    LOG.log(log_level, "End: Planarize.")
+    log("End: Planarize.")
     return output_path
 
 
@@ -81,9 +80,8 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     Returns:
         str: Path of the converted dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Convert polgyons in %s to lines in %s.",
-            dataset_path, output_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Convert polgyons in %s to lines in %s.", dataset_path, output_path)
     # Tolerance only applies to topological conversions.
     if not kwargs.get('topological', False):
         kwargs['tolerance'] = None
@@ -128,7 +126,7 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
                                  log_level=None)
     else:
         dataset.delete_field(output_path, 'ORIG_FID', log_level=None)
-    LOG.log(log_level, "End: Convert.")
+    log("End: Convert.")
     return output_path
 
 
@@ -150,10 +148,10 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     Returns:
         str: Path of the converted dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     sref = arcobj.spatial_reference(spatial_reference_item)
-    LOG.log(log_level, "Start: Project %s to srid=%s in %s.",
-            dataset_path, sref.factoryCode, output_path)
+    log("Start: Project %s to srid=%s in %s.",
+        dataset_path, sref.factoryCode, output_path)
     dataset_meta = arcobj.dataset_metadata(dataset_path)
     # Project tool cannot output to an in-memory workspace (will throw error
     # 000944). Not a bug. Esri's Project documentation (as of v10.4)
@@ -168,7 +166,7 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     dataset.copy(dataset_path, output_path,
                  dataset_where_sql=kwargs.get('dataset_where_sql'),
                  log_level=None)
-    LOG.log(log_level, "End: Project.")
+    log("End: Project.")
     return output_path
 
 
@@ -196,9 +194,9 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
     Returns:
         str: Path of the CSV-file.
     """
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Convert rows to CSVfile %s.", output_path)
     field_names = tuple(field_names)
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Convert rows to CSVfile %s.", output_path)
     with open(output_path, kwargs.get('file_mode', 'wb')) as csvfile:
         for index, row in enumerate(rows):
             if index == 0:
@@ -213,7 +211,7 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
                 else:
                     raise TypeError("Rows must be dictionaries or sequences.")
             writer.writerow(row)
-    LOG.log(log_level, "End: Write.")
+    log("End: Write.")
     return output_path
 
 
@@ -239,10 +237,9 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
     Returns:
         str: Path of the converted dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Convert %s to spatial dataset %s.",
-            dataset_path, output_path)
-    view_name = helpers.unique_name()
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Convert %s to spatial dataset %s.", dataset_path, output_path)
+    view_name = unique_name()
     sref = arcobj.spatial_reference(spatial_reference_item)
     arcpy.management.MakeXYEventLayer(
         table=dataset_path, out_layer=view_name, in_x_field=x_field_name,
@@ -253,5 +250,5 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
                  dataset_where_sql=kwargs.get('dataset_where_sql'),
                  log_level=None)
     dataset.delete(view_name, log_level=None)
-    LOG.log(log_level, "End: Convert.")
+    log("End: Convert.")
     return output_path

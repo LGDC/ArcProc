@@ -4,7 +4,7 @@ import re
 
 import requests
 
-from arcetl import helpers
+from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
@@ -28,8 +28,8 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
     Returns:
         str: The generated token.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Generate token for %s.", server_url)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Generate token for %s.", server_url)
     post_url = requests.compat.urljoin(server_url, 'admin/generateToken')
     post_data = {'f': 'json', 'username': username, 'password': password,
                  'expiration': minutes_active}
@@ -42,8 +42,8 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
     else:
         post_data['client'] = 'requestip'
     token = requests.post(url=post_url, data=post_data).json()['token']
-    LOG.log(log_level, "Token = %s.", token)
-    LOG.log(log_level, "End: Generate.")
+    log("Token = %s.", token)
+    log("End: Generate.")
     return token
 
 
@@ -74,8 +74,8 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
         toggle = 'stop'
     else:
         raise ValueError("start_service or stop_service must be True")
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Toggle-%s service %s.", toggle, service_url)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Toggle-%s service %s.", toggle, service_url)
     url_parts = service_url.split('/')
     post_url = re.sub(
         '/arcgis/rest/services/', '/arcgis/admin/services/',
@@ -85,5 +85,5 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
     post_data = {'f': 'json', 'token': token}
     response = requests.post(url=post_url, data=post_data)
     response.raise_for_status()
-    LOG.log(log_level, "End: Toggle.")
+    log("End: Toggle.")
     return service_url

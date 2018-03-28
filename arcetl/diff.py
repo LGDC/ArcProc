@@ -10,7 +10,7 @@ from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import geometry
-from arcetl import helpers
+from arcetl.helpers import leveled_logger, unique_path
 
 if sys.version_info.major <= 3:
     basestring = str
@@ -260,12 +260,10 @@ class Differ(object):
             for tag in ('init', 'new'):
                 with arcobj.DatasetView(self.path[tag],
                                         self.where_sql[tag]) as view:
-                    join_kwargs = {
-                        'target_features': view.name,
-                        'join_features': over_path,
-                        'out_feature_class': helpers.unique_path(),
-                        'field_mapping': arcpy.FieldMappings(),
-                        }
+                    join_kwargs = {'target_features': view.name,
+                                   'join_features': over_path,
+                                   'out_feature_class': unique_path(),
+                                   'field_mapping': arcpy.FieldMappings()}
                     for path, field in ((view.name, self.field['id']),
                                         (over_path, over_field)):
                         field_map = arcpy.FieldMap()
@@ -296,9 +294,8 @@ class Differ(object):
             str: Path of the dataset created.
 
         """
-        log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-        LOG.log(log_level, "Start: Create displacement links dataset %s.",
-                dataset_path)
+        log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+        log("Start: Create displacement links dataset %s.", dataset_path)
         id_field_meta = arcobj.field_metadata(dataset_path, self.field['id'])
         for key in id_field_meta:
             if key not in ('name', 'type', 'length', 'precision', 'scale'):
@@ -310,7 +307,7 @@ class Differ(object):
                                               self.spatial['reference']),
             log_level=None,
             )
-        LOG.log(log_level, "End: Create.")
+        log("End: Create.")
         return dataset_path
 
     def info_diff(self, feature_id, diff_type, init_value=None,
@@ -386,18 +383,16 @@ class Differ(object):
             str: Path of the dataset created.
 
         """
-        log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-        LOG.log(log_level, "Start: Create diff table %s.", dataset_path)
+        log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+        log("Start: Create diff table %s.", dataset_path)
         id_field_meta = arcobj.field_metadata(dataset_path, self.field['id'])
         for key in id_field_meta:
             if key not in ('name', 'type', 'length', 'precision', 'scale'):
                 del id_field_meta[key]
         field_metadata_list = (id_field_meta,) + self._diff_fields_metadata
-        dataset.create(
-            dataset_path, field_metadata_list,
-            spatial_reference_item=kwargs.get('spatial_reference_item',
-                                              self.spatial['reference']),
-            log_level=None,
-            )
-        LOG.log(log_level, "End: Create.")
+        dataset.create(dataset_path, field_metadata_list,
+                       spatial_reference_item=kwargs.get('spatial_reference_item',
+                                                         self.spatial['reference']),
+                       log_level=None)
+        log("End: Create.")
         return dataset_path

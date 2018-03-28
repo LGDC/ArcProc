@@ -7,7 +7,7 @@ from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import features
-from arcetl import helpers
+from arcetl.helpers import leveled_logger, unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -44,11 +44,11 @@ def identity(dataset_path, field_name, identity_dataset_path,
 
     Returns:
         str: Path of the dataset updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Identity-set attributes in %s on %s"
-                        " by overlay values in %s on %s."), field_name,
-            dataset_path, identity_field_name, identity_dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Identity-set attributes in %s on %s by overlay values in %s on %s.",
+        field_name, dataset_path, identity_field_name, identity_dataset_path)
     if kwargs.get('replacement_value') is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
@@ -64,8 +64,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
         # Avoid field name collisions with neutral holding field.
         temp_identity.field_name = dataset.duplicate_field(
             temp_identity.path, identity_field_name,
-            new_field_name=helpers.unique_name(identity_field_name),
-            log_level=None
+            new_field_name=unique_name(identity_field_name), log_level=None,
             )
         attributes.update_by_function(
             temp_identity.path, temp_identity.field_name,
@@ -75,7 +74,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
-            temp_output_path = helpers.unique_path('output')
+            temp_output_path = unique_path('output')
             arcpy.analysis.Identity(
                 in_features=chunk_view.name,
                 identity_features=temp_identity.path,
@@ -95,7 +94,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
             features.insert_from_path(dataset_path, temp_output_path,
                                       log_level=None)
             dataset.delete(temp_output_path, log_level=None)
-    LOG.log(log_level, "End: Identity.")
+    log("End: Identity.")
     return dataset_path
 
 
@@ -140,11 +139,11 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
 
     Returns:
         str: Path of the dataset updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Overlay-set attributes in %s on %s"
-                        " by overlay values in %s on %s."),
-            field_name, dataset_path, overlay_field_name, overlay_dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Overlay-set attributes in %s on %s by overlay values in %s on %s.",
+        field_name, dataset_path, overlay_field_name, overlay_dataset_path)
     # Check flags & set details for spatial join call.
     if kwargs.get('overlay_most_coincident'):
         raise NotImplementedError(
@@ -171,8 +170,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         # Avoid field name collisions with neutral holding field.
         temp_overlay.field_name = dataset.duplicate_field(
             temp_overlay.path, overlay_field_name,
-            new_field_name=helpers.unique_name(overlay_field_name),
-            log_level=None
+            new_field_name=unique_name(overlay_field_name), log_level=None,
             )
         attributes.update_by_function(
             temp_overlay.path, temp_overlay.field_name, function=(lambda x: x),
@@ -185,7 +183,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
-            temp_output_path = helpers.unique_path('output')
+            temp_output_path = unique_path('output')
             arcpy.analysis.SpatialJoin(target_features=chunk_view.name,
                                        join_features=temp_overlay.path,
                                        out_feature_class=temp_output_path,
@@ -204,7 +202,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
             dataset.delete(temp_output_path, log_level=None)
         if kwargs.get('tolerance') is not None:
             arcpy.env.XYTolerance = old_tolerance
-        LOG.log(log_level, "End: Overlay.")
+        log("End: Overlay.")
     return dataset_path
 
 
@@ -239,11 +237,11 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
 
     Returns:
         str: Path of the dataset updated.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, ("Start: Union-set attributes in %s on %s"
-                        " by overlay values in %s on %s."),
-            field_name, dataset_path, union_field_name, union_dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Union-set attributes in %s on %s by overlay values in %s on %s.",
+        field_name, dataset_path, union_field_name, union_dataset_path)
     if kwargs.get('replacement_value') is not None:
         update_function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
@@ -259,7 +257,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         # Avoid field name collisions with neutral holding field.
         temp_union.field_name = dataset.duplicate_field(
             temp_union.path, union_field_name,
-            new_field_name=helpers.unique_name(union_field_name), log_level=None
+            new_field_name=unique_name(union_field_name), log_level=None,
             )
         attributes.update_by_function(
             temp_union.path, temp_union.field_name, function=(lambda x: x),
@@ -269,7 +267,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
-            temp_output_path = helpers.unique_path('output')
+            temp_output_path = unique_path('output')
             arcpy.analysis.Union(
                 in_features=(chunk_view.name, temp_union.path),
                 out_feature_class=temp_output_path, join_attributes='all',
@@ -287,5 +285,5 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
             features.insert_from_path(dataset_path, temp_output_path,
                                       log_level=None)
             dataset.delete(temp_output_path, log_level=None)
-    LOG.log(log_level, "End: Union.")
+    log("End: Union.")
     return dataset_path

@@ -5,7 +5,7 @@ import os
 import arcpy
 
 from arcetl import arcobj
-from arcetl import helpers
+from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
@@ -40,9 +40,10 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
 
     Raises:
         RuntimeError: If `exist_ok=False` and field already exists.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Add field %s to %s.", field_name, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Add field %s to %s.", field_name, dataset_path)
     if arcpy.ListFields(dataset_path, field_name):
         LOG.warning("Field already exists.")
         if not kwargs.get('exist_ok', False):
@@ -57,7 +58,7 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
             field_is_nullable=kwargs.get('field_is_nullable', True),
             field_is_required=kwargs.get('field_is_required', False),
             )
-    LOG.log(log_level, "End: Add.")
+    log("End: Add.")
     return field_name
 
 
@@ -121,13 +122,11 @@ def add_index(dataset_path, field_names, **kwargs):
         arcpy.ExecuteError: If dataset lock prevents adding index.
     """
     field_names = tuple(field_names)
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Add index to field(s) %s on %s.",
-            field_names, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Add index to field(s) %s on %s.", field_names, dataset_path)
     index_types = {field['type'].lower() for field
                    in arcobj.dataset_metadata(dataset_path)['fields']
-                   if field['name'].lower() in (name.lower()
-                                                for name in field_names)}
+                   if field['name'].lower() in (name.lower() for name in field_names)}
     if 'geometry' in index_types:
         if len(field_names) > 1:
             raise RuntimeError("Cannot create a composite spatial index.")
@@ -150,7 +149,7 @@ def add_index(dataset_path, field_names, **kwargs):
             LOG.warning("Lock on %s prevents adding index.", dataset_path)
         else:
             raise
-    LOG.log(log_level, "End: Add.")
+    log("End: Add.")
     return dataset_path
 
 
@@ -176,16 +175,16 @@ def copy(dataset_path, output_path, **kwargs):
     Raises:
         ValueError: If dataset type not supported.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Copy dataset %s to %s.",
-            dataset_path, output_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Copy dataset %s to %s.", dataset_path, output_path)
     _dataset = {
         'meta': arcobj.dataset_metadata(dataset_path),
-        'view': arcobj.DatasetView(
-            dataset_path, ("0=1" if kwargs.get('schema_only', False)
-                           else kwargs.get('dataset_where_sql'))
-            ),
-        }
+        'view': arcobj.DatasetView(dataset_path,
+                                   dataset_where_sql=(
+                                       "0=1" if kwargs.get('schema_only', False)
+                                       else kwargs.get('dataset_where_sql')
+                                   )),
+    }
     with _dataset['view']:
         if _dataset['meta']['is_spatial']:
             function = arcpy.management.CopyFeatures
@@ -198,7 +197,7 @@ def copy(dataset_path, output_path, **kwargs):
         if kwargs.get('overwrite', False) and arcpy.Exists(output_path):
             delete(output_path, log_level=None)
         function(_dataset['view'].name, output_path)
-    LOG.log(log_level, "End: Copy.")
+    log("End: Copy.")
     return output_path
 
 
@@ -219,8 +218,8 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     Returns:
         str: Path of the dataset created.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Create dataset %s.", dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Create dataset %s.", dataset_path)
     create_kwargs = {'out_path': os.path.dirname(dataset_path),
                      'out_name': os.path.basename(dataset_path)}
     if kwargs.get('geometry_type'):
@@ -236,7 +235,7 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     if field_metadata_list:
         for field_meta in field_metadata_list:
             add_field_from_metadata(dataset_path, field_meta, log_level=None)
-    LOG.log(log_level, "End: Create.")
+    log("End: Create.")
     return dataset_path
 
 
@@ -253,10 +252,10 @@ def delete(dataset_path, **kwargs):
     Returns:
         str: Path of the dataset deleted.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Delete dataset %s.", dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Delete dataset %s.", dataset_path)
     arcpy.management.Delete(in_data=dataset_path)
-    LOG.log(log_level, "End: Delete.")
+    log("End: Delete.")
     return dataset_path
 
 
@@ -274,11 +273,10 @@ def delete_field(dataset_path, field_name, **kwargs):
     Returns:
         str: Name of the field deleted.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Delete field %s on %s.",
-            field_name, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Delete field %s on %s.", field_name, dataset_path)
     arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
-    LOG.log(log_level, "End: Delete.")
+    log("End: Delete.")
     return field_name
 
 
@@ -297,16 +295,16 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     Returns:
         str: Name of the field created.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Duplicate field %s as %s on %s.",
-            field_name, new_field_name, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Duplicate field %s as %s on %s.",
+        field_name, new_field_name, dataset_path)
     field_meta = arcobj.field_metadata(dataset_path, field_name)
     field_meta['name'] = new_field_name
     # Cannot add OID-type field, so change to long.
     if field_meta['type'].lower() == 'oid':
         field_meta['type'] = 'long'
     add_field_from_metadata(dataset_path, field_meta, log_level=None)
-    LOG.log(log_level, "End: Duplicate.")
+    log("End: Duplicate.")
     return new_field_name
 
 
@@ -376,15 +374,15 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
     Returns:
         str: Name of the joined field.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Join field %s on %s from %s.",
-            join_field_name, dataset_path, join_dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Join field %s on %s from %s.",
+        join_field_name, dataset_path, join_dataset_path)
     arcpy.management.JoinField(
         in_data=dataset_path, in_field=on_field_name,
         join_table=join_dataset_path, join_field=on_join_field_name,
         fields=join_field_name
         )
-    LOG.log(log_level, "End: Join.")
+    log("End: Join.")
     return join_field_name
 
 
@@ -406,12 +404,11 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     Returns:
         str: New name of the field.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Rename field %s to %s on %s.",
-            field_name, new_field_name, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Rename field %s to %s on %s.", field_name, new_field_name, dataset_path)
     arcpy.management.AlterField(in_table=dataset_path, field=field_name,
                                 new_field_name=new_field_name)
-    LOG.log(log_level, "End: Rename.")
+    log("End: Rename.")
     return new_field_name
 
 
@@ -433,13 +430,12 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
     Returns:
         str: Path of the dataset with changed privileges.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
     view_arg, edit_arg = privilege_map[allow_view], privilege_map[allow_edit]
-    LOG.log(log_level,
-            "Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
-            dataset_path, user_name, view_arg, edit_arg)
+    log("Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
+        dataset_path, user_name, view_arg, edit_arg)
     arcpy.management.ChangePrivileges(in_dataset=dataset_path, user=user_name,
                                       View=view_arg, Edit=edit_arg)
-    LOG.log(log_level, "End: Set.")
+    log("End: Set.")
     return dataset_path

@@ -6,7 +6,7 @@ import uuid
 import arcpy
 
 from arcetl import geometry
-from arcetl import helpers
+from arcetl.helpers import log_level, unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -25,20 +25,20 @@ class ArcExtension(object):
     _result = {
         'CheckedIn': {'activated': False,
                       'message': "Extension deactivated.",
-                      'log_level': helpers.log_level('info')},
+                      'log_level': log_level('info')},
         'CheckedOut': {'activated': True,
                        'message': "Extension activated.",
-                       'log_level': helpers.log_level('info')},
+                       'log_level': log_level('info')},
         'Failed': {'activated': False,
                    'message': "System failure.",
-                   'log_level': helpers.log_level('warning')},
+                   'log_level': log_level('warning')},
         'NotInitialized': {'activated': False,
                            'message': "No desktop license set.",
-                           'log_level': helpers.log_level('warning')},
+                           'log_level': log_level('warning')},
         'Unavailable': {'activated': False,
                         'message': "Extension unavailable.",
-                        'log_level': helpers.log_level('warning')},
-        }
+                        'log_level': log_level('warning')},
+    }
     """dict: Information mapped to each extension result string."""
 
     def __init__(self, name):
@@ -119,7 +119,7 @@ class DatasetView(object):
             force_nonspatial (bool): Flag that forces a nonspatial view.
 
         """
-        self.name = view_name if view_name else helpers.unique_name('view')
+        self.name = view_name if view_name else unique_name('view')
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.is_spatial = all((self.dataset_meta['is_spatial'],
@@ -314,7 +314,7 @@ class TempDatasetCopy(object):
             output_path (str): Path of the dataset to create.
             force_nonspatial (bool): Flag that forces a nonspatial copy.
         """
-        self.path = output_path if output_path else helpers.unique_path('temp')
+        self.path = output_path if output_path else unique_path('temp')
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.is_spatial = all((self.dataset_meta['is_spatial'],

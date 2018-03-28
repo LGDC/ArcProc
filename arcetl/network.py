@@ -12,7 +12,7 @@ import arcpy
 from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
-from arcetl import helpers
+from arcetl.helpers import leveled_logger
 from arcetl import workspace
 
 
@@ -25,13 +25,13 @@ TYPE_ID_FUNCTION_MAP = {
     'single': (lambda x: float(x.split(' : ')[0]) if x else None),
     'string': (lambda x: x.split(' : ')[0] if x else None),
     'text': (lambda x: x.split(' : ')[0] if x else None),
-    }
+}
 
 
 build = workspace.build_network  # pylint: disable=invalid-name
 
 
-# pylint: disable=too-many-arguments
+
 def closest_facility_route(dataset_path, id_field_name, facility_path,
                            facility_id_field_name, network_path, cost_attribute,
                            **kwargs):
@@ -64,11 +64,11 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             'cost' value (float) will match units of the cost_attribute.
             'geometry' (arcpy.Geometry) will match spatial refernece to the
             dataset.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level,
-            "Start: Generate closest facility in %s to locations in %s.",
-            facility_path, dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Generate closest facility in %s to locations in %s.",
+        facility_path, dataset_path)
     with arcobj.ArcExtension('Network'):
         arcpy.na.MakeClosestFacilityLayer(
             in_network_dataset=network_path,
@@ -153,8 +153,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
                 }
             yield closest_info
     dataset.delete('closest', log_level=None)
-    LOG.log(log_level, "End: Generate.")
-# pylint: enable=too-many-arguments
+    log("End: Generate.")
 
 
 def generate_service_areas(dataset_path, output_path, network_path,
@@ -189,8 +188,8 @@ def generate_service_areas(dataset_path, output_path, network_path,
     Returns:
         str: Path of the output service areas dataset.
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Generate service areas for %s.", dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs.get('trim_value') is not None:
         trim_value = arcobj.linear_unit_string(kwargs['trim_value'],
@@ -241,11 +240,10 @@ def generate_service_areas(dataset_path, output_path, network_path,
             function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
             field_as_first_arg=False, arg_field_names=('Name',), log_level=None
             )
-    LOG.log(log_level, "End: Generate.")
+    log("End: Generate.")
     return output_path
 
 
-# pylint: disable=too-many-arguments
 def generate_service_rings(dataset_path, output_path, network_path,
                            cost_attribute, ring_width, max_distance, **kwargs):
     """Create facility service ring features using a network dataset.
@@ -279,9 +277,10 @@ def generate_service_rings(dataset_path, output_path, network_path,
 
     Returns:
         str: Path of the output service rings dataset.
+
     """
-    log_level = helpers.log_level(kwargs.get('log_level', 'info'))
-    LOG.log(log_level, "Start: Generate service rings for %s.", dataset_path)
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log("Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs.get('trim_value') is not None:
         trim_value = arcobj.linear_unit_string(kwargs['trim_value'],
@@ -335,6 +334,5 @@ def generate_service_rings(dataset_path, output_path, network_path,
             function=TYPE_ID_FUNCTION_MAP[id_field_meta['type']],
             field_as_first_arg=False, arg_field_names=('Name',), log_level=None
             )
-    LOG.log(log_level, "End: Generate.")
+    log("End: Generate.")
     return output_path
-# pylint: enable=too-many-arguments
