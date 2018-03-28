@@ -33,6 +33,26 @@ def contain(obj, nonetypes_as_empty=True):
         yield obj
 
 
+def freeze_values(*values):
+    """Generator for iterable with bytearrays converted to bytes.
+
+    Currently only freezes bytearrays to bytes.
+
+    Args:
+        values: Values to return.
+
+    Yields:
+        object: If a value is mutable, will yield value as immutable type of the
+            value. Otherwise will yield as original value/type.
+
+    """
+    for val in values:
+        if isinstance(val, bytearray):
+            yield bytes(val)
+        else:
+            yield val
+
+
 def leveled_logger(logger, level_repr=None):
     """Return function to log into logger at the given level.
 
