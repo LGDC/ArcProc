@@ -11,7 +11,9 @@ import arcpy
 from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
-from arcetl import helpers
+from arcetl.helpers import (
+    contain, freeze_values, leveled_logger, unique_name, unique_path,
+)
 
 
 LOG = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ def _insert_from_path_with_append(dataset_path, insert_dataset_path,
     """
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     # Create field maps.
-    append_kwargs = {'inputs': helpers.unique_name('view'),
+    append_kwargs = {'inputs': unique_name('view'),
                      'target': dataset_path,
                      'schema_type': 'no_test',
                      'field_mapping': arcpy.FieldMappings()}
@@ -112,6 +114,8 @@ def _same_value(*values):
     if all(isinstance(val, datetime.datetime) for val in values):
         same = all((val1 - val2).total_seconds() < 1 for val1, val2 in pairwise(values))
     elif all(isinstance(val, arcpy.Geometry) for val in values):
+        ##TODO: Test polyline.
+        ##TODO: Test multipoint, multipatch, dimension, annotation.
         same = all(val1.equals(val2) for val1, val2 in pairwise(values))
     return same
 
@@ -141,7 +145,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     kwargs.setdefault('clip_where_sql')
     kwargs.setdefault('use_edit_session', False)
     kwargs.setdefault('tolerance')
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Clip features in %s where overlapping %s.",
         dataset_path, clip_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -149,7 +153,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
                                           kwargs['dataset_where_sql']),
             'clip': arcobj.DatasetView(clip_dataset_path,
                                        kwargs['clip_where_sql'])}
-    temp_output_path = helpers.unique_dataset_path('output')
+    temp_output_path = unique_path('output')
     session = arcobj.Editor(meta['dataset']['workspace_path'],
                             kwargs['use_edit_session'])
     with view['dataset'], view['clip'], session:
@@ -186,7 +190,7 @@ def delete(dataset_path, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Delete features from %s.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     truncate_error_codes = (
@@ -256,13 +260,13 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
 
     """
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Delete features in %s with given IDs.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-    keys = {'id': tuple(helpers.contain(id_field_names))}
+    keys = {'id': tuple(contain(id_field_names))}
     if inspect.isgeneratorfunction(delete_ids):
         delete_ids = delete_ids()
-    ids = {'delete': {tuple(helpers.contain(_id)) for _id in delete_ids}}
+    ids = {'delete': {tuple(contain(_id)) for _id in delete_ids}}
     feature_count = Counter()
     session = arcobj.Editor(meta['dataset']['workspace_path'],
                             kwargs['use_edit_session'])
@@ -308,17 +312,17 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('tolerance')
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Dissolve features in %s on fields: %s.",
         dataset_path, dissolve_field_names)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-    keys = {'dissolve': tuple(helpers.contain(dissolve_field_names))}
+    keys = {'dissolve': tuple(contain(dissolve_field_names))}
     view = {'dataset': arcobj.DatasetView(dataset_path,
                                           kwargs['dataset_where_sql'])}
     if kwargs['tolerance'] is not None:
         old_tolerance = arcpy.env.XYTolerance
         arcpy.env.XYTolerance = kwargs['tolerance']
-    temp_output_path = helpers.unique_dataset_path('output')
+    temp_output_path = unique_path('output')
     with view['dataset']:
         arcpy.management.Dissolve(in_features=view['dataset'].name,
                                   out_feature_class=temp_output_path,
@@ -369,7 +373,7 @@ def eliminate_interior_rings(dataset_path, max_area=None,
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Eliminate interior rings in %s.", dataset_path)
     # Only set max_percent_total_area default if neither it or area defined.
     if all((max_area is None, max_percent_total_area is None)):
@@ -383,7 +387,7 @@ def eliminate_interior_rings(dataset_path, max_area=None,
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     view = {'dataset': arcobj.DatasetView(dataset_path,
                                           kwargs['dataset_where_sql'])}
-    temp_output_path = helpers.unique_dataset_path('output')
+    temp_output_path = unique_path('output')
     with view['dataset']:
         arcpy.management.EliminatePolygonPart(
             in_features=view['dataset'].name,
@@ -430,7 +434,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
     kwargs.setdefault('erase_where_sql')
     kwargs.setdefault('tolerance')
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Erase features in %s where overlapping %s.",
         dataset_path, erase_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -438,7 +442,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
                                           kwargs['dataset_where_sql']),
             'erase': arcobj.DatasetView(erase_dataset_path,
                                         kwargs['erase_where_sql'])}
-    temp_output_path = helpers.unique_dataset_path('output')
+    temp_output_path = unique_path('output')
     with view['dataset'], view['erase']:
         arcpy.analysis.Erase(in_features=view['dataset'].name,
                              erase_features=view['erase'].name,
@@ -476,9 +480,9 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
 
     """
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Insert features into %s from dictionaries.", dataset_path)
-    keys = {'row': tuple(helpers.contain(field_names))}
+    keys = {'row': tuple(contain(field_names))}
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     iters = ((feature[key] for key in keys['row'])
@@ -513,10 +517,10 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
 
     """
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Insert features into %s from iterables.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-    keys = {'row': tuple(helpers.contain(field_names))}
+    keys = {'row': tuple(contain(field_names))}
     if inspect.isgeneratorfunction(insert_features):
         insert_features = insert_features()
     session = arcobj.Editor(meta['dataset']['workspace_path'],
@@ -561,7 +565,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     kwargs.setdefault('insert_where_sql')
     kwargs.setdefault('use_edit_session', False)
     kwargs.setdefault('insert_with_cursor', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Insert features into %s from %s.",
         dataset_path, insert_dataset_path)
     metas = (arcobj.dataset_metadata(dataset_path),
@@ -573,7 +577,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
               for meta in metas)
             )
     else:
-        keys['insert'] = set(n.lower() for n in helpers.contain(field_names))
+        keys['insert'] = set(name.lower() for name in contain(field_names))
     for meta in metas:
         # OIDs have no business being part of an insert.
         for key in (meta['oid_field_name'], 'oid@'):
@@ -620,7 +624,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('location_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Keep features in %s where overlapping %s.",
         dataset_path, location_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -676,10 +680,10 @@ def update_from_dicts(dataset_path, update_features, id_field_names,
     """
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update features in %s from dictionaries.", dataset_path)
-    keys = {'id': tuple(helpers.contain(id_field_names)),
-            'attr': tuple(helpers.contain(field_names))}
+    keys = {'id': tuple(contain(id_field_names)),
+            'attr': tuple(contain(field_names))}
     keys['row'] = keys['id'] + keys['attr']
     if inspect.isgeneratorfunction(update_features):
         update_features = update_features()
@@ -729,15 +733,15 @@ def update_from_iters(dataset_path, update_features, id_field_names,
     """
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update features in %s from iterables.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-    keys = {'id': tuple(helpers.contain(id_field_names)),
-            'feat': tuple(helpers.contain(field_names))}
+    keys = {'id': tuple(contain(id_field_names)),
+            'feat': tuple(contain(field_names))}
     if not set(keys['id']).issubset(keys['feat']):
         raise ValueError("id_field_names must be a subset of field_names.")
-    ids = {'dataset': {tuple(helpers.freeze_values(_id))
-                       for _id in attributes.as_iters(dataset_path, keys['id'])}}
+    ids = {'dataset': {tuple(freeze_values(_id)) for _id
+                       in attributes.as_iters(dataset_path, keys['id'])}}
     feats = {'update': (update_features()
                         if inspect.isgeneratorfunction(update_features)
                         else update_features),
@@ -745,8 +749,7 @@ def update_from_iters(dataset_path, update_features, id_field_names,
              'id_update': dict()}
     for feat in feats['update']:
         feat = tuple(feat)
-        _id = tuple(helpers.freeze_values(feat[keys['feat'].index(key)]
-                                          for key in keys['id']))
+        _id = tuple(freeze_values(feat[keys['feat'].index(key)] for key in keys['id']))
         if _id not in ids['dataset']:
             feats['insert'].add(feat)
         else:
@@ -761,8 +764,8 @@ def update_from_iters(dataset_path, update_features, id_field_names,
         cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['feat'])
         with session, cursor:
             for feat in cursor:
-                _id = tuple(helpers.freeze_values(feat[keys['feat'].index(key)]
-                                                  for key in keys['id']))
+                _id = tuple(freeze_values(feat[keys['feat'].index(key)]
+                                          for key in keys['id']))
                 if _id in ids['delete']:
                     cursor.deleteRow()
                     feature_count['deleted'] += 1
@@ -821,7 +824,7 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
     kwargs.setdefault('update_where_sql')
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
-    log = helpers.leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update features in %s from %s.",
         dataset_path, update_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path),
@@ -835,8 +838,8 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
         field_names = set(n.lower() for n in field_names)
     # But OIDs have no business being part of an update.
     field_names.discard('oid@')
-    keys = {'id': tuple(helpers.contain(id_field_names)),
-            'attr': tuple(helpers.contain(field_names))}
+    keys = {'id': tuple(contain(id_field_names)),
+            'attr': tuple(contain(field_names))}
     keys['row'] = keys['id'] + keys['attr']
     iters = attributes.as_iters(
         update_dataset_path, keys['row'],

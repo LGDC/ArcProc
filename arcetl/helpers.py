@@ -167,3 +167,6 @@ def unique_name(prefix='', suffix='', unique_length=4,
     if not allow_initial_digit and name[0].isdigit():
         name = unique_name(prefix, suffix, unique_length, allow_initial_digit)
     return name
+
+
+unique_path = unique_dataset_path
