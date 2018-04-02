@@ -530,7 +530,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
 
 
 def update_by_mapping_function(dataset_path, field_name, function,
-                               key_field_name, **kwargs):
+                               key_field_names, **kwargs):
     """Update attribute values by finding them in a function-created mapping.
 
     Note:
@@ -540,33 +540,35 @@ def update_by_mapping_function(dataset_path, field_name, function,
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         function (types.FunctionType): Function to get mapping from.
-        key_field_name (str): Name of the field whose values will be the
-            mapping's keys.
+        key_field_names (iter): Name of the fields whose values will be the mapping's
+            keys.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        default_value: Value to return from mapping if key value on feature
-            not present. Defaults to NoneType.
+        default_value: Value to return from mapping if key value on feature not
+            present. Defaults to NoneType.
         log_level (str): Level to log the function at. Defaults to 'info'.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
 
     Returns:
         str: Name of the field updated.
+
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('default_value')
+    kwargs.setdefault('use_edit_session', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by mapping function %s with key in %s.",
-        field_name, dataset_path, function, key_field_name)
+        field_name, dataset_path, function, key_field_names)
     mapping = function()
-    update_by_mapping(dataset_path, field_name, mapping, key_field_name,
-                      **kwargs)
+    update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs)
     log("End: Update.")
     return field_name
 
 
-def update_by_mapping(dataset_path, field_name, mapping, key_field_name,
-                      **kwargs):
+def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs):
     """Update attribute values by finding them in a mapping.
 
     Note:
@@ -576,31 +578,44 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_name,
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
         mapping (object): Mapping to get values from.
-        key_field_name (str): Name of the field whose values will be the
-            mapping's keys.
+        key_field_names (iter): Name of the fields whose values will be the mapping's
+            keys.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        default_value: Value to return from mapping if key value on feature
-            not present. Defaults to NoneType.
+        default_value: Value to return from mapping if key value on feature not
+            present. Defaults to None.
         log_level (str): Level to log the function at. Defaults to 'info'.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
 
     Returns:
         str: Name of the field updated.
+
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('default_value')
+    kwargs.setdefault('use_edit_session', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
-    log("Start: Update attributes in %s on %s by mapping with key in %s.",
-        field_name, dataset_path, key_field_name)
-    function = (lambda x: mapping.get(x, kwargs.get('default_value')))
-    update_by_function(dataset_path, field_name,
-                       function, field_as_first_arg=False,
-                       arg_field_names=(key_field_name,),
-                       dataset_where_sql=kwargs.get('dataset_where_sql'),
-                       use_edit_session=kwargs.get('use_edit_session', False),
-                       log_level=None)
+    log("Start: Update attributes in %s on %s by mapping with key(s) in %s.",
+        field_name, dataset_path, key_field_names)
+    keys = tuple(contain(key_field_names))
+    session = arcobj.Editor(arcobj.dataset_metadata(dataset_path)['workspace_path'],
+                            kwargs.get('use_edit_session', False))
+    cursor = arcpy.da.UpdateCursor(dataset_path, (field_name,)+keys,
+                                   kwargs.get('dataset_where_sql'))
+    with session, cursor:
+        for row in cursor:
+            old_value = row[0]
+            key = row[1] if len(keys) == 1 else tuple(row[1:])
+            new_value = mapping.get(key, kwargs['default_value'])
+            if old_value != new_value:
+                try:
+                    cursor.updateRow((new_value,) + key)
+                except RuntimeError:
+                    LOG.error("Offending value is %s", new_value)
+                    raise RuntimeError
     log("End: Update.")
     return field_name
 
@@ -923,7 +938,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
             oid_id_map[oid] = next(unique_id_pool)
         used_ids.add(oid_id_map[oid])
     update_by_mapping(dataset_path, field_name,
-                      mapping=oid_id_map, key_field_name='oid@',
+                      mapping=oid_id_map, key_field_names='oid@',
                       dataset_where_sql=kwargs.get('dataset_where_sql'),
                       use_edit_session=kwargs.get('use_edit_session', False),
                       log_level=None)
