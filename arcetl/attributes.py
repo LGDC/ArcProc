@@ -548,9 +548,9 @@ def update_by_mapping_function(dataset_path, field_name, function,
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         default_value: Value to return from mapping if key value on feature not
             present. Defaults to NoneType.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
             False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Name of the field updated.
@@ -589,9 +589,9 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         default_value: Value to return from mapping if key value on feature not
             present. Defaults to None.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
             False.
+        log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
         str: Name of the field updated.

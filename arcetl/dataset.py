@@ -320,6 +320,7 @@ def feature_count(dataset_path, **kwargs):
 
     Returns:
         int: Number of features counted.
+
     """
     view = arcobj.DatasetView(dataset_path, **kwargs)
     with view:
