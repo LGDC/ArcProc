@@ -563,7 +563,10 @@ def update_by_mapping_function(dataset_path, field_name, function,
     log("Start: Update attributes in %s on %s by mapping function %s with key in %s.",
         field_name, dataset_path, function, key_field_names)
     mapping = function()
-    update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs)
+    update_by_mapping(dataset_path, field_name, mapping, key_field_names,
+                      dataset_where_sql=kwargs['dataset_where_sql'],
+                      default_value=kwargs['default_value'],
+                      use_edit_session=kwargs['use_edit_session'], log_level=None)
     log("End: Update.")
     return field_name
 
