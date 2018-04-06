@@ -5,9 +5,11 @@ import logging
 import os
 import random
 import string
+import sys
 import uuid
 
-import six
+if sys.version_info.major <= 3:
+    basestring = str
 
 
 LOG = logging.getLogger(__name__)
@@ -26,7 +28,7 @@ def contain(obj, nonetypes_as_empty=True):
         return
     if inspect.isgeneratorfunction(obj):
         obj = obj()
-    if isinstance(obj, Iterable) and not isinstance(obj, six.string_types):
+    if isinstance(obj, Iterable) and not isinstance(obj, basestring):
         for i in obj:
             yield i
     else:
@@ -86,7 +88,7 @@ def log_level(level_repr=None):
         result = level_repr
     elif level_repr is None:
         result = level[level_repr]
-    elif isinstance(level_repr, six.string_types):
+    elif isinstance(level_repr, basestring):
         result = level[level_repr.lower()]
     else:
         raise RuntimeError("level_repr invalid.")
@@ -118,8 +120,7 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
         seed = string.ascii_letters + string.digits
         used_ids = set()
         while True:
-            unique_id = ''.join(random.choice(seed)
-                                for _ in range(string_length))
+            unique_id = ''.join(random.choice(seed) for _ in range(string_length))
             if unique_id in used_ids:
                 continue
             yield unique_id
@@ -129,8 +130,7 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
             )
 
 
-def unique_name(prefix='', suffix='', unique_length=4,
-                allow_initial_digit=True):
+def unique_name(prefix='', suffix='', unique_length=4, allow_initial_digit=True):
     """Generate unique name.
 
     Args:

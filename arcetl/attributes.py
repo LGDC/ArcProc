@@ -3,14 +3,16 @@ from collections import Counter, defaultdict
 import copy
 import functools
 import logging
-
-import six
+import sys
 
 import arcpy
 
 from arcetl import arcobj
 from arcetl import dataset
 from arcetl.helpers import contain, leveled_logger, unique_ids, unique_name, unique_path
+
+if sys.version_info.major <= 3:
+    basestring = str
 
 
 LOG = logging.getLogger(__name__)
@@ -669,7 +671,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
             value = None
         else:
             # Ensure properties are iterable.
-            if isinstance(properties, six.string_types):
+            if isinstance(properties, basestring):
                 properties = (properties,)
             # Replace stand-in codes with ordered properties.
             properties = tuple(property_transform.get(prop, (prop,))
