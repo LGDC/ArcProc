@@ -235,8 +235,7 @@ class Editor(object):
                 edit session. Default is True.
 
         """
-        self._editor = (arcpy.da.Editor(workspace_path) if use_edit_session
-                        else None)
+        self._editor = (arcpy.da.Editor(workspace_path) if use_edit_session else None)
         self.workspace_path = workspace_path
 
     def __enter__(self):
@@ -279,8 +278,10 @@ class Editor(object):
 
         """
         if self._editor and self._editor.isEditing:
-            (self._editor.stopOperation if save_changes
-             else self._editor.abortOperation)()
+            if save_changes:
+                self._editor.stopOperation()
+            else:
+                self._editor.abortOperation()
             self._editor.stopEditing(save_changes)
         return not self.active
 
@@ -431,8 +432,7 @@ def dataset_metadata(dataset_path):
         )
     if hasattr(arc_object, 'spatialReference'):
         meta['spatial_reference'] = getattr(arc_object, 'spatialReference')
-        meta['spatial_reference_id'] = getattr(meta['spatial_reference'],
-                                               'factoryCode')
+        meta['spatial_reference_id'] = getattr(meta['spatial_reference'], 'factoryCode')
     else:
         meta['spatial_reference'] = None
         meta['spatial_reference_id'] = None
