@@ -841,8 +841,9 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
             )
     else:
         field_names = set(n.lower() for n in field_names)
-    # But OIDs have no business being part of an update.
-    field_names.discard('oid@')
+    # OIDs & area/length "fields" have no business being part of an update.
+    for key in ('oid@', 'shape@area', 'shape@length'):
+        field_names.discard(key)
     keys = {'id': tuple(contain(id_field_names)),
             'attr': tuple(contain(field_names))}
     keys['row'] = keys['id'] + keys['attr']
