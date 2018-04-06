@@ -605,9 +605,9 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         field_name, dataset_path, key_field_names)
     keys = tuple(contain(key_field_names))
     session = arcobj.Editor(arcobj.dataset_metadata(dataset_path)['workspace_path'],
-                            kwargs.get('use_edit_session', False))
+                            kwargs['use_edit_session'])
     cursor = arcpy.da.UpdateCursor(dataset_path, (field_name,)+keys,
-                                   kwargs.get('dataset_where_sql'))
+                                   kwargs['dataset_where_sql'])
     with session, cursor:
         for row in cursor:
             old_value = row[0]
@@ -615,7 +615,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
             new_value = mapping.get(key, kwargs['default_value'])
             if old_value != new_value:
                 try:
-                    cursor.updateRow((new_value,) + key)
+                    cursor.updateRow([new_value] + row[1:])
                 except RuntimeError:
                     LOG.error("Offending value is %s", new_value)
                     raise RuntimeError
