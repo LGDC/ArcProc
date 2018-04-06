@@ -96,7 +96,8 @@ def _same_feature(*features):
         bool: True if features are the same, False otherwise.
 
     """
-    return all(_same_value(*vals) for pair in pairwise(features) for vals in zip(*pair))
+    same = all(_same_value(*vals) for pair in pairwise(features) for vals in zip(*pair))
+    return same
 
 
 def _same_value(*values):
@@ -136,7 +137,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
         log_level (str): Level to log the function at. Defaults to 'info'.
-`
+
     Returns:
         str: Path of the dataset updated.
 
@@ -191,7 +192,11 @@ def delete(dataset_path, **kwargs):
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
-    log("Start: Delete features from %s.", dataset_path)
+    if kwargs['dataset_where_sql']:
+        log("Start: Delete features from %s where `%s`.",
+            dataset_path, kwargs['dataset_where_sql'])
+    else:
+        log("Start: Delete features from %s.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     truncate_error_codes = (
         # "Only supports Geodatabase tables and feature classes."
@@ -202,7 +207,7 @@ def delete(dataset_path, **kwargs):
         'ERROR 001260',
         # Operation not supported on a feature class in a controller dataset.
         'ERROR 001395',
-        )
+    )
     # Can use (faster) truncate when no sub-selection or edit session.
     run_truncate = (kwargs['dataset_where_sql'] is None
                     and kwargs['use_edit_session'] is False)
@@ -702,8 +707,8 @@ def update_from_dicts(dataset_path, update_features, id_field_names,
     return feature_count
 
 
-def update_from_iters(dataset_path, update_features, id_field_names,
-                      field_names, **kwargs):
+def update_from_iters(dataset_path, update_features, id_field_names, field_names,
+                      **kwargs):
     """Update features in dataset from iterables.
 
     Note:
