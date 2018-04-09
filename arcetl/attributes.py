@@ -11,7 +11,7 @@ from arcetl import arcobj
 from arcetl import dataset
 from arcetl.helpers import contain, leveled_logger, unique_ids, unique_name, unique_path
 
-if sys.version_info.major <= 3:
+if sys.version_info.major >= 3:
     basestring = str
 
 
