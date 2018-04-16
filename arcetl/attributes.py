@@ -81,9 +81,9 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
-        field_names (iter): Collection of field names. Names will be the keys
-            in the dictionary mapping to their values. If value is None, all
-            attributes fields will be used.
+        field_names (iter): Collection of field names. Names will be the keys in the
+            dictionary mapping to their values. If value is None, all attributes fields
+            will be used.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -95,17 +95,19 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         dict: Mapping of feature attribute field names to values.
 
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('spatial_reference_item')
     if field_names is None:
         meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-        field_names = tuple(n.lower() for n
-                            in meta['dataset']['field_names_tokenized'])
+        keys = {'field': tuple(key.lower() for key
+                               in meta['dataset']['field_names_tokenized'])}
     else:
-        field_names = tuple(contain(field_names))
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
-    with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=field_names,
-        where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
-        ) as cursor:
+        keys = {'field': tuple(contain(field_names))}
+    sref = arcobj.spatial_reference(kwargs['spatial_reference_item'])
+    cursor = arcpy.da.SearchCursor(in_table=dataset_path, field_names=keys['field'],
+                                   where_clause=kwargs['dataset_where_sql'],
+                                   spatial_reference=sref)
+    with cursor:
         for feature in cursor:
             yield dict(zip(cursor.fields, feature))
 
@@ -117,29 +119,31 @@ def as_iters(dataset_path, field_names, **kwargs):
 
     Args:
         dataset_path (str): Path of the dataset.
-        field_names (iter): Collection of field names. The order of the names
-            in the collection will determine where its value will fall in the
-            yielded item.
+        field_names (iter): Collection of field names. The order of the names in the
+            collection will determine where its value will fall in the yielded item.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        iter_type: Iterable type to yield. Defaults to tuple.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         spatial_reference_item: Item from which the output geometry's spatial
             reference will be derived.
+        iter_type: Iterable type to yield. Default is tuple.
 
     Yields:
         iter: Collection of attribute values.
 
     """
-    field_names = tuple(contain(field_names))
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
-    with arcpy.da.SearchCursor(
-        in_table=dataset_path, field_names=field_names,
-        where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref
-        ) as cursor:
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('spatial_reference_item')
+    kwargs.setdefault('iter_type', tuple)
+    keys = {'field': tuple(contain(field_names))}
+    sref = arcobj.spatial_reference(kwargs['spatial_reference_item'])
+    cursor = arcpy.da.SearchCursor(in_table=dataset_path, field_names=keys['field'],
+                                   where_clause=kwargs['dataset_where_sql'],
+                                   spatial_reference=sref)
+    with cursor:
         for feature in cursor:
-            yield kwargs.get('iter_type', tuple)(feature)
+            yield kwargs['iter_type'](feature)
 
 
 def coordinate_node_info_map(dataset_path, from_id_field_name,
