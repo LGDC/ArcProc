@@ -146,8 +146,8 @@ def as_iters(dataset_path, field_names, **kwargs):
             yield kwargs['iter_type'](feature)
 
 
-def coordinate_node_info_map(dataset_path, from_id_field_name,
-                             to_id_field_name, update_nodes=False, **kwargs):
+def coordinate_node_map(dataset_path, from_id_field_name, to_id_field_name,
+                        id_field_name='oid@', **kwargs):
     """Return dictionary mapping of coordinates to node-info dictionaries.
 
     Note:
@@ -157,76 +157,75 @@ def coordinate_node_info_map(dataset_path, from_id_field_name,
         dataset_path (str): Path of the dataset.
         from_id_field_name (str): Name of the from-ID field.
         to_id_field_name (str): Name of the to-ID field.
-        update_nodes (bool): Flag to indicate whether to update the nodes
-            based on the feature geometries.
+        id_field_name (str): Name of the ID field. Default is 'oid@'.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        id_field_name (str): Name of the ID field. Defaults to feature OID.
+        update_nodes (bool): Flag to indicate whether to update nodes based on feature
+            geometries. Default is False.
 
     Returns:
         dict: Mapping of coordinate tuples to node-info dictionaries.
             {(x, y): {'node_id': <id>, 'ids': {'from': set(), 'to': set()}}}
+
     """
-    def node_feature_count(node):
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('update_nodes', False)
+    def _node_feature_count(node):
         """Return feature count for node from info map."""
         return len(node['ids']['from'].union(node['ids']['to']))
-    def update_coord_node_info_map(coord_node_info, node_id_metadata):
+    def _update_coord_node_map(coord_node, node_id_metadata):
         """Return updated coordinate node info map."""
-        coord_node_info = copy.deepcopy(coord_node_info)
-        used_ids = {node['node_id'] for node in coord_node_info.values()
+        coord_node = copy.deepcopy(coord_node)
+        used_ids = {node['node_id'] for node in coord_node.values()
                     if node['node_id'] is not None}
-        node_id_type = arcobj.python_type(node_id_metadata['type'])
-        node_id_length = node_id_metadata['length']
-        unused_ids = (i for i in unique_ids(node_id_type, node_id_length)
-                      if i not in used_ids)
+        unused_ids = (
+            _id for _id in unique_ids(arcobj.python_type(node_id_metadata['type']),
+                                      node_id_metadata['length'])
+            if _id not in used_ids
+        )
         id_coords = {}
-        for coord, node in coord_node_info.items():
-            count = node_feature_count(node)
+        for coord, node in coord_node.items():
             # Assign IDs where missing.
             if node['node_id'] is None:
                 node['node_id'] = next(unused_ids)
             # If ID duplicate, re-ID node with least features.
             elif node['node_id'] in id_coords:
                 other_coord = id_coords[node['node_id']]
+                other_node = coord_node[other_coord]
                 new_node_id = next(unused_ids)
-                if count > node_feature_count(coord_node_info[other_coord]):
-                    coord_node_info[other_coord]['node_id'] = new_node_id
+                if _node_feature_count(node) > _node_feature_count(other_node):
+                    other_node['node_id'] = new_node_id  # Does update coord_node!
                     id_coords[new_node_id] = id_coords.pop(node['node_id'])
                 else:
-                    node['node_id'] = new_node_id
-                    coord_node_info[coord]['node_id'] = node['node_id']
+                    node['node_id'] = new_node_id  # Does update coord_node!
             id_coords[node['node_id']] = coord
-        return coord_node_info
-    id_key = kwargs.get('id_field_name', 'oid@')
-    field_names = (id_key, from_id_field_name, to_id_field_name, 'shape@')
-    coord_node_info = {}
-    for feature in as_dicts(dataset_path, field_names,
-                            dataset_where_sql=kwargs.get('dataset_where_sql')):
-        for node in ({'name': 'from', 'id_key': from_id_field_name,
-                      'geom_attr': 'firstPoint'},
-                     {'name': 'to', 'id_key': to_id_field_name,
-                      'geom_attr': 'lastPoint'}):
-            geom = getattr(feature['shape@'], node['geom_attr'])
-            coord = (geom.X, geom.Y)
-            if coord not in coord_node_info:
-                coord_node_info[coord] = {'node_id': feature[node['id_key']],
-                                          'ids': defaultdict(set)}
-            if coord_node_info[coord]['node_id'] is None:
-                coord_node_info[coord]['node_id'] = feature[node['id_key']]
-            elif feature[node['id_key']] is not None:
-                # Use lowest ID at coordinate.
-                coord_node_info[coord]['node_id'] = min(
-                    coord_node_info[coord]['node_id'], feature[node['id_key']]
-                    )
+        return coord_node
+    keys = {'field': (id_field_name, from_id_field_name, to_id_field_name, 'shape@')}
+    coord_node = {}
+    g_features = as_iters(dataset_path, keys['field'],
+                          dataset_where_sql=kwargs['dataset_where_sql'])
+    for feature_id, from_node_id, to_node_id, geom in g_features:
+        for end, node_id, point in [('from', from_node_id, geom.firstPoint),
+                                    ('to', to_node_id, geom.lastPoint)]:
+            coord = (point.X, point.Y)
+            if coord not in coord_node:
+                # Create new coordinate-node.
+                coord_node[coord] = {'node_id': node_id, 'ids': defaultdict(set)}
+            coord_node[coord]['node_id'] = (
+                # Assign new ID if current is missing.
+                node_id if coord_node[coord]['node_id'] is None
+                # Assign new ID if lower than current.
+                else min(coord_node[coord]['node_id'], node_id)
+            )
             # Add feature ID to end-ID set.
-            coord_node_info[coord]['ids'][node['name']].add(feature[id_key])
-    if update_nodes:
-        node_id_meta = arcobj.field_metadata(dataset_path, from_id_field_name)
-        coord_node_info = update_coord_node_info_map(coord_node_info,
-                                                     node_id_meta)
-    return coord_node_info
+            coord_node[coord]['ids'][end].add(feature_id)
+    if kwargs['update_nodes']:
+        field_meta = {'node_id': arcobj.field_metadata(dataset_path,
+                                                       from_id_field_name)}
+        coord_node = _update_coord_node_map(coord_node, field_meta['node_id'])
+    return coord_node
 
 
 def id_map(dataset_path, id_field_names, field_names, **kwargs):
@@ -271,8 +270,8 @@ def id_map(dataset_path, id_field_names, field_names, **kwargs):
 
 
 def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
-                update_nodes=False, **kwargs):
-    """Return dictionary mapping of field node IDs for each feature ID.
+                id_field_name='oid@', **kwargs):
+    """Return dictionary mapping of feature ID to from- & to-node IDs.
 
     From & to IDs must be the same attribute type.
 
@@ -280,48 +279,48 @@ def id_node_map(dataset_path, from_id_field_name, to_id_field_name,
         dataset_path (str): Path of the dataset.
         from_id_field_name (str): Name of the from-ID field.
         to_id_field_name (str): Name of the to-ID field.
-        update_nodes (bool): Flag to indicate whether to update the nodes
-            based on the feature geometries.
+        id_field_name (str): Name of the ID field. Default is 'oid@'.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        field_names_as_keys (bool): Flag to indicate use of dataset's node
-            ID field names as the ID field names in the map. Defaults to
-            False.
-        id_field_name (str): Name of the ID field. Defaults to feature OID.
+        field_names_as_keys (bool): Flag to indicate use of dataset's node ID field
+            names as the ID field names in the map. Default is False.
+        update_nodes (bool): Flag to indicate whether to update the nodes based on the
+            feature geometries. Default is False.
 
     Returns:
         dict: Mapping of feature IDs to node-end ID dictionaries.
+            `{feature_id: {'from': from_node_id, 'to': to_node_id}}`
+
     """
-    field_meta = {
-        'from': arcobj.field_metadata(dataset_path, from_id_field_name),
-        'to': arcobj.field_metadata(dataset_path, to_id_field_name),
-        }
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('field_names_as_keys', False)
+    kwargs.setdefault('update_nodes', False)
+    field_meta = {'from': arcobj.field_metadata(dataset_path, from_id_field_name),
+                  'to': arcobj.field_metadata(dataset_path, to_id_field_name)}
     if field_meta['from']['type'] != field_meta['to']['type']:
         raise ValueError("Fields %s & %s must be of same type.")
-    if kwargs.get('field_names_as_keys', False):
-        end_key = {'from': from_id_field_name, 'to': to_id_field_name}
-    else:
-        end_key = {'from': from_id_field_name, 'to': to_id_field_name}
+    key = {'id': id_field_name, 'from': from_id_field_name, 'to': to_id_field_name}
+    end_key = {'from': from_id_field_name if kwargs['field_names_as_keys'] else 'from',
+               'to': to_id_field_name if kwargs['field_names_as_keys'] else 'to'}
     id_nodes = defaultdict(dict)
-    if update_nodes:
-        coord_node_info = coordinate_node_info_map(
-            dataset_path, from_id_field_name, to_id_field_name, update_nodes,
-            **kwargs
-            )
+    if kwargs['update_nodes']:
+        coord_node_info = coordinate_node_map(dataset_path, from_id_field_name,
+                                              to_id_field_name, id_field_name, **kwargs)
         for node in coord_node_info.values():
-            for end in end_key:
-                for feature_id in node['ids'][end]:
-                    id_nodes[feature_id][end_key[end]] = node['node_id']
+            for end, key in end_key.items():
+                for feat_id in node['ids'][end]:
+                    id_nodes[feat_id][key] = node['node_id']
+    # If not updating nodes, don't need to bother with geometry/coordinates.
     else:
-        id_key = kwargs.get('id_field_name', 'oid@')
-        for feature in as_dicts(
-                dataset_path, (id_key, from_id_field_name, to_id_field_name),
-                dataset_where_sql=kwargs.get('dataset_where_sql')
-            ):
-            for end in end_key:
-                id_nodes[feature[id_key]][end_key[end]] = feature[end_key[end]]
+        g_id_nodes = as_iters(
+            dataset_path, field_names=(key['id'], from_id_field_name, to_id_field_name),
+            dataset_where_sql=kwargs['dataset_where_sql'],
+        )
+        for feat_id, from_node_id, to_node_id in g_id_nodes:
+            id_nodes[feat_id][end_key['from']] = from_node_id
+            id_nodes[feat_id][end_key['to']] = to_node_id
     return id_nodes
 
 
@@ -778,10 +777,8 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by node IDs.",
         (from_id_field_name, to_id_field_name), dataset_path)
-    oid_nodes = id_node_map(
-        dataset_path, from_id_field_name, to_id_field_name, update_nodes=True,
-        field_names_as_keys=True,
-        )
+    oid_nodes = id_node_map(dataset_path, from_id_field_name, to_id_field_name,
+                            field_names_as_keys=True, update_nodes=True)
     session = arcobj.Editor(
         arcobj.dataset_metadata(dataset_path)['workspace_path'],
         kwargs.get('use_edit_session', False),
