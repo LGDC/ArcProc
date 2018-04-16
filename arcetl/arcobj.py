@@ -546,7 +546,7 @@ def python_type(type_description):
         'geometry': arcpy.Geometry,
         'guid': uuid.UUID,
         'string': str, 'text': str,
-        }
+    }
     return instance[type_description.lower()]
 
 
@@ -573,9 +573,8 @@ def spatial_reference(item):
         arc_object = getattr(item, 'spatialReference')
     else:
         arc_object = arcpy.SpatialReference(
-            getattr(getattr(arcpy.Describe(item), 'spatialReference'),
-                    'factoryCode')
-            )
+            getattr(getattr(arcpy.Describe(item), 'spatialReference'), 'factoryCode')
+        )
     return arc_object
 
 
