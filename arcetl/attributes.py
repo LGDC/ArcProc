@@ -500,6 +500,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
 
     Returns:
         str: Name of the field updated.
+
     """
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by function %s.",
@@ -578,9 +579,6 @@ def update_by_mapping_function(dataset_path, field_name, function,
 
 def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs):
     """Update attribute values by finding them in a mapping.
-
-    Note:
-        Wraps update_by_function.
 
     Args:
         dataset_path (str): Path of the dataset.
@@ -754,8 +752,7 @@ def update_by_joined_value(dataset_path, field_name, join_dataset_path,
     return field_name
 
 
-def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
-                       **kwargs):
+def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwargs):
     """Update attribute values by passing them to a function.
 
     Args:
@@ -766,28 +763,27 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
         log_level (str): Level to log the function at. Defaults to 'info'.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
 
     Returns:
         tuple: Names (str) of the fields updated.
 
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('use_edit_session', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by node IDs.",
         (from_id_field_name, to_id_field_name), dataset_path)
     oid_nodes = id_node_map(dataset_path, from_id_field_name, to_id_field_name,
                             field_names_as_keys=True, update_nodes=True)
-    session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)['workspace_path'],
-        kwargs.get('use_edit_session', False),
-        )
+    session = arcobj.Editor(arcobj.dataset_metadata(dataset_path)['workspace_path'],
+                            kwargs['use_edit_session'])
     cursor = arcpy.da.UpdateCursor(
-        dataset_path,
-        field_names=('oid@', from_id_field_name, to_id_field_name),
-        where_clause=kwargs.get('dataset_where_sql'),
-        )
+        dataset_path, field_names=('oid@', from_id_field_name, to_id_field_name),
+        where_clause=kwargs['dataset_where_sql'],
+    )
     with session, cursor:
         for row in cursor:
             oid = row[0]
@@ -797,8 +793,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name,
                 try:
                     cursor.updateRow(new_row)
                 except RuntimeError:
-                    LOG.error("Offending values one of %s, %s",
-                              new_row[1], new_row[2])
+                    LOG.error("Offending values one of %s, %s", new_row[1], new_row[2])
                     raise RuntimeError
     log("End: Update.")
     return (from_id_field_name, to_id_field_name)
