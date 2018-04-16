@@ -923,33 +923,55 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        str: Name of the field updated.
+        dict: Mapping of new IDs to existing old IDs.
+
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('use_edit_session', True)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by assigning unique IDs.",
         field_name, dataset_path)
-    field_meta = arcobj.field_metadata(dataset_path, field_name)
-    unique_id_pool = unique_ids(data_type=arcobj.python_type(field_meta['type']),
-                                string_length=field_meta.get('length', 16))
-    oid_id_map = id_map(dataset_path, id_field_names='oid@',
-                        field_names=field_name)
+    meta = {'field': arcobj.field_metadata(dataset_path, field_name)}
+    def _corrected_id(current_id, unique_id_pool, used_ids, ignore_nonetype=False):
+        """Return corrected ID to ensure uniqueness."""
+        if any((ignore_nonetype and current_id is None, current_id not in used_ids)):
+            corrected_id = current_id
+        else:
+            corrected_id = next(unique_id_pool)
+            while corrected_id in used_ids:
+                corrected_id = next(unique_id_pool)
+        return corrected_id
+    unique_id_pool = unique_ids(data_type=arcobj.python_type(meta['field']['type']),
+                                string_length=meta['field'].get('length', 16))
+    oid_id = id_map(dataset_path, id_field_names='oid@', field_names=field_name)
     used_ids = set()
-    for oid in sorted(oid_id_map):
-        while oid_id_map[oid] is None or oid_id_map[oid] in used_ids:
-            oid_id_map[oid] = next(unique_id_pool)
-        used_ids.add(oid_id_map[oid])
+    new_old_id = {}
+    # Ensure current IDs are unique.
+    for oid, current_id in oid_id.items():
+        _id = _corrected_id(current_id, unique_id_pool, used_ids, ignore_nonetype=True)
+        if _id != current_id:
+            new_old_id[_id] = oid_id[oid]
+            oid_id[oid] = _id
+        used_ids.add(_id)
+    # Take care of unassigned IDs now that we know all the used IDs.
+    for oid, current_id in oid_id.items():
+        if current_id is None:
+            _id = _corrected_id(current_id, unique_id_pool, used_ids,
+                                ignore_nonetype=False)
+        oid_id[oid] = _id
+        used_ids.add(_id)
     update_by_mapping(dataset_path, field_name,
-                      mapping=oid_id_map, key_field_names='oid@',
+                      mapping=oid_id, key_field_names='oid@',
                       dataset_where_sql=kwargs.get('dataset_where_sql'),
                       use_edit_session=kwargs.get('use_edit_session', False),
                       log_level=None)
     log("End: Update.")
-    return field_name
+    return new_old_id
 
 
 def update_by_value(dataset_path, field_name, value, **kwargs):
