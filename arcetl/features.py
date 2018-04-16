@@ -2,6 +2,7 @@
 from collections import Counter
 import datetime
 import inspect
+from itertools import chain
 import logging
 
 from more_itertools import pairwise
@@ -19,71 +20,6 @@ from arcetl.helpers import (
 LOG = logging.getLogger(__name__)
 
 UPDATE_TYPES = ('deleted', 'inserted', 'altered', 'unchanged')
-
-
-def _insert_from_path_with_append(dataset_path, insert_dataset_path,
-                                  field_names, **kwargs):
-    """Insert features into dataset from another dataset with append tool.
-
-    Refer to insert_from_path for arguments.
-
-    Returns:
-        str: Path of the dataset updated.
-
-    """
-    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-    # Create field maps.
-    append_kwargs = {'inputs': unique_name('view'),
-                     'target': dataset_path,
-                     'schema_type': 'no_test',
-                     'field_mapping': arcpy.FieldMappings()}
-    # ArcGIS Pro's no-test append is case-sensitive (verified 1.0-1.1.1).
-    # Avoid this problem by using field mapping.
-    # BUG-000090970 - ArcGIS Pro 'No test' field mapping in Append tool does
-    # not auto-map to the same field name if naming convention differs.
-    for name in field_names:
-        # Append takes care of geometry independent of field maps.
-        if name == 'shape@':
-            continue
-        field_map = arcpy.FieldMap()
-        field_map.addInputField(insert_dataset_path, name)
-        append_kwargs['field_mapping'].addFieldMap(field_map)
-    view = {
-        'insert': arcobj.DatasetView(
-            insert_dataset_path, kwargs['insert_where_sql'],
-            view_name=append_kwargs['inputs'],
-            # Insert view must be nonspatial to append to nonspatial table.
-            force_nonspatial=(not meta['dataset']['is_spatial'])
-            ),
-        }
-    session = arcobj.Editor(meta['dataset']['workspace_path'],
-                            kwargs['use_edit_session'])
-    with view['insert'], session:
-        arcpy.management.Append(**append_kwargs)
-        feature_count = Counter({'inserted': view['insert'].count})
-    return feature_count
-
-
-def _insert_from_path_with_cursor(dataset_path, insert_dataset_path,
-                                  field_names, **kwargs):
-    """Insert features into dataset from another dataset with cursor.
-
-    Refer to insert_from_path for arguments.
-
-    Returns:
-        str: Path of the dataset updated.
-
-    """
-    insert_features = attributes.as_iters(
-        insert_dataset_path, field_names,
-        dataset_where_sql=kwargs['insert_where_sql'],
-        )
-    feature_count = insert_from_iters(
-        dataset_path, insert_features, field_names,
-        use_edit_session=kwargs['use_edit_session'],
-        log_level=None,
-        )
-    return feature_count
 
 
 def _same_feature(*features):
@@ -115,7 +51,6 @@ def _same_value(*values):
     if all(isinstance(val, datetime.datetime) for val in values):
         same = all((val1 - val2).total_seconds() < 1 for val1, val2 in pairwise(values))
     elif all(isinstance(val, arcpy.Geometry) for val in values):
-        ##TODO: Test polyline.
         ##TODO: Test multipoint, multipatch, dimension, annotation.
         same = all(val1.equals(val2) for val1, val2 in pairwise(values))
     return same
@@ -541,26 +476,21 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     return feature_count
 
 
-def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
-                     **kwargs):
+def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwargs):
     """Insert features into dataset from another dataset.
 
     Args:
         dataset_path (str): Path of the dataset.
         insert_dataset_path (str): Path of dataset to insert features from.
-        field_names (iter): Collection of field names to insert. Listed field
-            must be present in both datasets. If field_names is None, all
-            fields will be inserted.
+        field_names (iter): Collection of field names to insert. Listed field must be
+            present in both datasets. If field_names is None, all fields will be
+            inserted.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        insert_where_sql (str): SQL where-clause for insert-dataset
-            subselection.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
-        insert_with_cursor (bool): Flag to insert features using a cursor,
-            instead of the Append tool. Default is False: the Append tool
-            does a better job handling unusual geometries.
+        insert_where_sql (str): SQL where-clause for insert-dataset subselection.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
         log_level (str): Level to log the function at. Defaults to 'info'.
 
     Returns:
@@ -569,38 +499,42 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None,
     """
     kwargs.setdefault('insert_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    kwargs.setdefault('insert_with_cursor', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
-    log("Start: Insert features into %s from %s.",
-        dataset_path, insert_dataset_path)
-    metas = (arcobj.dataset_metadata(dataset_path),
-             arcobj.dataset_metadata(insert_dataset_path))
-    keys = {}
+    log("Start: Insert features into %s from %s.", dataset_path, insert_dataset_path)
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path),
+            'insert': arcobj.dataset_metadata(insert_dataset_path)}
     if field_names is None:
-        keys['insert'] = set.intersection(
-            *(set(name.lower() for name in meta['field_names'])
-              for meta in metas)
-            )
+        keys = set.intersection(
+            *(set(name.lower() for name in _meta['field_names_tokenized'])
+              for _meta in meta.values())
+        )
     else:
-        keys['insert'] = set(name.lower() for name in contain(field_names))
-    for meta in metas:
-        # OIDs have no business being part of an insert.
-        for key in (meta['oid_field_name'], 'oid@'):
-            keys['insert'].discard(key)
-        # If field names include geometry, use token.
-        if meta['geom_field_name'] and (meta['geom_field_name'].lower()
-                                        in keys['insert']):
-            keys['insert'].remove(meta['geom_field_name'].lower())
-            keys['insert'].add('shape@')
-    if kwargs['insert_with_cursor']:
-        log("Features will be inserted with cursor.")
-        feature_count = _insert_from_path_with_cursor(
-            dataset_path, insert_dataset_path, keys['insert'], **kwargs
-            )
-    else:
-        feature_count = _insert_from_path_with_append(
-            dataset_path, insert_dataset_path, keys['insert'], **kwargs
-            )
+        keys = set(name.lower() for name in contain(field_names))
+    # OIDs & area/length "fields" have no business being part of an update.
+    # Geometry itself is handled separately in append function.
+    for _meta in meta.values():
+        for key in chain(*_meta['field_token'].items()):
+            keys.discard(key)
+    append_kwargs = {'inputs': unique_name('view'), 'target': dataset_path,
+                     'schema_type': 'no_test', 'field_mapping': arcpy.FieldMappings()}
+    # Create field maps.
+    # ArcGIS Pro's no-test append is case-sensitive (verified 1.0-1.1.1).
+    # Avoid this problem by using field mapping.
+    # BUG-000090970 - ArcGIS Pro 'No test' field mapping in Append tool does
+    # not auto-map to the same field name if naming convention differs.
+    for key in keys:
+        field_map = arcpy.FieldMap()
+        field_map.addInputField(insert_dataset_path, key)
+        append_kwargs['field_mapping'].addFieldMap(field_map)
+    view = arcobj.DatasetView(insert_dataset_path, kwargs['insert_where_sql'],
+                              view_name=append_kwargs['inputs'],
+                              # Must be nonspatial to append to nonspatial table.
+                              force_nonspatial=(not meta['dataset']['is_spatial']))
+    session = arcobj.Editor(meta['dataset']['workspace_path'],
+                            kwargs['use_edit_session'])
+    with view, session:
+        arcpy.management.Append(**append_kwargs)
+        feature_count = Counter({'inserted': view.count})
     log("%s features inserted.", feature_count['inserted'])
     log("End: Insert.")
     return feature_count

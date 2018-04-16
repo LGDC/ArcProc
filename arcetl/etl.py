@@ -110,44 +110,33 @@ class ArcETL(object):
 
         Args:
             dataset_path (str): Path of the dataset to load.
-            load_where_sql (str): SQL where-clause for loading
-                subselection.
-            preserve_features (bool): Flag to indicate whether to remove
-                features in the load-dataset before adding the transformed
-                features.
+            load_where_sql (str): SQL where-clause for loading subselection.
+            preserve_features (bool): Flag to indicate whether to remove features in
+                the load-dataset before adding the transformed features.
 
         Keyword Args:
-            use_edit_session (bool): Flag to perform updates in an edit
-                session. Default is False.
+            use_edit_session (bool): Flag to perform updates in an edit session.
+                Default is False.
 
         Returns:
             collections.Counter: Counts for each update type.
 
         """
         kwargs.setdefault('use_edit_session', False)
-        kwargs.setdefault('insert_with_cursor', False)
         LOG.info("Start: Load %s.", dataset_path)
         feature_count = Counter()
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
             if not preserve_features:
                 feature_count.update(
-                    features.delete(
-                        dataset_path=dataset_path,
-                        use_edit_session=kwargs['use_edit_session'],
-                        log_level=None,
-                        )
-                    )
-            feature_count.update(
-                features.insert_from_path(
-                    dataset_path=dataset_path,
-                    insert_dataset_path=self.transform_path,
-                    insert_where_sql=load_where_sql,
-                    use_edit_session=kwargs['use_edit_session'],
-                    insert_with_cursor=kwargs['insert_with_cursor'],
-                    log_level=None,
-                    )
+                    features.delete(dataset_path, log_level=None, **kwargs)
                 )
+            feature_count.update(
+                features.insert_from_path(dataset_path,
+                                          insert_dataset_path=self.transform_path,
+                                          insert_where_sql=load_where_sql,
+                                          log_level=None, **kwargs)
+            )
         # Load to a new dataset.
         else:
             dataset.copy(self.transform_path, dataset_path,
@@ -187,8 +176,7 @@ class ArcETL(object):
             self.transform_path = kwargs['output_path']
         return result
 
-    def update(self, dataset_path, id_field_names, field_names=None,
-               **kwargs):
+    def update(self, dataset_path, id_field_names, field_names=None, **kwargs):
         """Update features from transform- to load-dataset.
 
         Args:
