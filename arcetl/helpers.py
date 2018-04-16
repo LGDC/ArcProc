@@ -23,6 +23,9 @@ def contain(obj, nonetypes_as_empty=True):
         nontypes_as_empty (bool): True if NoneTypes treated as an empty
             collection, otherwise False.
 
+    Yields:
+        obj or its contents.
+
     """
     if nonetypes_as_empty and obj is None:
         return
