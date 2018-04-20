@@ -99,7 +99,7 @@ def log_level(level_repr=None):
 
 
 def unique_ids(data_type=uuid.UUID, string_length=4):
-    """Generator for unique IDs.
+    """Generate unique IDs.
 
     Args:
         data_type: Type object to create unique IDs as.
