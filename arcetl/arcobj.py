@@ -100,30 +100,37 @@ class DatasetView(object):
     """Context manager for an ArcGIS dataset view (feature layer/table view).
 
     Attributes:
-        name (str): Name of the view.
-        dataset_path (str): Path of the dataset.
-        dataset_meta (dict): Metadata dictionary for the dataset.
+        name (str): Name of view.
+        dataset_path (str): Path of dataset.
+        field_names (list): Collection of field names to include in view.
+        dataset_meta (dict): Metadata dictionary for dataset.
         is_spatial (bool): Flag indicating if the view is spatial.
 
     """
 
-    def __init__(self, dataset_path, dataset_where_sql=None, view_name=None,
-                 force_nonspatial=False):
+    def __init__(self, dataset_path, dataset_where_sql=None, **kwargs):
         """Initialize instance.
 
         Args:
-            dataset_path (str): Path of the dataset.
-            dataset_where_sql (str): SQL where-clause for dataset
-                subselection.
-            view_name (str): Name of the view to create.
-            force_nonspatial (bool): Flag that forces a nonspatial view.
+            dataset_path (str): Path of dataset.
+            dataset_where_sql (str): SQL where-clause for dataset subselection.
+            **kwargs: Arbitrary keyword arguments. See below.
+
+        Keyword Args:
+            view_name (str): Name of view. Default is None (auto-generate name).
+            field_names (iter): Collection of field names to include in view. If
+                field_names not specified, all fields will be included.
+            force_nonspatial (bool): Flag that forces a nonspatial view. Default is
+                False.
 
         """
-        self.name = view_name if view_name else unique_name('view')
+        self.name = kwargs.get('view_name', unique_name('view'))
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.is_spatial = all((self.dataset_meta['is_spatial'],
-                               not force_nonspatial))
+                               not kwargs.get('force_nonspatial', False)))
+        self.field_names = list(kwargs.get('field_names',
+                                           self.dataset_meta['field_names']))
         self._where_sql = dataset_where_sql
 
     def __enter__(self):
@@ -142,6 +149,16 @@ class DatasetView(object):
     def exists(self):
         """bool: Flag indicating the view currently exists."""
         return arcpy.Exists(self.name)
+
+    @property
+    def field_info(self):
+        """arcpy.FieldInfo: Field info object for view's field settings."""
+        field_info = arcpy.FieldInfo()
+        for field_name in self.dataset_meta['field_names']:
+            visible = ('VISIBLE' if field_name.lower()
+                       in (fn.lower() for fn in self.field_names) else 'HIDDEN')
+            field_info.addField(field_name, field_name, visible, 'NONE')
+        return field_info
 
     @property
     def where_sql(self):
@@ -204,15 +221,26 @@ class DatasetView(object):
             oids = oids[chunk_size:]
 
     def create(self):
-        """Create view."""
+        """Create view.
+
+        Returns:
+            bool: True if view was created, False otherwise.
+
+        """
         function = (arcpy.management.MakeFeatureLayer if self.is_spatial
                     else arcpy.management.MakeTableView)
         function(self.dataset_path, self.name, where_clause=self.where_sql,
-                 workspace=self.dataset_meta['workspace_path'])
+                 workspace=self.dataset_meta['workspace_path'],
+                 field_info=self.field_info)
         return self.exists
 
     def discard(self):
-        """Discard view."""
+        """Discard view.
+
+        Returns:
+            bool: True if view was discarded, False otherwise.
+
+        """
         if self.exists:
             arcpy.management.Delete(self.name)
         return not self.exists
