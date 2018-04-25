@@ -842,6 +842,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         str: Name of the field updated.
 
     """
+    kwargs.setdefault('overlay_where_sql')
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, overlay_field_name, overlay_dataset_path)
@@ -861,7 +862,8 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
                                       kwargs.get('dataset_where_sql'))
     # Create temporary copy of overlay dataset.
     temp_overlay = arcobj.TempDatasetCopy(overlay_dataset_path,
-                                          kwargs.get('overlay_where_sql'))
+                                          kwargs['overlay_where_sql'],
+                                          field_names=[overlay_field_name])
     with dataset_view, temp_overlay:
         # Avoid field name collisions with neutral holding field.
         temp_overlay_field_name = dataset.duplicate_field(

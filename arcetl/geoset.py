@@ -46,6 +46,7 @@ def identity(dataset_path, field_name, identity_dataset_path,
         str: Path of the dataset updated.
 
     """
+    kwargs.setdefault('identity_where_sql')
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Identity-set attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, identity_field_name, identity_dataset_path)
@@ -59,7 +60,8 @@ def identity(dataset_path, field_name, identity_dataset_path,
                                       kwargs.get('dataset_where_sql'))
     # Create a temporary copy of the overlay dataset.
     temp_identity = arcobj.TempDatasetCopy(identity_dataset_path,
-                                           kwargs.get('identity_where_sql'))
+                                           kwargs['identity_where_sql'],
+                                           field_names=[identity_field_name])
     with dataset_view, temp_identity:
         # Avoid field name collisions with neutral holding field.
         temp_identity.field_name = dataset.duplicate_field(
@@ -141,6 +143,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
         str: Path of the dataset updated.
 
     """
+    kwargs.setdefault('overlay_where_sql')
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Overlay-set attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, overlay_field_name, overlay_dataset_path)
@@ -165,7 +168,8 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
                                       kwargs.get('dataset_where_sql'))
     # Create temporary copy of overlay dataset.
     temp_overlay = arcobj.TempDatasetCopy(overlay_dataset_path,
-                                          kwargs.get('overlay_where_sql'))
+                                          kwargs['overlay_where_sql'],
+                                          field_names=[overlay_field_name])
     with dataset_view, temp_overlay:
         # Avoid field name collisions with neutral holding field.
         temp_overlay.field_name = dataset.duplicate_field(
@@ -239,6 +243,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
         str: Path of the dataset updated.
 
     """
+    kwargs.setdefault('union_where_sql')
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Union-set attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, union_field_name, union_dataset_path)
@@ -251,8 +256,8 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
     dataset_view = arcobj.DatasetView(dataset_path,
                                       kwargs.get('dataset_where_sql'))
     # Create a temporary copy of the union dataset.
-    temp_union = arcobj.TempDatasetCopy(union_dataset_path,
-                                        kwargs.get('union_where_sql'))
+    temp_union = arcobj.TempDatasetCopy(union_dataset_path, kwargs['union_where_sql'],
+                                        field_names=[union_field_name])
     with dataset_view, temp_union:
         # Avoid field name collisions with neutral holding field.
         temp_union.field_name = dataset.duplicate_field(
