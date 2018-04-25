@@ -459,22 +459,21 @@ def dataset_metadata(dataset_path):
             meta['geom_field_name'] + '.STArea()': 'shape@area',
             meta['geom_field_name'] + '.STLength()': 'shape@length',
         })
-    meta['field_names'] = tuple(field.name for field
-                                in getattr(arc_object, 'fields', ()))
-    meta['field_names_tokenized'] = tuple(meta['field_token'].get(name, name)
-                                          for name in meta['field_names'])
-    meta['fields'] = tuple(_field_object_metadata(field) for field
-                           in getattr(arc_object, 'fields', ()))
-    meta['user_field_names'] = tuple(
+    meta['field_names'] = [field.name for field in getattr(arc_object, 'fields', ())]
+    meta['field_names_tokenized'] = [meta['field_token'].get(name, name)
+                                     for name in meta['field_names']]
+    meta['fields'] = [_field_object_metadata(field) for field
+                      in getattr(arc_object, 'fields', ())]
+    meta['user_field_names'] = [
         name for name in meta['field_names']
         if name != meta['oid_field_name']
         and '{}.'.format(meta['geometry_field_name']) not in name
-    )
-    meta['user_fields'] = tuple(
+    ]
+    meta['user_fields'] = [
         field for field in meta['fields']
         if field['name'] != meta['oid_field_name']
         and '{}.'.format(meta['geometry_field_name']) not in field['name']
-    )
+    ]
     if hasattr(arc_object, 'spatialReference'):
         meta['spatial_reference'] = getattr(arc_object, 'spatialReference')
         meta['spatial_reference_id'] = getattr(meta['spatial_reference'], 'factoryCode')
