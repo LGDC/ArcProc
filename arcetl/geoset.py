@@ -64,15 +64,9 @@ def identity(dataset_path, field_name, identity_dataset_path,
                                            field_names=[identity_field_name])
     with dataset_view, temp_identity:
         # Avoid field name collisions with neutral holding field.
-        temp_identity.field_name = dataset.duplicate_field(
+        temp_identity.field_name = dataset.rename_field(
             temp_identity.path, identity_field_name,
             new_field_name=unique_name(identity_field_name), log_level=None,
-            )
-        attributes.update_by_function(
-            temp_identity.path, temp_identity.field_name,
-            function=(lambda x: x), field_as_first_arg=False,
-            arg_field_names=(identity_field_name,), log_level=None
-            )
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):
@@ -171,16 +165,10 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
                                           kwargs['overlay_where_sql'],
                                           field_names=[overlay_field_name])
     with dataset_view, temp_overlay:
-        # Avoid field name collisions with neutral holding field.
-        temp_overlay.field_name = dataset.duplicate_field(
+        # Avoid field name collisions with neutral field name.
+        temp_overlay.field_name = dataset.rename_field(
             temp_overlay.path, overlay_field_name,
             new_field_name=unique_name(overlay_field_name), log_level=None,
-            )
-        attributes.update_by_function(
-            temp_overlay.path, temp_overlay.field_name, function=(lambda x: x),
-            field_as_first_arg=False, arg_field_names=(overlay_field_name,),
-            log_level=None
-            )
         if kwargs.get('tolerance') is not None:
             old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
@@ -259,16 +247,10 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name,
     temp_union = arcobj.TempDatasetCopy(union_dataset_path, kwargs['union_where_sql'],
                                         field_names=[union_field_name])
     with dataset_view, temp_union:
-        # Avoid field name collisions with neutral holding field.
-        temp_union.field_name = dataset.duplicate_field(
+        # Avoid field name collisions with neutral field name.
+        temp_union.field_name = dataset.rename_field(
             temp_union.path, union_field_name,
             new_field_name=unique_name(union_field_name), log_level=None,
-            )
-        attributes.update_by_function(
-            temp_union.path, temp_union.field_name, function=(lambda x: x),
-            field_as_first_arg=False, arg_field_names=(union_field_name,),
-            log_level=None
-            )
         for chunk_view in dataset_view.as_chunks(
                 kwargs.get('chunk_size', 4096)
             ):

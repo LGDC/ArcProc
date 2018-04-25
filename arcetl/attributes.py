@@ -865,14 +865,11 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
                                           kwargs['overlay_where_sql'],
                                           field_names=[overlay_field_name])
     with dataset_view, temp_overlay:
-        # Avoid field name collisions with neutral holding field.
-        temp_overlay_field_name = dataset.duplicate_field(
+        # Avoid field name collisions with neutral name.
+        temp_overlay.field_name = dataset.rename_field(
             temp_overlay.path, overlay_field_name,
             new_field_name=unique_name(overlay_field_name), log_level=None,
         )
-        update_by_function(temp_overlay.path, temp_overlay_field_name,
-                           function=(lambda x: x), field_as_first_arg=False,
-                           arg_field_names=(overlay_field_name,), log_level=None)
         # Create temp output of the overlay.
         if kwargs.get('tolerance') is not None:
             old_tolerance = arcpy.env.XYTolerance
