@@ -244,8 +244,8 @@ def id_map(dataset_path, id_field_names, field_names, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the output geometry's spatial
-            reference will be derived.
+        spatial_reference_item: Item from which the output geometry's spatial reference
+            will be derived.
 
     Returns:
         dict: Mapping of feature ID to feature attribute(s).
@@ -804,16 +804,14 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
     """Update attribute values by finding overlay feature value.
 
     Note:
-        Since only one value will be selected in the overlay, operations with
-        multiple overlaying features will respect the geoprocessing
-        environment's merge rule. This rule generally defaults to the
-        'first' feature's value.
+        Since only one value will be selected in the overlay, operations with multiple
+        overlaying features will respect the geoprocessing environment's merge rule.
+        This rule generally defaults to the 'first' feature's value.
 
-        Only one overlay flag at a time can be used (e.g.
-        overlay_most_coincident, overlay_central_coincident). If multiple
-        are set to True, the first one referenced in the code will be
-        used. If no overlay flags are set, the operation will perform a
-        basic intersection check, and the result will be at the whim of
+        Only one overlay flag at a time can be used (e.g. overlay_most_coincident,
+        overlay_central_coincident). If multiple are set to True, the first one
+        referenced in the code will be used. If no overlay flags are set, the operation
+        will perform a basic intersection check, and the result will be at the whim of
         the geoprocessing environment's merge rule for the update field.
 
     Args:
@@ -825,32 +823,33 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
-        overlay_central_coincident (bool): Flag to indicate overlay will use
-            the centrally-coincident value. Defaults to False.
-        overlay_most_coincident (bool): Flag to indicate overlay will use the
-            most coincident value. Defaults to False.
-        overlay_where_sql (str): SQL where-clause for overlay dataset
-            subselection.
-        replacement_value: Value to replace a present overlay-field value
-            with.
+        log_level (str): Level to log the function at. Defaults is 'info'.
+        overlay_central_coincident (bool): Flag to indicate overlay will use the
+            centrally-coincident value. Defaults to False.
+        overlay_most_coincident (bool): Flag to indicate overlay will use the most
+            coincident value. Defaults to False.
+        overlay_where_sql (str): SQL where-clause for overlay dataset subselection.
+        replacement_value: Value to replace a present overlay-field value with.
         tolerance (float): Tolerance for coincidence, in dataset's units.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
 
     Returns:
         str: Name of the field updated.
 
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('overlay_central_coincident', False)
+    kwargs.setdefault('overlay_most_coincident', False)
     kwargs.setdefault('overlay_where_sql')
+    kwargs.setdefault('use_edit_session', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     log("Start: Update attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, overlay_field_name, overlay_dataset_path)
     # Check flags & set details for spatial join call.
-    if kwargs.get('overlay_most_coincident', False):
-        raise NotImplementedError(
-            "overlay_most_coincident not yet implemented.")
-    elif kwargs.get('overlay_central_coincident', False):
+    if kwargs['overlay_most_coincident']:
+        raise NotImplementedError("overlay_most_coincident not yet implemented.")
+    elif kwargs['overlay_central_coincident']:
         join_kwargs = {'join_operation': 'join_one_to_many',
                        'join_type': 'keep_all',
                        'match_option': 'have_their_center_in'}
@@ -858,8 +857,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
         join_kwargs = {'join_operation': 'join_one_to_many',
                        'join_type': 'keep_all',
                        'match_option': 'intersect'}
-    dataset_view = arcobj.DatasetView(dataset_path,
-                                      kwargs.get('dataset_where_sql'))
+    dataset_view = arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])
     # Create temporary copy of overlay dataset.
     temp_overlay = arcobj.TempDatasetCopy(overlay_dataset_path,
                                           kwargs['overlay_where_sql'],
@@ -871,7 +869,7 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
             new_field_name=unique_name(overlay_field_name), log_level=None,
         )
         # Create temp output of the overlay.
-        if kwargs.get('tolerance') is not None:
+        if 'tolerance' in kwargs:
             old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
         temp_output_path = unique_path('output')
@@ -879,27 +877,25 @@ def update_by_overlay(dataset_path, field_name, overlay_dataset_path,
                                    join_features=temp_overlay.path,
                                    out_feature_class=temp_output_path,
                                    **join_kwargs)
-        if kwargs.get('tolerance') is not None:
+        if 'tolerance' in kwargs:
             arcpy.env.XYTolerance = old_tolerance
     # Push overlay (or replacement) value from temp to update field.
-    if kwargs.get('replacement_value') is not None:
+    if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:
         function = (lambda x: kwargs['replacement_value'] if x else None)
     else:
         function = (lambda x: x)
     update_by_function(temp_output_path, field_name, function,
                        field_as_first_arg=False,
-                       arg_field_names=(temp_overlay_field_name,),
-                       log_level=None)
+                       arg_field_names=[temp_overlay.field_name], log_level=None)
     # Update values in original dataset.
     oid_field_name = arcobj.dataset_metadata(dataset_path)['oid_field_name']
     update_by_joined_value(
         dataset_path, field_name,
         join_dataset_path=temp_output_path, join_field_name=field_name,
-        on_field_pairs=((oid_field_name, 'target_fid'),),
-        dataset_where_sql=kwargs.get('dataset_where_sql'),
-        use_edit_session=kwargs.get('use_edit_session', False),
-        log_level=None,
-        )
+        on_field_pairs=[(oid_field_name, 'target_fid')],
+        dataset_where_sql=kwargs['dataset_where_sql'],
+        use_edit_session=kwargs['use_edit_session'], log_level=None,
+    )
     dataset.delete(temp_output_path, log_level=None)
     log("End: Update.")
     return field_name
