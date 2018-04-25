@@ -323,31 +323,38 @@ class TempDatasetCopy(object):
         dataset_meta (dict): Metadata dictionary for the original dataset.
         is_spatial (bool): Flag indicating if the view is spatial.
         where_sql (str): SQL where-clause property of copy subselection.
-        activated (bool): Flag indicating whether the temporary copy is
-            activated.
+        activated (bool): Flag indicating whether the temporary copy is activated.
 
     """
 
-    def __init__(self, dataset_path, dataset_where_sql=None, output_path=None,
-                 force_nonspatial=False):
+    def __init__(self, dataset_path, dataset_where_sql=None, **kwargs):
         """Initialize instance.
 
         Note:
-            To make a temp dataset without copying template rows:
+            To make a temp dataset without copying any template rows:
             `dataset_where_sql="0=1"`
 
         Args:
             dataset_path (str): Path of the dataset to copy.
-            dataset_where_sql (str): SQL where-clause for dataset
-                subselection.
-            output_path (str): Path of the dataset to create.
-            force_nonspatial (bool): Flag that forces a nonspatial copy.
+            dataset_where_sql (str): SQL where-clause for dataset subselection.
+            **kwargs: Arbitrary keyword arguments. See below.
+
+        Keyword Args:
+            output_path (str): Path of the dataset to create.  Default is None (auto-
+                generate path)
+            field_names (iter): Collection of field names to include in copy. If
+                field_names not specified, all fields will be included.
+            force_nonspatial (bool): Flag that forces a nonspatial copy. Default is
+                False.
+
         """
-        self.path = output_path if output_path else unique_path('temp')
+        self.path = kwargs.get('output_path', unique_path('temp'))
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.is_spatial = all((self.dataset_meta['is_spatial'],
-                               not force_nonspatial))
+                               not kwargs.get('force_nonspatial', False)))
+        self.field_names = list(kwargs.get('field_names',
+                                           self.dataset_meta['field_names']))
         self.where_sql = dataset_where_sql
 
     def __enter__(self):
@@ -366,9 +373,11 @@ class TempDatasetCopy(object):
         """Create dataset."""
         function = (arcpy.management.CopyFeatures if self.is_spatial
                     else arcpy.management.CopyRows)
-        with DatasetView(self.dataset_path, dataset_where_sql=self.where_sql,
-                         force_nonspatial=not self.is_spatial) as dataset_view:
-            function(dataset_view.name, self.path)
+        view = DatasetView(self.dataset_path, dataset_where_sql=self.where_sql,
+                           field_names=self.field_names,
+                           force_nonspatial=(not self.is_spatial))
+        with view:
+            function(view.name, self.path)
         return self.exists
 
     def discard(self):
