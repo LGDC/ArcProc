@@ -48,6 +48,7 @@ def _same_value(*values):
     """
     same = all(val1 == val2 for val1, val2 in pairwise(values))
     # Some types are quite as simple.
+    ##TODO: Ratchet this down to minimum to satisfy our needs.
     if all(isinstance(val, datetime.datetime) for val in values):
         same = all((val1 - val2).total_seconds() < 1 for val1, val2 in pairwise(values))
     elif all(isinstance(val, arcpy.Geometry) for val in values):
