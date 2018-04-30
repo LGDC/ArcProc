@@ -696,6 +696,8 @@ def update_from_iters(dataset_path, update_features, id_field_names, field_names
     if kwargs['delete_missing_features']:
         ids['delete'] = {_id for _id in ids['dataset']
                          if _id not in feats['id_update']}
+    else:
+        ids['delete'] = set()
     feature_count = Counter()
     session = arcobj.Editor(meta['dataset']['workspace_path'],
                             kwargs['use_edit_session'])
