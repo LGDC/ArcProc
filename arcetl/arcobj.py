@@ -424,20 +424,20 @@ class TempDatasetCopy(object):
 
 def _dataset_object_metadata(dataset_object):
     """Return dictionary of metadata from dataset object."""
-    meta = {'arc_object': dataset_object}
-    meta['name'] = getattr(dataset_object, 'name')
-    meta['path'] = getattr(dataset_object, 'catalogPath')
-    meta['data_type'] = getattr(dataset_object, 'dataType')
-    meta['workspace_path'] = getattr(dataset_object, 'path')
+    meta = {'object': dataset_object}
+    meta['name'] = getattr(meta['object'], 'name')
+    meta['path'] = getattr(meta['object'], 'catalogPath')
+    meta['data_type'] = getattr(meta['object'], 'dataType')
+    meta['workspace_path'] = getattr(meta['object'], 'path')
     # Do not use getattr! Tables sometimes don't have OIDs.
-    meta['is_table'] = hasattr(dataset_object, 'hasOID')
-    meta['is_versioned'] = getattr(dataset_object, 'isVersioned', False)
-    meta['oid_field_name'] = getattr(dataset_object, 'OIDFieldName', None)
-    meta['is_spatial'] = hasattr(dataset_object, 'shapeType')
-    meta['geometry_type'] = getattr(dataset_object, 'shapeType', None)
-    meta['geom_type'] = getattr(dataset_object, 'shapeType', None)
-    meta['geometry_field_name'] = getattr(dataset_object, 'shapeFieldName', None)
-    meta['geom_field_name'] = getattr(dataset_object, 'shapeFieldName', None)
+    meta['is_table'] = hasattr(meta['object'], 'hasOID')
+    meta['is_versioned'] = getattr(meta['object'], 'isVersioned', False)
+    meta['oid_field_name'] = getattr(meta['object'], 'OIDFieldName', None)
+    meta['is_spatial'] = hasattr(meta['object'], 'shapeType')
+    meta['geometry_type'] = getattr(meta['object'], 'shapeType', None)
+    meta['geom_type'] = getattr(meta['object'], 'shapeType', None)
+    meta['geometry_field_name'] = getattr(meta['object'], 'shapeFieldName', None)
+    meta['geom_field_name'] = getattr(meta['object'], 'shapeFieldName', None)
     meta['field_token'] = {}
     if meta['oid_field_name']:
         meta['field_token'][meta['oid_field_name']] = 'oid@'
@@ -452,7 +452,7 @@ def _dataset_object_metadata(dataset_object):
             }
         )
     meta['fields'] = [
-        _field_object_metadata(field) for field in getattr(dataset_object, 'fields', [])
+        _field_object_metadata(field) for field in getattr(meta['object'], 'fields', [])
     ]
     meta['field_names'] = [field['name'] for field in meta['fields']]
     meta['field_names_tokenized'] = [
@@ -465,8 +465,8 @@ def _dataset_object_metadata(dataset_object):
         and '{}.'.format(meta['geometry_field_name']) not in field['name']
     ]
     meta['user_field_names'] = [field['name'] for field in meta['user_fields']]
-    if hasattr(dataset_object, 'spatialReference'):
-        meta['spatial_reference'] = getattr(dataset_object, 'spatialReference')
+    if hasattr(meta['object'], 'spatialReference'):
+        meta['spatial_reference'] = getattr(meta['object'], 'spatialReference')
         meta['spatial_reference_id'] = getattr(meta['spatial_reference'], 'factoryCode')
     else:
         meta['spatial_reference'] = None
@@ -476,31 +476,31 @@ def _dataset_object_metadata(dataset_object):
 
 def _domain_object_metadata(domain_object):
     """Return dictionary of metadata from ArcPy domain object."""
-    meta = {'arc_object': domain_object}
-    meta['name'] = getattr(domain_object, 'name')
-    meta['description'] = getattr(domain_object, 'description')
-    meta['owner'] = getattr(domain_object, 'owner')
-    # meta['domain_type'] = getattr(domain_object, 'domainType')
-    meta['is_coded_value'] = getattr(domain_object, 'domainType') == 'CodedValue'
-    meta['is_range'] = getattr(domain_object, 'domainType') == 'Range'
-    # meta['merge_policy'] = getattr(domain_object, 'mergePolicy')
-    # meta['split_policy'] = getattr(domain_object, 'splitPolicy')
-    meta['code_description_map'] = getattr(domain_object, 'codedValues', {})
-    meta['range'] = getattr(domain_object, 'range', [])
-    meta['type'] = getattr(domain_object, 'type')
+    meta = {'object': domain_object}
+    meta['name'] = getattr(meta['object'], 'name')
+    meta['description'] = getattr(meta['object'], 'description')
+    meta['owner'] = getattr(meta['object'], 'owner')
+    # meta['domain_type'] = getattr(meta['object'], 'domainType')
+    meta['is_coded_value'] = getattr(meta['object'], 'domainType') == 'CodedValue'
+    meta['is_range'] = getattr(meta['object'], 'domainType') == 'Range'
+    # meta['merge_policy'] = getattr(meta['object'], 'mergePolicy')
+    # meta['split_policy'] = getattr(meta['object'], 'splitPolicy')
+    meta['code_description_map'] = getattr(meta['object'], 'codedValues', {})
+    meta['range'] = getattr(meta['object'], 'range', [])
+    meta['type'] = getattr(meta['object'], 'type')
     return meta
 
 
 def _field_object_metadata(field_object):
     """Return dictionary of metadata from ArcPy field object."""
-    meta = {'arc_object': field_object}
-    meta['name'] = getattr(field_object, 'name')
-    meta['alias_name'] = getattr(field_object, 'aliasName')
-    meta['base_name'] = getattr(field_object, 'baseName')
-    meta['type'] = getattr(field_object, 'type').lower()
-    meta['length'] = getattr(field_object, 'length')
-    meta['precision'] = getattr(field_object, 'precision')
-    meta['scale'] = getattr(field_object, 'scale')
+    meta = {'object': field_object}
+    meta['name'] = getattr(meta['object'], 'name')
+    meta['alias_name'] = getattr(meta['object'], 'aliasName')
+    meta['base_name'] = getattr(meta['object'], 'baseName')
+    meta['type'] = getattr(meta['object'], 'type').lower()
+    meta['length'] = getattr(meta['object'], 'length')
+    meta['precision'] = getattr(meta['object'], 'precision')
+    meta['scale'] = getattr(meta['object'], 'scale')
     return meta
 
 
@@ -508,11 +508,11 @@ def _workspace_object_metadata(workspace_object):
     """Return dictionary of metadata from workspace object."""
     ##TODO: Finish stub.
     ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
-    meta = {'arc_object': workspace_object}
-    meta['factory_prog_id'] = getattr(workspace_object, 'workspaceFactoryProgID', '')
-    meta['name'] = getattr(workspace_object, 'name')
-    meta['path'] = getattr(workspace_object, 'catalogPath')
-    meta['data_type'] = getattr(workspace_object, 'dataType')
+    meta = {'object': workspace_object}
+    meta['factory_prog_id'] = getattr(meta['object'], 'workspaceFactoryProgID', '')
+    meta['name'] = getattr(meta['object'], 'name')
+    meta['path'] = getattr(meta['object'], 'catalogPath')
+    meta['data_type'] = getattr(meta['object'], 'dataType')
     meta['is_geodatabase'] = any(
         [
             'AccessWorkspace' in meta['factory_prog_id'],
@@ -700,10 +700,10 @@ def spatial_reference_metadata(item):
     """
     ##TODO: Finish stub.
     ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
-    meta = {'arc_object': spatial_reference(item)}
-    meta['spatial_reference_id'] = getattr(meta['arc_object'], 'factoryCode', None)
-    meta['angular_unit'] = getattr(meta['arc_object'], 'angularUnitName', None)
-    meta['linear_unit'] = getattr(meta['arc_object'], 'linearUnitName', None)
+    meta = {'object': spatial_reference(item)}
+    meta['spatial_reference_id'] = getattr(meta['object'], 'factoryCode', None)
+    meta['angular_unit'] = getattr(meta['object'], 'angularUnitName', None)
+    meta['linear_unit'] = getattr(meta['object'], 'linearUnitName', None)
     return meta
 
 
