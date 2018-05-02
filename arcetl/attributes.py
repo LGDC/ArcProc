@@ -1,7 +1,6 @@
 """Attribute operations."""
 from collections import Counter, defaultdict
 import copy
-import functools
 import logging
 import sys
 
@@ -9,13 +8,37 @@ import arcpy
 
 from arcetl import arcobj
 from arcetl import dataset
-from arcetl.helpers import contain, leveled_logger, unique_ids, unique_name, unique_path
+from arcetl.helpers import (
+    contain, leveled_logger, property_value, unique_ids, unique_name, unique_path
+)
 
 if sys.version_info.major >= 3:
     basestring = str
 
 
 LOG = logging.getLogger(__name__)
+
+GEOMETRY_PROPERTY_TRANSFORM = {
+    'x-coordinate': ['X'],
+    'x': ['X'],
+    'x-maximum': ['extent', 'XMax'],
+    'xmax': ['extent', 'XMax'],
+    'x-minimum': ['extent', 'XMin'],
+    'xmin': ['extent', 'XMin'],
+    'y-coordinate': ['Y'],
+    'y': ['Y'],
+    'y-maximum': ['extent', 'YMax'],
+    'ymax': ['extent', 'YMax'],
+    'y-minimum': ['extent', 'YMin'],
+    'ymin': ['extent', 'YMin'],
+    'z-coordinate': ['Z'],
+    'z': ['Z'],
+    'z-maximum': ['extent', 'ZMax'],
+    'zmax': ['extent', 'ZMax'],
+    'z-minimum': ['extent', 'ZMin'],
+    'zmin': ['extent', 'ZMin'],
+}
+"""dict: Mapping of geometry property tag to cascade of geometry object properties."""
 
 
 class FeatureMatcher(object):
@@ -627,78 +650,61 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
 
 
 def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
-    """Update attribute values by cascading through the geometry properties.
+    """Update attribute values by cascading through geometry properties.
 
     Note:
-        If the spatial reference ID is not specified, the spatial reference of
-        the dataset is used.
+        If the spatial reference ID is not specified, the spatial reference of the
+        dataset is used.
 
     Args:
         dataset_path (str): Path of the dataset.
         field_name (str): Name of the field.
-        geometry_properties (iter): Collection of the geometry property
-            names in object-access order to retrieve the update value.
+        geometry_properties (iter): Collection of the geometry property names in
+            object-access order to retrieve the update value.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
-        spatial_reference_item: Item from which the output geometry's spatial
-            reference will be derived..
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
+        spatial_reference_item: Item from which the output geometry's spatial reference
+            will be derived.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Name of the field updated.
 
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('spatial_reference_item')
+    kwargs.setdefault('use_edit_session', False)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
-    log("Start: Update attributes in %s on %s by geometry properties %s.",
-        field_name, dataset_path, geometry_properties)
-    def geometry_property_value(properties, geometry):
-        """Return value of geometry property via ordered object properties."""
-        property_transform = {
-            'x-coordinate': ('X',), 'x': ('X',),
-            'x-maximum': ('extent', 'XMax'), 'xmax': ('extent', 'XMax'),
-            'x-minimum': ('extent', 'XMin'), 'xmin': ('extent', 'XMin'),
-            'y-coordinate': 'Y', 'y': 'Y',
-            'y-maximum': ('extent', 'YMax'), 'ymax': ('extent', 'YMax'),
-            'y-minimum': ('extent', 'YMin'), 'ymin': ('extent', 'YMin'),
-            'z-coordinate': 'Z', 'z': 'Z',
-            'z-maximum': ('extent', 'ZMax'), 'zmax': ('extent', 'ZMax'),
-            'z-minimum': ('extent', 'ZMin'), 'zmin': ('extent', 'ZMin'),
-            }
-        if geometry is None:
-            value = None
-        else:
-            # Ensure properties are iterable.
-            if isinstance(properties, basestring):
-                properties = (properties,)
-            # Replace stand-in codes with ordered properties.
-            properties = tuple(property_transform.get(prop, (prop,))
-                               for prop in properties)
-            # Flatten iterable.
-            properties = tuple(prop for props in properties for prop in props)
-            value = functools.reduce(getattr, properties, geometry)
-        return value
+    log(
+        "Start: Update attributes in %s on %s by geometry properties %s.",
+        field_name,
+        dataset_path,
+        geometry_properties,
+    )
+    meta = {
+        'dataset': arcobj.dataset_metadata(dataset_path),
+        'sref': arcobj.spatial_reference_metadata(kwargs['spatial_reference_item']),
+    }
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)['workspace_path'],
-        kwargs.get('use_edit_session', False),
-        )
-    sref = arcobj.spatial_reference(kwargs.get('spatial_reference_item'))
+        meta['dataset']['workspace_path'], kwargs['use_edit_session']
+    )
     cursor = arcpy.da.UpdateCursor(
-        dataset_path, field_names=(field_name, 'shape@'),
-        where_clause=kwargs.get('dataset_where_sql'), spatial_reference=sref,
-        )
+        dataset_path,
+        field_names=['shape@', field_name],
+        where_clause=kwargs['dataset_where_sql'],
+        spatial_reference=meta['sref']['object'],
+    )
     with session, cursor:
-        for old_value, geometry in cursor:
-            if geometry is None:
-                new_value = None
-            else:
-                new_value = geometry_property_value(geometry_properties,
-                                                    geometry)
-            if new_value != old_value:
-                cursor.updateRow((new_value, geometry))
+        for feat in cursor:
+            val = {'old': feat[-1], 'geom': feat[0]}
+            val['new'] = property_value(val['geom'], GEOMETRY_PROPERTY_TRANSFORM,
+                                        *contain(geometry_properties))
+            if val['old'] != val['new']:
+                cursor.updateRow([val['geom'], val['new']])
     log("End: Update.")
     return field_name
 
