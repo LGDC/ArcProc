@@ -98,6 +98,33 @@ def log_level(level_repr=None):
     return result
 
 
+def property_value(item, property_transform_map, *properties):
+    """Return value of property via ordered item property tags.
+
+    Args:
+        item: Object to extract the property value from.
+        property_transform_map (dict): Mapping of known substitute properties to a
+            collection of the true properties they stand-in for.
+        *properties: Collection of properties, ordered as they would be on the item
+            itself (e.g. `item.property0.property1...`).
+
+    Returns:
+        Value of the property represented in the ordered properties.
+
+    """
+    for prop in properties:
+        if item is None:
+            continue
+        # Replace stand-ins with ordered properties.
+        if isinstance(prop, basestring) and prop in property_transform_map:
+            prop = property_transform_map.get(prop)
+        if isinstance(prop, basestring):
+            item = getattr(item, prop)
+        elif isinstance(prop, Iterable):
+            item = property_value(item, *prop)
+    return item
+
+
 def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generate unique IDs.
 
