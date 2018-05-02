@@ -924,50 +924,53 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        dict: Mapping of new IDs to existing old IDs.
+        str: Name of the field updated.
 
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', True)
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
-    log("Start: Update attributes in %s on %s by assigning unique IDs.",
-        field_name, dataset_path)
-    meta = {'field': arcobj.field_metadata(dataset_path, field_name)}
-    def _corrected_id(current_id, unique_id_pool, used_ids, ignore_nonetype=False):
-        """Return corrected ID to ensure uniqueness."""
-        if any((ignore_nonetype and current_id is None, current_id not in used_ids)):
-            corrected_id = current_id
-        else:
-            corrected_id = next(unique_id_pool)
-            while corrected_id in used_ids:
-                corrected_id = next(unique_id_pool)
-        return corrected_id
-    unique_id_pool = unique_ids(data_type=arcobj.python_type(meta['field']['type']),
-                                string_length=meta['field'].get('length', 16))
-    oid_id = id_map(dataset_path, id_field_names='oid@', field_names=field_name)
-    used_ids = set()
-    new_old_id = {}
-    # Ensure current IDs are unique.
-    for oid, current_id in oid_id.items():
-        _id = _corrected_id(current_id, unique_id_pool, used_ids, ignore_nonetype=True)
-        if _id != current_id:
-            new_old_id[_id] = oid_id[oid]
-            oid_id[oid] = _id
-        used_ids.add(_id)
-    # Take care of unassigned IDs now that we know all the used IDs.
-    for oid, current_id in oid_id.items():
-        if current_id is None:
-            _id = _corrected_id(current_id, unique_id_pool, used_ids,
-                                ignore_nonetype=False)
-        oid_id[oid] = _id
-        used_ids.add(_id)
-    update_by_mapping(dataset_path, field_name,
-                      mapping=oid_id, key_field_names='oid@',
-                      dataset_where_sql=kwargs.get('dataset_where_sql'),
-                      use_edit_session=kwargs.get('use_edit_session', False),
-                      log_level=None)
+    log(
+        "Start: Update attributes in %s on %s by assigning unique IDs.",
+        field_name,
+        dataset_path,
+    )
+    meta = {
+        'dataset': arcobj.dataset_metadata(dataset_path),
+        'field': arcobj.field_metadata(dataset_path, field_name),
+    }
+    session = arcobj.Editor(
+        meta['dataset']['workspace_path'], kwargs['use_edit_session']
+    )
+    cursor = arcpy.da.UpdateCursor(
+        in_table=dataset_path,
+        field_names=[field_name],
+        where_clause=kwargs['dataset_where_sql'],
+    )
+    with session:
+        used_ids = set()
+        # First run will clear duplicate IDs & gather used IDs.
+        with cursor:
+            for id_val, in cursor:
+                if id_val in used_ids:
+                    cursor.updateRow([None])
+                else:
+                    used_ids.add(id_val)
+        id_pool = unique_ids(
+            data_type=arcobj.python_type(meta['field']['type']),
+            string_length=meta['field'].get('length'),
+        )
+        # Second run will fill in missing IDs.
+        with cursor:
+            for id_val, in cursor:
+                if id_val is None:
+                    id_val = next(id_pool)
+                    while id_val in used_ids:
+                        id_val = next(id_pool)
+                    cursor.updateRow([id_val])
+                    used_ids.add(id_val)
     log("End: Update.")
-    return new_old_id
+    return field_name
 
 
 def update_by_value(dataset_path, field_name, value, **kwargs):
