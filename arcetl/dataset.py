@@ -5,7 +5,7 @@ import os
 import arcpy
 
 from arcetl import arcobj
-from arcetl.helpers import leveled_logger
+from arcetl.helpers import contain, leveled_logger
 
 
 LOG = logging.getLogger(__name__)
@@ -54,16 +54,10 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
         LOG.warning("Field already exists.")
         if not kwargs['exist_ok']:
             raise RuntimeError("Cannot add existing field (exist_ok=False).")
+
     else:
-        arcpy.management.AddField(
-            in_table=dataset_path,
-            field_name=field_name, field_type=field_type,
-            field_length=kwargs.get('field_length', 64),
-            field_precision=kwargs.get('field_precision'),
-            field_scale=kwargs.get('field_scale'),
-            field_is_nullable=kwargs.get('field_is_nullable', True),
-            field_is_required=kwargs.get('field_is_required', False),
-            )
+        add_kwargs = {key: kwargs[key] for key in kwargs if key.startswith('field_')}
+        arcpy.management.AddField(dataset_path, field_name, field_type, **add_kwargs)
     log("End: Add.")
     return field_name
 
@@ -83,11 +77,16 @@ def add_field_from_metadata(dataset_path, add_metadata, **kwargs):
 
     Returns:
         str: Name of the field added.
+
     """
-    field_keywords = ('name', 'type', 'length', 'precision', 'scale',
-                      'is_nullable', 'is_required')
-    add_kwargs = {'field_{}'.format(keyword): add_metadata[keyword]
-                  for keyword in field_keywords if keyword in add_metadata}
+    field_keywords = [
+        'name', 'type', 'length', 'precision', 'scale', 'is_nullable', 'is_required'
+    ]
+    add_kwargs = {
+        'field_' + keyword: add_metadata[keyword]
+        for keyword in field_keywords
+        if keyword in add_metadata
+    }
     add_kwargs.update(kwargs)
     result = add_field(dataset_path, **add_kwargs)
     return result
@@ -126,34 +125,41 @@ def add_index(dataset_path, field_names, **kwargs):
         arcpy.ExecuteError: If dataset lock prevents adding index.
 
     """
-    field_names = tuple(field_names)
+    keys = {'field': list(contain(field_names))}
+    kwargs.setdefault('index_name', 'ndx_' + '_'.join(field_names))
+    kwargs.setdefault('is_ascending', False)
+    kwargs.setdefault('is_unique', False)
+    kwargs.setdefault('fail_on_lock_ok', False)
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Add index to field(s) %s on %s.", field_names, dataset_path)
-    index_types = {field['type'].lower() for field
-                   in arcobj.dataset_metadata(dataset_path)['fields']
-                   if field['name'].lower() in (name.lower() for name in field_names)}
-    if 'geometry' in index_types:
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
+    keys['type'] = {
+        field['type'].lower()
+        for field in meta['dataset']['fields']
+        if field['name'].lower() in (name.lower() for name in keys['field'])
+    }
+    if 'geometry' in keys['type']:
         if len(field_names) > 1:
             raise RuntimeError("Cannot create a composite spatial index.")
-        add_function = arcpy.management.AddSpatialIndex
+
+        _add_index = arcpy.management.AddSpatialIndex
         add_kwargs = {'in_features': dataset_path}
     else:
-        add_function = arcpy.management.AddIndex
+        _add_index = arcpy.management.AddIndex
         add_kwargs = {
-            'in_table': dataset_path, 'fields': field_names,
-            'index_name': kwargs.get('index_name',
-                                     '_'.join(('ndx',) + field_names)),
-            'unique': kwargs.get('is_unique', False),
-            'ascending': kwargs.get('is_ascending', False),
-            }
+            'in_table': dataset_path,
+            'fields': keys['field'],
+            'index_name': kwargs['index_name'],
+            'unique': kwargs['is_unique'],
+            'ascending': kwargs['is_ascending'],
+        }
     try:
-        add_function(**add_kwargs)
+        _add_index(**add_kwargs)
     except arcpy.ExecuteError as error:
-        if all((kwargs.get('fail_on_lock_ok', False),
-                error.message.startswith('ERROR 000464'))):
+        if kwargs['fail_on_lock_ok'] and error.message.startswith('ERROR 000464'):
             LOG.warning("Lock on %s prevents adding index.", dataset_path)
-        else:
-            raise
+        raise
+
     log("End: Add.")
     return dataset_path
 
@@ -180,28 +186,26 @@ def copy(dataset_path, output_path, **kwargs):
         ValueError: If dataset type not supported.
 
     """
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('schema_only', False)
+    kwargs.setdefault('overwrite', False)
+    if kwargs['schema_only']:
+        kwargs['dataset_where_sql'] = "0=1"
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Copy dataset %s to %s.", dataset_path, output_path)
-    _dataset = {
-        'meta': arcobj.dataset_metadata(dataset_path),
-        'view': arcobj.DatasetView(dataset_path,
-                                   dataset_where_sql=(
-                                       "0=1" if kwargs.get('schema_only', False)
-                                       else kwargs.get('dataset_where_sql')
-                                   )),
-    }
-    with _dataset['view']:
-        if _dataset['meta']['is_spatial']:
-            function = arcpy.management.CopyFeatures
-        elif _dataset['meta']['is_table']:
-            function = arcpy.management.CopyRows
+    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
+    view = arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])
+    with view:
+        if meta['dataset']['is_spatial']:
+            _copy = arcpy.management.CopyFeatures
+        elif meta['dataset']['is_table']:
+            _copy = arcpy.management.CopyRows
         else:
-            raise ValueError(
-                "{} unsupported dataset type.".format(dataset_path)
-                )
-        if kwargs.get('overwrite', False) and arcpy.Exists(output_path):
+            raise ValueError("{} unsupported dataset type.".format(dataset_path))
+
+        if kwargs['overwrite'] and arcpy.Exists(output_path):
             delete(output_path, log_level=None)
-        function(_dataset['view'].name, output_path)
+        _copy(view.name, output_path)
     log("End: Copy.")
     return output_path
 
@@ -224,20 +228,22 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
         str: Path of the dataset created.
 
     """
+    kwargs.setdefault('geometry_type')
+    kwargs.setdefault('spatial_reference_item', 4326)
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Create dataset %s.", dataset_path)
-    create_kwargs = {'out_path': os.path.dirname(dataset_path),
-                     'out_name': os.path.basename(dataset_path)}
-    if kwargs.get('geometry_type'):
-        create_function = arcpy.management.CreateFeatureclass
+    meta = {'sref': arcobj.spatial_reference(kwargs['spatial_reference_item'])}
+    create_kwargs = {
+        'out_path': os.path.dirname(dataset_path),
+        'out_name': os.path.basename(dataset_path),
+    }
+    if kwargs['geometry_type']:
+        _create = arcpy.management.CreateFeatureclass
         create_kwargs['geometry_type'] = kwargs['geometry_type']
-        # Default to EPSG 4326 (unprojected WGS 84).
-        create_kwargs['spatial_reference'] = arcobj.spatial_reference(
-            kwargs.get('spatial_reference_item', 4326)
-            )
+        create_kwargs['spatial_reference'] = meta['sref']
     else:
-        create_function = arcpy.management.CreateTable
-    create_function(**create_kwargs)
+        _create = arcpy.management.CreateTable
+    _create(**create_kwargs)
     if field_metadata_list:
         for field_meta in field_metadata_list:
             add_field_from_metadata(dataset_path, field_meta, log_level=None)
@@ -307,14 +313,18 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
 
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log("Start: Duplicate field %s as %s on %s.",
-        field_name, new_field_name, dataset_path)
-    field_meta = arcobj.field_metadata(dataset_path, field_name)
-    field_meta['name'] = new_field_name
+    log(
+        "Start: Duplicate field %s as %s on %s.",
+        field_name,
+        new_field_name,
+        dataset_path,
+    )
+    meta = {'field': arcobj.field_metadata(dataset_path, field_name)}
+    meta['field']['name'] = new_field_name
     # Cannot add OID-type field, so change to long.
-    if field_meta['type'].lower() == 'oid':
-        field_meta['type'] = 'long'
-    add_field_from_metadata(dataset_path, field_meta, log_level=None)
+    if meta['field']['type'].lower() == 'oid':
+        meta['field']['type'] = 'long'
+    add_field_from_metadata(dataset_path, meta['field'], log_level=None)
     log("End: Duplicate.")
     return new_field_name
 
@@ -333,6 +343,7 @@ def feature_count(dataset_path, **kwargs):
         int: Number of features counted.
 
     """
+    kwargs.setdefault('dataset_where_sql')
     view = arcobj.DatasetView(dataset_path, **kwargs)
     with view:
         return view.count
@@ -345,14 +356,25 @@ def is_valid(dataset_path):
         dataset_path (str): Path of the dataset.
 
     Returns:
-        bool: Dataset is valid (True) or not (False).
+        bool: True if dataset is valid, False otherwise.
+
     """
-    return (dataset_path is not None and arcpy.Exists(dataset_path)
-            and arcobj.dataset_metadata(dataset_path)['is_table'])
+    valid = (
+        dataset_path is not None
+        and arcpy.Exists(dataset_path)
+        and arcobj.dataset_metadata(dataset_path)['is_table']
+    )
+    return valid
 
 
-def join_field(dataset_path, join_dataset_path, join_field_name,
-               on_field_name, on_join_field_name, **kwargs):
+def join_field(
+    dataset_path,
+    join_dataset_path,
+    join_field_name,
+    on_field_name,
+    on_join_field_name,
+    **kwargs
+):
     """Add field and its values from join-dataset.
 
     Args:
@@ -371,13 +393,19 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
 
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log("Start: Join field %s on %s from %s.",
-        join_field_name, dataset_path, join_dataset_path)
+    log(
+        "Start: Join field %s on %s from %s.",
+        join_field_name,
+        dataset_path,
+        join_dataset_path,
+    )
     arcpy.management.JoinField(
-        in_data=dataset_path, in_field=on_field_name,
-        join_table=join_dataset_path, join_field=on_join_field_name,
-        fields=join_field_name
-        )
+        in_data=dataset_path,
+        in_field=on_field_name,
+        join_table=join_dataset_path,
+        join_field=on_join_field_name,
+        fields=join_field_name,
+    )
     log("End: Join.")
     return join_field_name
 
@@ -400,14 +428,14 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Rename field %s to %s on %s.", field_name, new_field_name, dataset_path)
-    arcpy.management.AlterField(in_table=dataset_path, field=field_name,
-                                new_field_name=new_field_name)
+    arcpy.management.AlterField(
+        in_table=dataset_path, field=field_name, new_field_name=new_field_name
+    )
     log("End: Rename.")
     return new_field_name
 
 
-def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
-                   **kwargs):
+def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None, **kwargs):
     """Set privileges for dataset in enterprise geodatabase.
 
     For the allow-flags, True = grant; False = revoke; None = as is.
@@ -426,11 +454,19 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
 
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
-    view_arg, edit_arg = privilege_map[allow_view], privilege_map[allow_edit]
-    log("Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
-        dataset_path, user_name, view_arg, edit_arg)
-    arcpy.management.ChangePrivileges(in_dataset=dataset_path, user=user_name,
-                                      View=view_arg, Edit=edit_arg)
+    privilege_key = {True: 'grant', False: 'revoke', None: 'as_is'}
+    log(
+        "Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
+        dataset_path,
+        user_name,
+        privilege_key[allow_view],
+        privilege_key[allow_edit],
+    )
+    arcpy.management.ChangePrivileges(
+        in_dataset=dataset_path,
+        user=user_name,
+        View=privilege_key[allow_view],
+        Edit=privilege_key[allow_edit],
+    )
     log("End: Set.")
     return dataset_path
