@@ -10,6 +10,7 @@ from arcetl.helpers import log_level, unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 class ArcExtension(object):

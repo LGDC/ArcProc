@@ -9,6 +9,7 @@ from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 def build_locator(locator_path, **kwargs):

@@ -9,6 +9,7 @@ from arcetl.helpers import unique_path
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 class ArcETL(object):

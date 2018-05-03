@@ -11,6 +11,7 @@ from arcetl.helpers import leveled_logger, unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 def identity(dataset_path, field_name, identity_dataset_path, identity_field_name,

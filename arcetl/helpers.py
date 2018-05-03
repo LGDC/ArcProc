@@ -10,9 +10,11 @@ import uuid
 
 if sys.version_info.major >= 3:
     basestring = str
+    """Defining a basestring type instance for Py3+."""
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 def contain(obj, nonetypes_as_empty=True):
@@ -168,7 +170,7 @@ def unique_name(prefix='', suffix='', unique_length=4, allow_initial_digit=True)
         suffix (str): String to append after the unique part of the name.
         unique_length (int): Number of unique characters to generate.
         allow_initial_number (bool): Flag indicating whether to let the
-            initial character be a number. Defaults to True.
+            initial character be a number. Default is True.
 
     Returns:
         str: Unique name.

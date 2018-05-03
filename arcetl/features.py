@@ -18,6 +18,7 @@ from arcetl.helpers import (
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 UPDATE_TYPES = ('deleted', 'inserted', 'altered', 'unchanged')
 

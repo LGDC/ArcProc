@@ -14,9 +14,11 @@ from arcetl.helpers import leveled_logger, unique_path
 
 if sys.version_info.major >= 3:
     basestring = str
+    """Defining a basestring type instance for Py3+."""
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 class Differ(object):

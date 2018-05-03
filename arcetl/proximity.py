@@ -10,6 +10,7 @@ from arcetl.helpers import unique_path
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
@@ -28,7 +29,7 @@ def id_near_info_map(dataset_path, dataset_id_field_name, near_dataset_path,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         near_rank (int): Nearness rank of the feature to map info for.
-            Defaults to 1.
+            Default is 1.
         near_where_sql (str): SQL where-clause for near-dataset
             subselection.
 

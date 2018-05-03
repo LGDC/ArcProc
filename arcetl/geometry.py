@@ -6,6 +6,7 @@ from more_itertools import pairwise
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 RATIO = {
     'meter': {

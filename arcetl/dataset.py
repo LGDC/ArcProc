@@ -9,6 +9,7 @@ from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
+"""logging.Logger: Toolbox-level logger."""
 
 
 def add_field(dataset_path, field_name, field_type, **kwargs):
@@ -70,16 +71,14 @@ def add_field(dataset_path, field_name, field_type, **kwargs):
 def add_field_from_metadata(dataset_path, add_metadata, **kwargs):
     """Add field to dataset from metadata dictionary.
 
-    Wraps add_field.
-
     Args:
         dataset_path (str): Path of the dataset.
         add_metadata (dict): Metadata with field properties for adding.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        exist_ok (bool): Flag indicating whether field already existing
-            is considered a successful 'add'. Default is False.
+        exist_ok (bool): Flag indicating whether field already existing is considered a
+            successful 'add'. Default is False.
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
@@ -98,25 +97,25 @@ def add_index(dataset_path, field_names, **kwargs):
     """Add index to dataset fields.
 
     Note:
-        Index names can only be applied to non-spatial indexes for
-        geodatabase feature classes and tables.
-        There is a limited length allowed for index names; longer names will
-        be truncated without warning.
+        Index names can only be applied to non-spatial indexes for geodatabase feature
+        classes and tables.
+
+        There is a limited length allowed for index names; longer names will be
+        truncated without warning.
 
     Args:
         dataset_path (str): Path of the dataset.
-        field_names (iter): Collections with names of participating
-            fields.
+        field_names (iter): Collection of participating field names.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        fail_on_lock_ok (bool): Flag to indicate success even if dataset
-            locks prevent adding index. Default is False.
         index_name (str): Name for index. Optional; see note.
-        is_ascending (bool): Flag to indicate index to be built in ascending
-            order. Default is False.
-        is_unique (bool): Flag to indicate index to be built with unique
-            constraint. Default is False.
+        is_ascending (bool): Flag to indicate index to be built in ascending order.
+            Default is False.
+        is_unique (bool): Flag to indicate index to be built with unique constraint.
+            Default is False.
+        fail_on_lock_ok (bool): Flag to indicate success even if dataset locks prevent
+            adding index. Default is False.
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
@@ -125,6 +124,7 @@ def add_index(dataset_path, field_names, **kwargs):
     Raises:
         RuntimeError: If more than one field and any are geometry-types.
         arcpy.ExecuteError: If dataset lock prevents adding index.
+
     """
     field_names = tuple(field_names)
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
@@ -168,17 +168,17 @@ def copy(dataset_path, output_path, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        schema_only (bool): Flag to only copy the schema, omitting data. Default is
+            False.
+        overwrite (bool): Flag to overwrite the output, if it exists. Default is False.
         log_level (str): Level to log the function at. Default is 'info'.
-        overwrite (bool): Flag to overwrite the output, if it exists.
-            Default is False.
-        schema_only (bool): Flag to only copy the schema, omitting data.
-            Default is False.
 
     Returns:
         str: Path of the output dataset.
 
     Raises:
         ValueError: If dataset type not supported.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Copy dataset %s to %s.", dataset_path, output_path)
@@ -216,12 +216,13 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
 
     Keyword Args:
         geometry_type (str): Type of geometry, if a spatial dataset.
-        spatial_reference_item: Item from which the output geometry's spatial
-            reference will be derived.
+        spatial_reference_item: Item from which the output geometry's spatial reference
+            will be derived. Default is 4326 (EPSG code for unprojected WGS84).
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset created.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Create dataset %s.", dataset_path)
@@ -256,6 +257,7 @@ def delete(dataset_path, **kwargs):
 
     Returns:
         str: Path of the dataset deleted.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Delete dataset %s.", dataset_path)
@@ -277,6 +279,7 @@ def delete_field(dataset_path, field_name, **kwargs):
 
     Returns:
         str: Name of the field deleted.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Delete field %s on %s.", field_name, dataset_path)
@@ -287,6 +290,8 @@ def delete_field(dataset_path, field_name, **kwargs):
 
 def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     """Create new field as a duplicate of another.
+
+    Note: This does *not* duplicate the values in the original field.
 
     Args:
         dataset_path (str): Path of the dataset.
@@ -299,6 +304,7 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
 
     Returns:
         str: Name of the field created.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Duplicate field %s as %s on %s.",
@@ -354,8 +360,7 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
         join_dataset_path (str): Path of the dataset to join field from.
         join_field_name (str): Name of the field to join.
         on_field_name (str): Name of the field to join the dataset on.
-        on_join_field_name (str): Name of the field to join the join-dataset
-            on.
+        on_join_field_name (str): Name of the field to join the join-dataset on.
         **kwargs: Arbitrary keyword arguments. See below.
 
    Keyword Args:
@@ -363,6 +368,7 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
 
     Returns:
         str: Name of the joined field.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Join field %s on %s from %s.",
@@ -390,6 +396,7 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
 
     Returns:
         str: New name of the field.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Rename field %s to %s on %s.", field_name, new_field_name, dataset_path)
@@ -416,6 +423,7 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None,
 
     Returns:
         str: Path of the dataset with changed privileges.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     privilege_map = {True: 'grant', False: 'revoke', None: 'as_is'}
