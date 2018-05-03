@@ -49,7 +49,7 @@ def identity(dataset_path, field_name, identity_dataset_path, identity_field_nam
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('identity_where_sql')
     kwargs.setdefault('tolerance')
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Identity-set attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, identity_field_name, identity_dataset_path)
     if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:
@@ -136,7 +136,7 @@ def overlay(dataset_path, field_name, overlay_dataset_path, overlay_field_name,
     kwargs.setdefault('overlay_central_coincident', False)
     kwargs.setdefault('overlay_most_coincident', False)
     kwargs.setdefault('overlay_where_sql')
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Overlay-set attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, overlay_field_name, overlay_dataset_path)
     # Check flags & set details for spatial join call.
@@ -223,7 +223,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('union_where_sql')
     kwargs.setdefault('tolerance')
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Union-set attributes in %s on %s by overlay values in %s on %s.",
         field_name, dataset_path, union_field_name, union_dataset_path)
     if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:

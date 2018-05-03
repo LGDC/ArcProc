@@ -31,13 +31,15 @@ def planarize(dataset_path, output_path, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         tolerance (float): Tolerance for coincidence, in dataset's units.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the converted dataset.
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('tolerance')
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Planarize geometry in %s to lines in %s.", dataset_path, output_path)
     with arcobj.DatasetView(dataset_path,
                             kwargs.get('dataset_where_sql')) as dataset_view:
@@ -72,15 +74,18 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         id_field_name (str): Name of the field to apply ID to lines from.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        topological (bool): Flag to indicate lines should be topological, or merged
+            where lines overlap. Default is False.
         tolerance (float): Tolerance for coincidence, in dataset's units.
-        topological (bool): Flag to indicate lines should be topological, or
-            merged where lines overlap.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the converted dataset.
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('id_field_name')
+    kwargs.setdefault('topological', False)
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Convert polgyons in %s to lines in %s.", dataset_path, output_path)
     # Tolerance only applies to topological conversions.
     if not kwargs.get('topological', False):
@@ -136,18 +141,18 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     Args:
         dataset_path (str): Path of the dataset.
         output_path (str): Path of the output dataset.
-        spatial_reference_item: Item from which the output geometry's spatial
-            reference will be derived. Defaults to 4326 (EPSG code for
-            unprojected WGS84).
+        spatial_reference_item: Item from which the output geometry's spatial reference
+            will be derived. Default is 4326 (EPSG code for unprojected WGS84).
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the converted dataset.
     """
+    kwargs.setdefault('dataset_where_sql')
     log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
     sref = arcobj.spatial_reference(spatial_reference_item)
     log("Start: Project %s to srid=%s in %s.",
@@ -185,16 +190,18 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        file_mode (str): Code indicating the file mode for writing. Defaults
-            to 'wb'.
-        header (bool): Flag to indicate whether to write a header in the
-            output. Defaults to False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        header (bool): Flag to indicate whether to write a header in the output.
+            Default is False.
+        file_mode (str): Code indicating the file mode for writing. Default is 'wb'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the CSV-file.
+
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    kwargs.setdefault('header', False)
+    kwargs.setdefault('file_mode', 'wb')
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Convert rows to CSVfile %s.", output_path)
     field_names = tuple(field_names)
     with open(output_path, kwargs.get('file_mode', 'wb')) as csvfile:
@@ -202,11 +209,11 @@ def rows_to_csvfile(rows, output_path, field_names, **kwargs):
             if index == 0:
                 if isinstance(row, dict):
                     writer = csv.DictWriter(csvfile, field_names)
-                    if kwargs.get('header', False):
+                    if kwargs['header']:
                         writer.writeheader()
                 elif isinstance(row, Sequence):
                     writer = csv.writer(csvfile)
-                    if kwargs.get('header', False):
+                    if kwargs['header']:
                         writer.writerow(field_names)
                 else:
                     raise TypeError("Rows must be dictionaries or sequences.")
@@ -231,13 +238,16 @@ def table_to_points(dataset_path, output_path, x_field_name, y_field_name,
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
         z_field_name (str): Name of the field with z-coordinate.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the converted dataset.
+
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    kwargs.setdefault('dataset_where_sql')
+    kwargs.setdefault('z_field_name')
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Convert %s to spatial dataset %s.", dataset_path, output_path)
     view_name = unique_name()
     sref = arcobj.spatial_reference(spatial_reference_item)

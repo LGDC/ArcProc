@@ -72,7 +72,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
         tolerance (float): Tolerance for coincidence, in dataset's units.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -82,7 +82,7 @@ def clip(dataset_path, clip_dataset_path, **kwargs):
     kwargs.setdefault('clip_where_sql')
     kwargs.setdefault('use_edit_session', False)
     kwargs.setdefault('tolerance')
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Clip features in %s where overlapping %s.",
         dataset_path, clip_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -119,7 +119,7 @@ def delete(dataset_path, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -127,7 +127,7 @@ def delete(dataset_path, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     if kwargs['dataset_where_sql']:
         log("Start: Delete features from %s where `%s`.",
             dataset_path, kwargs['dataset_where_sql'])
@@ -194,14 +194,14 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
     Keyword Args:
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
 
     """
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Delete features in %s with given IDs.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     keys = {'id': tuple(contain(id_field_names))}
@@ -244,7 +244,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
         tolerance (float): Tolerance for coincidence, in dataset's units.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -253,7 +253,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True,
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('tolerance')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Dissolve features in %s on fields: %s.",
         dataset_path, dissolve_field_names)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -306,7 +306,7 @@ def eliminate_interior_rings(dataset_path, max_area=None,
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -314,7 +314,7 @@ def eliminate_interior_rings(dataset_path, max_area=None,
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Eliminate interior rings in %s.", dataset_path)
     # Only set max_percent_total_area default if neither it or area defined.
     if all((max_area is None, max_percent_total_area is None)):
@@ -365,7 +365,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         tolerance (float): Tolerance for coincidence, in dataset's units.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -375,7 +375,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
     kwargs.setdefault('erase_where_sql')
     kwargs.setdefault('tolerance')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Erase features in %s where overlapping %s.",
         dataset_path, erase_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -414,14 +414,14 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
     Keyword Args:
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
 
     """
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Insert features into %s from dictionaries.", dataset_path)
     keys = {'row': tuple(contain(field_names))}
     if inspect.isgeneratorfunction(insert_features):
@@ -451,14 +451,14 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     Keyword Args:
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
 
     """
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Insert features into %s from iterables.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     keys = {'row': tuple(contain(field_names))}
@@ -492,7 +492,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         insert_where_sql (str): SQL where-clause for insert-dataset subselection.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
             False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -500,7 +500,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
     """
     kwargs.setdefault('insert_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Insert features into %s from %s.", dataset_path, insert_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path),
             'insert': arcobj.dataset_metadata(insert_dataset_path)}
@@ -555,7 +555,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
             subselection.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is False.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -564,7 +564,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('location_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Keep features in %s where overlapping %s.",
         dataset_path, location_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
@@ -612,7 +612,7 @@ def update_from_dicts(dataset_path, update_features, id_field_names,
             missing from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is True.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: Path of the dataset updated.
@@ -620,7 +620,7 @@ def update_from_dicts(dataset_path, update_features, id_field_names,
     """
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Update features in %s from dictionaries.", dataset_path)
     keys = {'id': tuple(contain(id_field_names)),
             'attr': tuple(contain(field_names))}
@@ -665,7 +665,7 @@ def update_from_iters(dataset_path, update_features, id_field_names, field_names
             missing from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is True.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         collections.Counter: Counts for each update type.
@@ -673,7 +673,7 @@ def update_from_iters(dataset_path, update_features, id_field_names, field_names
     """
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Update features in %s from iterables.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     keys = {'id': tuple(contain(id_field_names)),
@@ -757,7 +757,7 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
             missing from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session.
             Default is True.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         collections.Counter: Counts for each update type.
@@ -766,7 +766,7 @@ def update_from_path(dataset_path, update_dataset_path, id_field_names,
     kwargs.setdefault('update_where_sql')
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Update features in %s from %s.",
         dataset_path, update_dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path),

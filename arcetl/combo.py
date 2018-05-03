@@ -45,16 +45,16 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
     shp_type_replace_val = {
-        'date': kwargs.get('date_null_replacement', datetime.date.min),
-        'double': kwargs.get('numeric_null_replacement', 0.0),
-        'single': kwargs.get('numeric_null_replacement', 0.0),
-        'integer': kwargs.get('integer_null_replacement', 0),
-        'smallinteger': kwargs.get('integer_null_replacement', 0),
-        'string': kwargs.get('string_null_replacement', ''),
+        'date': kwargs.setdefault('date_null_replacement', datetime.date.min),
+        'double': kwargs.setdefault('numeric_null_replacement', 0.0),
+        'single': kwargs.setdefault('numeric_null_replacement', 0.0),
+        'integer': kwargs.setdefault('integer_null_replacement', 0),
+        'smallinteger': kwargs.setdefault('integer_null_replacement', 0),
+        'string': kwargs.setdefault('string_null_replacement', ''),
         # Shapefile loader handles these types.
         # 'geometry', 'oid',
     }
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Adjust features for shapefile output in %s.", dataset_path)
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     session = arcobj.Editor(

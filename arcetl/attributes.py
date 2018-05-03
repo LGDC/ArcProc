@@ -461,7 +461,7 @@ def update_by_domain_code(
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by code in %s using domain %s.",
         field_name,
@@ -505,7 +505,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s using expression: `%s`.",
         field_name,
@@ -577,7 +577,7 @@ def update_by_feature_match(
 
     meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
     keys = {'id': list(contain(identifier_field_names))}
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s" +
         " by feature-matching %s on identifiers (%s).",
@@ -655,7 +655,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     kwargs.setdefault('kwarg_field_names', [])
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by function %s.",
         field_name,
@@ -726,7 +726,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('spatial_reference_item')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by geometry properties %s.",
         field_name,
@@ -794,7 +794,7 @@ def update_by_joined_value(
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by joined values in %s on %s.",
         field_name,
@@ -862,7 +862,7 @@ def update_by_mapping_function(
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('default_value')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by mapping function %s with key in %s.",
         field_name,
@@ -913,7 +913,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('default_value')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by mapping with key(s) in %s.",
         field_name,
@@ -970,7 +970,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s & %s on %s by node IDs.",
         from_id_field_name,
@@ -1050,7 +1050,7 @@ def update_by_overlay(
     kwargs.setdefault('overlay_most_coincident', False)
     kwargs.setdefault('overlay_where_sql')
     kwargs.setdefault('use_edit_session', False)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by overlay values in %s on %s.",
         field_name,
@@ -1147,7 +1147,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', True)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by assigning unique IDs.",
         field_name,
@@ -1216,7 +1216,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     """
     kwargs.setdefault('dataset_where_sql')
     kwargs.setdefault('use_edit_session', True)
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log(
         "Start: Update attributes in %s on %s by given value.", field_name, dataset_path
     )

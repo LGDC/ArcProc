@@ -21,14 +21,14 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
         referer_url (str): URL of the referring web app.
         requestor_ip (str): IP address of the machine using the token.
 
     Returns:
         str: The generated token.
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Generate token for %s.", server_url)
     post_url = requests.compat.urljoin(server_url, 'admin/generateToken')
     post_data = {'f': 'json', 'username': username, 'password': password,
@@ -60,7 +60,7 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: URL for the toggled service.
@@ -74,7 +74,7 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
         toggle = 'stop'
     else:
         raise ValueError("start_service or stop_service must be True")
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Toggle-%s service %s.", toggle, service_url)
     url_parts = service_url.split('/')
     post_url = re.sub(

@@ -64,7 +64,7 @@ class Differ(object):
             identifier_field_name (str): Name of the field used to identify a
                 feature.
             diff_field_names (iter): Collection of fields to diff attributes
-                between datasets. Defaults to None.
+                between datasets. Default is None.
             **kwargs: Arbitrary keyword arguments. See below.
 
         Keyword Args:
@@ -294,7 +294,7 @@ class Differ(object):
             str: Path of the dataset created.
 
         """
-        log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+        log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
         log("Start: Create displacement links dataset %s.", dataset_path)
         id_field_meta = arcobj.field_metadata(dataset_path, self.field['id'])
         for key in id_field_meta:
@@ -383,7 +383,7 @@ class Differ(object):
             str: Path of the dataset created.
 
         """
-        log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+        log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
         log("Start: Create diff table %s.", dataset_path)
         id_field_meta = arcobj.field_metadata(dataset_path, self.field['id'])
         for key in id_field_meta:

@@ -49,13 +49,13 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         facility_where_sql (str): SQL where-clause for facility subselection.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
         max_cost (float): Maximum travel cost the search will attempt, in the
             cost attribute's units.
         restriction_attributes (iter): Collection of network restriction
             attribute names to use.
         travel_from_facility (bool): Flag to indicate performing the analysis
-            travelling from (True) or to (False) the facility. Defaults to
+            travelling from (True) or to (False) the facility. Default is
             False.
 
     Yields:
@@ -66,7 +66,7 @@ def closest_facility_route(dataset_path, id_field_name, facility_path,
             dataset.
 
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Generate closest facility in %s to locations in %s.",
         facility_path, dataset_path)
     with arcobj.ArcExtension('Network'):
@@ -172,15 +172,15 @@ def generate_service_areas(dataset_path, output_path, network_path,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         detailed_features (bool): Flag to generate high-detail features.
-            Defaults to False.
+            Default is False.
         id_field_name (str): Name of facility ID field.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
         overlap_facilities (bool): Flag to overlap different facility service
-            areas. Defaults to True.
+            areas. Default is True.
         restriction_attributes (iter): Collection of network restriction
             attribute names to use.
         travel_from_facility (bool): Flag to indicate performing the analysis
-            travelling from (True) or to (False) the facility. Defaults to
+            travelling from (True) or to (False) the facility. Default is
             False.
         trim_value (float): Dstance from the network features to trim service
             areas at.
@@ -188,7 +188,7 @@ def generate_service_areas(dataset_path, output_path, network_path,
     Returns:
         str: Path of the output service areas dataset.
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Generate service areas for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs.get('trim_value') is not None:
@@ -262,15 +262,15 @@ def generate_service_rings(dataset_path, output_path, network_path,
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         detailed_features (bool): Flag to generate high-detail features.
-            Defaults to False.
+            Default is False.
         id_field_name (str): Name of facility ID field.
-        log_level (str): Level to log the function at. Defaults to 'info'.
+        log_level (str): Level to log the function at. Default is 'info'.
         overlap_facilities (bool): Flag to overlap different facility service
-            areas. Defaults to True.
+            areas. Default is True.
         restriction_attributes (iter): Collection of network restriction
             attribute names to use.
         travel_from_facility (bool): Flag to indicate performing the analysis
-            travelling from (True) or to (False) the facility. Defaults to
+            travelling from (True) or to (False) the facility. Default is
             False.
         trim_value (float): Distance from the network features to trim
             service areas at.
@@ -279,7 +279,7 @@ def generate_service_rings(dataset_path, output_path, network_path,
         str: Path of the output service rings dataset.
 
     """
-    log = leveled_logger(LOG, kwargs.get('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Generate service rings for %s.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs.get('trim_value') is not None:
