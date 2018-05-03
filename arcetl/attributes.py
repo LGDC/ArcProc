@@ -1185,7 +1185,12 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                     id_val = next(id_pool)
                     while id_val in used_ids:
                         id_val = next(id_pool)
-                    cursor.updateRow([id_val])
+                    try:
+                        cursor.updateRow([id_val])
+                    except RuntimeError:
+                        LOG.error("Offending value is %s", id_val)
+                        raise RuntimeError
+
                     used_ids.add(id_val)
     log("End: Update.")
     return field_name
@@ -1227,6 +1232,11 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     with session, cursor:
         for old_val, in cursor:
             if old_val != value:
-                cursor.updateRow([value])
+                try:
+                    cursor.updateRow([value])
+                except RuntimeError:
+                    LOG.error("Offending value is %s", value)
+                    raise RuntimeError
+
     log("End: Update.")
     return field_name
