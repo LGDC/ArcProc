@@ -1058,7 +1058,10 @@ def update_by_overlay(
         overlay_field_name,
         overlay_dataset_path,
     )
-    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
+    meta = {
+        'dataset': arcobj.dataset_metadata(dataset_path),
+        'orig_tolerance': arcpy.env.XYTolerance,
+    }
     join_kwargs = {'join_operation': 'join_one_to_many', 'join_type': 'keep_all'}
     if kwargs['overlay_central_coincident']:
         join_kwargs['match_option'] = 'have_their_center_in'
@@ -1084,7 +1087,6 @@ def update_by_overlay(
             log_level=None,
         )
         if 'tolerance' in kwargs:
-            old_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs['tolerance']
         # Create temp output of the overlay.
         temp['output_path'] = unique_path('output')
@@ -1095,7 +1097,7 @@ def update_by_overlay(
             **join_kwargs
         )
         if 'tolerance' in kwargs:
-            arcpy.env.XYTolerance = old_tolerance
+            arcpy.env.XYTolerance = meta['orig_tolerance']
     # Push overlay (or replacement) value from output to update field.
     if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:
         function = (lambda x: kwargs['replacement_value'] if x else None)
