@@ -332,22 +332,6 @@ def feature_count(dataset_path, **kwargs):
         return view.count
 
 
-def field_names(dataset_path):
-    """Generate names of fields on dataset.
-
-    Args:
-        dataset_path (str): Path of the dataset.
-
-    Yields:
-        str: Name of a field.
-
-    """
-    return arcobj.dataset_metadata(dataset_path)['field_names']
-
-
-field_metadata = arcobj.field_metadata  # pylint: disable=invalid-name
-
-
 def is_valid(dataset_path):
     """Check whether dataset exists/is valid.
 
@@ -390,9 +374,6 @@ def join_field(dataset_path, join_dataset_path, join_field_name,
         )
     log("End: Join.")
     return join_field_name
-
-
-metadata = arcobj.dataset_metadata  # pylint: disable=invalid-name
 
 
 def rename_field(dataset_path, field_name, new_field_name, **kwargs):
