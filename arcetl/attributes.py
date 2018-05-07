@@ -531,6 +531,9 @@ def update_by_feature_match(
 ):
     """Update attribute values by aggregating info about matching features.
 
+    Note: Currently, the sort_order update type uses functionality that only works with
+        datasets contained in databases.
+
     Valid update_type codes:
         'flag_value': Apply the flag_value argument value to matched features.
         'match_count': Apply the count of matched features.
@@ -585,39 +588,39 @@ def update_by_feature_match(
         keys['id'],
     )
     keys['sort'] = list(contain(kwargs.get('sort_field_names', [])))
+    matcher = FeatureMatcher(dataset_path, keys['id'], kwargs['dataset_where_sql'])
+    cursor_kwargs = {
+        'field_names': keys['sort'] + keys['id'] + [field_name],
+        'where_clause': kwargs['dataset_where_sql'],
+    }
+    if update_type == 'sort_order':
+        cursor_kwargs['sql_clause'] = (None, "order by " + ", ".join(keys['sort']))
     session = arcobj.Editor(
         meta['dataset']['workspace_path'], kwargs['use_edit_session']
     )
-    keys['cursor'] = keys['sort'] + keys['id'] + [field_name]
-    cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
-        field_names=keys['cursor'],
-        where_clause=kwargs['dataset_where_sql'],
-    )
+    cursor = arcpy.da.UpdateCursor(dataset_path, **cursor_kwargs)
     with session, cursor:
-        feats = sorted(feat for feat in cursor)
-    matcher = FeatureMatcher(dataset_path, keys['id'], kwargs['dataset_where_sql'])
-    for feat in feats:
-        val = {
-            'old': feat[-1],
-            'id': feat[len(keys['sort']):len(keys['sort']) + len(keys['id'])],
-        }
-        if update_type == 'flag_value':
-            if not matcher.is_duplicate(val['id']):
-                continue
-
-            val['new'] = kwargs['flag_value']
-        elif update_type == 'match_count':
-            val['new'] = matcher.match_count(val['id'])
-        elif update_type == 'sort_order':
-            matcher.increment_assigned(val['id'])
-            val['new'] = matcher.assigned_count(val['id'])
-        if val['old'] != val['new']:
-            try:
-                cursor.updateRow(feat[:-1] + [val['new']])
-            except RuntimeError:
-                LOG.error("Offending value is %s", val['new'])
-                raise
+        for feat in cursor:
+            val = {
+                'id': feat[len(keys['sort']):len(keys['sort']) + len(keys['id'])],
+                'old': feat[-1],
+            }
+            if update_type == 'flag_value':
+                if matcher.is_duplicate(val['id']):
+                    val['new'] = kwargs['flag_value']
+                else:
+                    val['new'] = val['old']
+            elif update_type == 'match_count':
+                val['new'] = matcher.match_count(val['id'])
+            elif update_type == 'sort_order':
+                matcher.increment_assigned(val['id'])
+                val['new'] = matcher.assigned_count(val['id'])
+            if val['old'] != val['new']:
+                try:
+                    cursor.updateRow(feat[:-1] + [val['new']])
+                except RuntimeError:
+                    LOG.error("Offending value is %s", val['new'])
+                    raise
 
     log("End: Update.")
     return field_name
