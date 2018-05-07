@@ -821,8 +821,12 @@ def update_by_joined_value(
     )
     with session, cursor:
         for feat in cursor:
-            val = {'id': feat[:-1], 'old': feat[-1]}
-            val['new'] = join_value.get(tuple(val['id']))
+            val = {
+                # id_map will un-tuple single ID; do same here.
+                'id': feat[0] if len(keys['dataset_id']) == 1 else tuple(feat[:-1]),
+                'old': feat[-1],
+            }
+            val['new'] = join_value.get(val['id'])
             if val['old'] != val['new']:
                 try:
                     cursor.updateRow(feat[:-1] + [val['new']])
