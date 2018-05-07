@@ -114,17 +114,18 @@ def property_value(item, property_transform_map, *properties):
         Value of the property represented in the ordered properties.
 
     """
+    if item is None:
+        return None
+    current_val = item
     for prop in properties:
-        if item is None:
-            continue
         # Replace stand-ins with ordered properties.
         if isinstance(prop, basestring) and prop in property_transform_map:
             prop = property_transform_map.get(prop)
         if isinstance(prop, basestring):
-            item = getattr(item, prop)
+            current_val = getattr(current_val, prop)
         elif isinstance(prop, Iterable):
-            item = property_value(item, *prop)
-    return item
+            current_val = property_value(current_val, property_transform_map, *prop)
+    return current_val
 
 
 def unique_ids(data_type=uuid.UUID, string_length=4):
