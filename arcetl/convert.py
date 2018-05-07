@@ -107,8 +107,8 @@ def polygons_to_lines(dataset_path, output_path, **kwargs):
             arcpy.env.XYTolerance = meta['orig_tolerance']
     if kwargs['topological']:
         for side in ['left', 'right']:
+            meta['side_oid_key'] = side.upper() + '_FID'
             if kwargs['id_field_name']:
-                meta['side_oid_key'] = side.upper() + '_FID'
                 meta['side_id_field'] = next(
                     field
                     for field in meta['dataset']['fields']
