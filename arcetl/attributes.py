@@ -154,10 +154,9 @@ def _updated_coordinate_node_map(coordinate_node, node_id_field_metadata):
         )
         if _id not in ids['used']
     )
-    updated_coord_node = {}
+    updated_coord_node = copy.deepcopy(coordinate_node)
     id_coords = {}
-    for coord in coordinate_node:
-        node = copy.copy(coordinate_node(coord))
+    for coord, node in updated_coord_node.items():
         # Assign IDs where missing.
         if node['node_id'] is None:
             node['node_id'] = next(ids['unused'])
@@ -172,7 +171,6 @@ def _updated_coordinate_node_map(coordinate_node, node_id_field_metadata):
                 id_coords[new_node_id] = id_coords.pop(node['node_id'])
             else:
                 node['node_id'] = new_node_id
-                updated_coord_node[coord] = node
         id_coords[node['node_id']] = coord
     return updated_coord_node
 
