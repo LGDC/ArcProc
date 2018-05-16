@@ -5,7 +5,6 @@ import sys
 
 import arcpy
 
-
 from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
@@ -41,7 +40,7 @@ class Differ(object):
         {'name': 'description', 'type': 'text', 'length': 64},
         {'name': 'init_str', 'type': 'text', 'length': 128},
         {'name': 'new_str', 'type': 'text', 'length': 128},
-        )
+    )
     """tuple of dicts: Collection of diff table's field metadata."""
     diff_field_names = tuple(field['name'] for field in _diff_fields_metadata)
     """tuple: Ordered collection of diff table's field names."""
@@ -51,13 +50,19 @@ class Differ(object):
         'geometry': "Feature moved further than {tolerance}.",
         'attribute': "Value in `{field_name}` field changed.",
         'overlay': "Value from `{dataset_path}.{field_name}` overlay changed.",
-        }
+    }
     """dict: Description string based on diff type."""
     diff_types = tuple(_type for _type in _diff_type_description)
     """tuple: Collection of diff types."""
 
-    def __init__(self, init_dataset_path, new_dataset_path,
-                 identifier_field_name, cmp_field_names=None, **kwargs):
+    def __init__(
+        self,
+        init_dataset_path,
+        new_dataset_path,
+        identifier_field_name,
+        cmp_field_names=None,
+        **kwargs
+    ):
         """Initialize instance.
 
         Args:
@@ -83,37 +88,32 @@ class Differ(object):
         self.field = {
             'id': identifier_field_name,
             'cmps': set(cmp_field_names) if cmp_field_names else set(),
-            }
-        self.field['loads'] = {self.field['id'],
-                               'shape@xy'} | self.field['cmps']
-        self.path = {
-            'init': init_dataset_path,
-            'new': new_dataset_path,
-            }
-        self.where_sql = {tag: kwargs.get(tag + '_dataset_where_sql')
-                          for tag in ('init', 'new')}
+        }
+        self.field['loads'] = {self.field['id'], 'shape@xy'} | self.field['cmps']
+        self.path = {'init': init_dataset_path, 'new': new_dataset_path}
+        self.where_sql = {
+            tag: kwargs.get(tag + '_dataset_where_sql') for tag in ('init', 'new')
+        }
+        self.field['overlay'], self.path['overlay'] = [], []
         if 'overlay_path_field_map' in kwargs:
-            self.field['overlay'], self.path['overlay'] = [], []
             for path, field in kwargs['overlay_path_field_map'].items():
                 self.field['overlay'].append(path)
                 self.path['overlay'].append(field)
             self.field['overlay'] = tuple(self.field['overlay'])
             self.path['overlay'] = tuple(self.path['overlay'])
-        self.spatial = {
-            'reference': arcobj.spatial_reference(init_dataset_path),
-            }
+        self.spatial = {'reference': arcobj.spatial_reference(init_dataset_path)}
         if kwargs.get('tolerance'):
             if isinstance(kwargs['tolerance'], basestring):
                 self.spatial['tolerance'] = arcobj.linear_unit(
-                    kwargs['tolerance'], self.spatial['reference'],
-                    )
+                    kwargs['tolerance'], self.spatial['reference']
+                )
             else:
                 self.spatial['tolerance'] = kwargs['tolerance']
         else:
             self.spatial['tolerance'] = 0
         self.spatial['tolerance_str'] = arcobj.linear_unit_string(
-            self.spatial['tolerance'], self.spatial['reference'],
-            )
+            self.spatial['tolerance'], self.spatial['reference']
+        )
         self._diffs = {}
         self._displacement_links = ()
         self._id_attr = defaultdict(dict)
@@ -130,8 +130,9 @@ class Differ(object):
     def diffs_added(self):
         """tuple of dict: Diff info-dicts for added features."""
         if 'added' not in self._diffs:
-            self._diffs['added'] = tuple(self.info_diff(_id, 'added')
-                                         for _id in self.ids_added)
+            self._diffs['added'] = tuple(
+                self.info_diff(_id, 'added') for _id in self.ids_added
+            )
         return self._diffs['added']
 
     @property
@@ -145,10 +146,12 @@ class Differ(object):
                     new_attr = self._id_attr['new'][_id][field]
                     if init_attr == new_attr:
                         continue
+
                     _diffs.append(
-                        self.info_diff(_id, 'attribute', init_attr, new_attr,
-                                       field_name=field)
+                        self.info_diff(
+                            _id, 'attribute', init_attr, new_attr, field_name=field
                         )
+                    )
             self._diffs['attribute'] = tuple(_diffs)
         return self._diffs['attribute']
 
@@ -163,10 +166,16 @@ class Differ(object):
                 distance = geometry.coordinate_distance(init_coord, new_coord)
                 if distance <= self.spatial['tolerance']:
                     continue
+
                 _diffs.append(
-                    self.info_diff(_id, 'geometry', init_coord, new_coord,
-                                   tolerance=self.spatial['tolerance_str'])
+                    self.info_diff(
+                        _id,
+                        'geometry',
+                        init_coord,
+                        new_coord,
+                        tolerance=self.spatial['tolerance_str'],
                     )
+                )
             self._diffs['geometry'] = tuple(_diffs)
         return self._diffs['geometry']
 
@@ -176,19 +185,24 @@ class Differ(object):
         if 'overlay' not in self._diffs:
             _diffs = []
             for _id in self.ids_persisted:
-                for over_field, over_path in zip(self.field['overlay'],
-                                                 self.path['overlay']):
-                    init_attr = self._id_attr['init'][_id][over_path,
-                                                           over_field]
-                    new_attr = self._id_attr['new'][_id][over_path,
-                                                         over_field]
+                for over_field, over_path in zip(
+                    self.field['overlay'], self.path['overlay']
+                ):
+                    init_attr = self._id_attr['init'][_id][over_path, over_field]
+                    new_attr = self._id_attr['new'][_id][over_path, over_field]
                     if init_attr == new_attr:
                         continue
+
                     _diffs.append(
-                        self.info_diff(_id, 'overlay', init_attr, new_attr,
-                                       dataset_path=over_path,
-                                       field_name=over_field)
+                        self.info_diff(
+                            _id,
+                            'overlay',
+                            init_attr,
+                            new_attr,
+                            dataset_path=over_path,
+                            field_name=over_field,
                         )
+                    )
             self._diffs['overlay'] = tuple(_diffs)
         return self._diffs['overlay']
 
@@ -196,8 +210,9 @@ class Differ(object):
     def diffs_removed(self):
         """tuple of dict: Diff info-dicts for removed features."""
         if 'removed' not in self._diffs:
-            self._diffs['removed'] = tuple(self.info_diff(_id, 'removed')
-                                           for _id in self.ids_removed)
+            self._diffs['removed'] = tuple(
+                self.info_diff(_id, 'removed') for _id in self.ids_removed
+            )
         return self._diffs['removed']
 
     @property
@@ -211,9 +226,8 @@ class Differ(object):
                 distance = geometry.coordinate_distance(init_coord, new_coord)
                 if distance <= self.spatial['tolerance']:
                     continue
-                _links.append(
-                    self.info_displacement(_id, init_coord, new_coord)
-                    )
+
+                _links.append(self.info_displacement(_id, init_coord, new_coord))
             self._displacement_links = tuple(_links)
         return self._displacement_links
 
@@ -221,24 +235,25 @@ class Differ(object):
     def ids_added(self):
         """set: Feature IDs added between init & new datasets."""
         if 'added' not in self._ids:
-            self._ids['added'] = (set(self._id_attr['new'])
-                                  - set(self._id_attr['init']))
+            self._ids['added'] = set(self._id_attr['new']) - set(self._id_attr['init'])
         return self._ids['added']
 
     @property
     def ids_persisted(self):
         """set: Feature IDs persisted between init & new datasets."""
         if 'persisted' not in self._ids:
-            self._ids['persisted'] = (set(self._id_attr['new'])
-                                      & set(self._id_attr['init']))
+            self._ids['persisted'] = (
+                set(self._id_attr['new']) & set(self._id_attr['init'])
+            )
         return self._ids['persisted']
 
     @property
     def ids_removed(self):
         """set: Feature IDs removed between init & new datasets."""
         if 'removed' not in self._ids:
-            self._ids['removed'] = (set(self._id_attr['init'])
-                                    - set(self._id_attr['new']))
+            self._ids['removed'] = (
+                set(self._id_attr['init']) - set(self._id_attr['new'])
+            )
         return self._ids['removed']
 
     def load(self):
@@ -249,33 +264,35 @@ class Differ(object):
         self._displacement_links = ()
         for tag in ('init', 'new'):
             g_attrs = attributes.as_dicts(
-                dataset_path=self.path[tag], field_names=self.field['loads'],
+                dataset_path=self.path[tag],
+                field_names=self.field['loads'],
                 dataset_where_sql=self.where_sql[tag],
                 spatial_reference_item=self.spatial['reference'],
-                )
+            )
             for attr in g_attrs:
                 _id = attr[self.field['id']]
                 self._id_attr[tag][_id] = attr
         # Add overlay attributes.
-        for over_field, over_path in zip(self.field['overlay'],
-                                         self.path['overlay']):
+        for over_field, over_path in zip(self.field['overlay'], self.path['overlay']):
             for tag in ('init', 'new'):
-                with arcobj.DatasetView(self.path[tag],
-                                        self.where_sql[tag]) as view:
-                    join_kwargs = {'target_features': view.name,
-                                   'join_features': over_path,
-                                   'out_feature_class': unique_path(),
-                                   'field_mapping': arcpy.FieldMappings()}
-                    for path, field in ((view.name, self.field['id']),
-                                        (over_path, over_field)):
+                with arcobj.DatasetView(self.path[tag], self.where_sql[tag]) as view:
+                    join_kwargs = {
+                        'target_features': view.name,
+                        'join_features': over_path,
+                        'out_feature_class': unique_path(),
+                        'field_mapping': arcpy.FieldMappings(),
+                    }
+                    for path, field in [
+                        (view.name, self.field['id']), (over_path, over_field)
+                    ]:
                         field_map = arcpy.FieldMap()
                         field_map.addInputField(path, field)
                         join_kwargs['field_mapping'].addFieldMap(field_map)
                     arcpy.analysis.SpatialJoin(**join_kwargs)
                 for _id, attr in attributes.as_iters(
-                        join_kwargs['out_feature_class'],
-                        field_names=(self.field['id'], over_field),
-                    ):
+                    join_kwargs['out_feature_class'],
+                    field_names=[self.field['id'], over_field],
+                ):
                     if _id in self._id_attr[tag]:
                         self._id_attr[tag][_id][over_path, over_field] = attr
                 arcpy.management.Delete(join_kwargs['out_feature_class'])
@@ -303,17 +320,20 @@ class Differ(object):
             if key not in ('name', 'type', 'length', 'precision', 'scale'):
                 del id_field_meta[key]
         dataset.create(
-            dataset_path, field_metadata_list=(id_field_meta,),
+            dataset_path,
+            field_metadata_list=(id_field_meta,),
             geometry_type='polyline',
-            spatial_reference_item=kwargs.get('spatial_reference_item',
-                                              self.spatial['reference']),
+            spatial_reference_item=kwargs.get(
+                'spatial_reference_item', self.spatial['reference']
+            ),
             log_level=None,
-            )
+        )
         log("End: Create.")
         return dataset_path
 
-    def info_diff(self, feature_id, diff_type, init_value=None,
-                  new_value=None, **kwargs):
+    def info_diff(
+        self, feature_id, diff_type, init_value=None, new_value=None, **kwargs
+    ):
         """Create info-dictionary for given feature's diff of a type.
 
         Keyword arguments are generally related to customizing description
@@ -342,12 +362,10 @@ class Differ(object):
         return {
             self.field['id']: feature_id,
             'diff_type': diff_type,
-            'description': self._diff_type_description[diff_type].format(
-                **kwargs
-                ),
+            'description': self._diff_type_description[diff_type].format(**kwargs),
             'init_str': str(init_value) if init_value is not None else None,
-            'new_str': str(new_value) if new_value is not None else None,
-            }
+            'new_str': str(new_value) if new_value is not None else None
+        }
 
     def info_displacement(self, feature_id, init_coord, new_coord):
         """Create info-dictionary for given feature's displacement.
@@ -365,9 +383,9 @@ class Differ(object):
             self.field['id']: feature_id,
             'shape@': arcpy.Polyline(
                 arcpy.Array(arcpy.Point(init_coord), arcpy.Point(new_coord)),
-                arcobj.spatial_reference(self.spatial['reference'])
-                ),
-            }
+                arcobj.spatial_reference(self.spatial['reference']),
+            ),
+        }
 
     def table_create(self, dataset_path, **kwargs):
         """Create new diff table.
@@ -392,9 +410,13 @@ class Differ(object):
             if key not in ('name', 'type', 'length', 'precision', 'scale'):
                 del id_field_meta[key]
         field_metadata_list = (id_field_meta,) + self._diff_fields_metadata
-        dataset.create(dataset_path, field_metadata_list,
-                       spatial_reference_item=kwargs.get('spatial_reference_item',
-                                                         self.spatial['reference']),
-                       log_level=None)
+        dataset.create(
+            dataset_path,
+            field_metadata_list,
+            spatial_reference_item=kwargs.get(
+                'spatial_reference_item', self.spatial['reference']
+            ),
+            log_level=None,
+        )
         log("End: Create.")
         return dataset_path
