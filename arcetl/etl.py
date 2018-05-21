@@ -18,6 +18,7 @@ class ArcETL(object):
     Attributes:
         name (str): Name for the ETL being managed.
         transform_path (str): Path of the current transform dataset.
+
     """
 
     def __init__(self, name='Unnamed ETL'):
@@ -41,7 +42,7 @@ class ArcETL(object):
         """Clean up instance."""
         LOG.info("Closing ArcETL instance for %s.", self.name)
         # Clear the transform dataset.
-        if all((self.transform_path, dataset.is_valid(self.transform_path))):
+        if all([self.transform_path, dataset.is_valid(self.transform_path)]):
             dataset.delete(self.transform_path, log_level=None)
             self.transform_path = None
         LOG.info("Closed.")
@@ -51,8 +52,7 @@ class ArcETL(object):
 
         Args:
             dataset_path (str): Path of the dataset to extract.
-            extract_where_sql (str): SQL where-clause for extract
-                subselection.
+            extract_where_sql (str): SQL where-clause for extract subselection.
 
         Returns:
             str: Path of the transform-dataset with extracted features.
@@ -60,8 +60,10 @@ class ArcETL(object):
         """
         LOG.info("Start: Extract %s.", dataset_path)
         self.transform_path = dataset.copy(
-            dataset_path=dataset_path, output_path=unique_path('extract'),
-            dataset_where_sql=extract_where_sql, log_level=None,
+            dataset_path=dataset_path,
+            output_path=unique_path('extract'),
+            dataset_where_sql=extract_where_sql,
+            log_level=None,
         )
         LOG.info("End: Extract.")
         return self.transform_path
@@ -93,20 +95,29 @@ class ArcETL(object):
         LOG.info("Start: Initialize schema.")
         self.transform_path = unique_path('init')
         if template_path:
-            dataset.copy(dataset_path=template_path,
-                         output_path=self.transform_path,
-                         schema_only=True, log_level=None)
+            dataset.copy(
+                dataset_path=template_path,
+                output_path=self.transform_path,
+                schema_only=True,
+                log_level=None,
+            )
         else:
-            init_kwargs = {key: val for key, val in kwargs.items()
-                           if key in ('field_metadata_list', 'geometry_type',
-                                      'spatial_reference_item')}
-            dataset.create(dataset_path=self.transform_path, log_level=None,
-                           **init_kwargs)
+            init_kwargs = {
+                key: val
+                for key, val in kwargs.items()
+                if key in [
+                    'field_metadata_list', 'geometry_type', 'spatial_reference_item'
+                ]
+            }
+            dataset.create(
+                dataset_path=self.transform_path, log_level=None, **init_kwargs
+            )
         LOG.info("End: Initialize.")
         return self.transform_path
 
-    def load(self, dataset_path, load_where_sql=None, preserve_features=False,
-             **kwargs):
+    def load(
+        self, dataset_path, load_where_sql=None, preserve_features=False, **kwargs
+    ):
         """Load features from transform- to load-dataset.
 
         Args:
@@ -133,18 +144,25 @@ class ArcETL(object):
                     features.delete(dataset_path, log_level=None, **kwargs)
                 )
             feature_count.update(
-                features.insert_from_path(dataset_path,
-                                          insert_dataset_path=self.transform_path,
-                                          insert_where_sql=load_where_sql,
-                                          log_level=None, **kwargs)
+                features.insert_from_path(
+                    dataset_path,
+                    insert_dataset_path=self.transform_path,
+                    insert_where_sql=load_where_sql,
+                    log_level=None,
+                    **kwargs
+                )
             )
         # Load to a new dataset.
         else:
-            dataset.copy(self.transform_path, dataset_path,
-                         dataset_where_sql=load_where_sql, log_level=None)
+            dataset.copy(
+                self.transform_path,
+                dataset_path,
+                dataset_where_sql=load_where_sql,
+                log_level=None,
+            )
             feature_count['deleted'] = 0
             feature_count['inserted'] = dataset.feature_count(dataset_path)
-        for key in ('deleted', 'inserted'):
+        for key in ['deleted', 'inserted']:
             LOG.info("%s features %s.", feature_count[key], key)
         LOG.info("End: Load.")
         return feature_count
@@ -160,18 +178,19 @@ class ArcETL(object):
 
         Returns:
             Result object of the transformation.
+
         """
         # Unless otherwise stated, dataset path is self.transform_path.
-        if 'dataset_path' not in kwargs:
-            kwargs['dataset_path'] = self.transform_path
+        kwargs.setdefault('dataset_path', self.transform_path)
         # Add output_path to kwargs if needed.
-        if all(['output_path' in funcsigs.signature(transformation).parameters,
-                'output_path' not in kwargs]):
-            kwargs['output_path'] = unique_path(getattr(transformation, '__name__',
-                                                        'transform'))
+        if 'output_path' in funcsigs.signature(transformation).parameters:
+            kwargs.setdefault(
+                'output_path',
+                unique_path(getattr(transformation, '__name__', 'transform')),
+            )
         result = transformation(**kwargs)
         # If there's a new output, replace old transform.
-        if 'output_path' in kwargs:
+        if 'output_path' in funcsigs.signature(transformation).parameters:
             if dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path, log_level=None)
             self.transform_path = kwargs['output_path']
@@ -206,9 +225,13 @@ class ArcETL(object):
         kwargs.setdefault('use_edit_session', True)
         LOG.info("Start: Update %s.", dataset_path)
         feature_count = features.update_from_path(
-            dataset_path, self.transform_path,
-            id_field_names, field_names, log_level=None, **kwargs
-            )
+            dataset_path,
+            self.transform_path,
+            id_field_names,
+            field_names,
+            log_level=None,
+            **kwargs
+        )
         for key in features.UPDATE_TYPES:
             LOG.info("%s features %s.", feature_count[key], key)
         LOG.info("End: Update.")
