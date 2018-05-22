@@ -22,24 +22,27 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
         referer_url (str): URL of the referring web app.
         requestor_ip (str): IP address of the machine using the token.
+        log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
         str: The generated token.
+
     """
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Generate token for %s.", server_url)
     post_url = requests.compat.urljoin(server_url, 'admin/generateToken')
-    post_data = {'f': 'json', 'username': username, 'password': password,
-                 'expiration': minutes_active}
+    post_data = {
+        'f': 'json',
+        'username': username,
+        'password': password,
+        'expiration': minutes_active,
+    }
     if 'referer_url' in kwargs:
-        post_data['client'] = 'referer'
-        post_data['referer'] = kwargs['referer_url']
+        post_data.update({'client': 'referer', 'referer': kwargs['referer_url']})
     elif 'requestor_ip' in kwargs:
-        post_data['client'] = 'ip'
-        post_data['ip'] = kwargs['requestor_ip']
+        post_data.update({'client': 'ip', 'referer': kwargs['requestor_ip']})
     else:
         post_data['client'] = 'requestip'
     token = requests.post(url=post_url, data=post_data).json()['token']
@@ -48,8 +51,9 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
     return token
 
 
-def toggle_service(service_url, token, start_service=False, stop_service=False,
-                   **kwargs):
+def toggle_service(
+    service_url, token, start_service=False, stop_service=False, **kwargs
+):
     """Toggle service to start or stop.
 
     Args:
@@ -68,6 +72,7 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
 
     Raises:
         requests.HTTPError: An error in the HTTP request occurred.
+
     """
     if start_service:
         toggle = 'start'
@@ -75,14 +80,16 @@ def toggle_service(service_url, token, start_service=False, stop_service=False,
         toggle = 'stop'
     else:
         raise ValueError("start_service or stop_service must be True")
+
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
     log("Start: Toggle-%s service %s.", toggle, service_url)
     url_parts = service_url.split('/')
     post_url = re.sub(
-        '/arcgis/rest/services/', '/arcgis/admin/services/',
+        '/arcgis/rest/services/',
+        '/arcgis/admin/services/',
         '/'.join(url_parts[:-1]) + '.{}/{}'.format(url_parts[-1], toggle),
-        flags=re.I
-        )
+        flags=re.I,
+    )
     post_data = {'f': 'json', 'token': token}
     response = requests.post(url=post_url, data=post_data)
     response.raise_for_status()
