@@ -272,7 +272,7 @@ ignore-mixin-members=yes
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis. It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=arcpy.da
+ignored-modules=
 
 # List of classes names for which member attributes should not be checked
 # (useful for classes with attributes dynamically set). This supports can work
@@ -283,6 +283,10 @@ ignored-classes=
 # system, and so shouldn't trigger E1101 when accessed. Python regular
 # expressions are accepted.
 generated-members=
+    arcpy.da.InsertCursor,
+    arcpy.da.SearchCursor,
+    arcpy.da.UpdateCursor,
+    pyodbc.connect,
 
 
 [VARIABLES]
