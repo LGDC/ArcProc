@@ -755,8 +755,8 @@ def update_from_iters(
     }
     if inspect.isgeneratorfunction(update_features):
         update_features = update_features()
-    feats = {'update': update_features, 'insert': set(), 'id_update': dict()}
-    for feat in feats['update']:
+    feats = {'insert': set(), 'id_update': dict()}
+    for feat in update_features:
         feat = tuple(freeze_values(*feat))
         _id = tuple(feat[keys['feat'].index(key)] for key in keys['id'])
         if _id not in ids['dataset']:
@@ -827,7 +827,13 @@ def update_from_path(
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection. WARNING:
+            defining this has major effects: filtered features will not be considered
+            for updating or deletion, and duplicates in the update features will be
+            inserted as if novel.
         update_where_sql (str): SQL where-clause for update-dataset subselection.
+        chunk_where_sqls (iter): Collection of SQL where-clauses for updating between
+            the datasets in chunks.
         delete_missing_features (bool): True if update should delete features missing
             from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
@@ -838,7 +844,11 @@ def update_from_path(
         collections.Counter: Counts for each update type.
 
     """
-    kwargs.setdefault('update_where_sql')
+    for key in ['dataset_where_sql', 'update_where_sql']:
+        kwargs.setdefault(key)
+        if not kwargs[key]:
+            kwargs[key] = "1=1"
+    kwargs.setdefault('subset_where_sqls', ["1=1"])
     kwargs.setdefault('delete_missing_features', True)
     kwargs.setdefault('use_edit_session', True)
     log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
@@ -859,18 +869,36 @@ def update_from_path(
         field_names.discard(key)
     keys = {'id': list(contain(id_field_names)), 'attr': list(contain(field_names))}
     keys['row'] = keys['id'] + keys['attr']
-    iters = attributes.as_iters(
-        update_dataset_path, keys['row'], dataset_where_sql=kwargs['update_where_sql']
-    )
-    feature_count = update_from_iters(
-        dataset_path,
-        update_features=iters,
-        id_field_names=keys['id'],
-        field_names=keys['row'],
-        delete_missing_features=kwargs['delete_missing_features'],
-        use_edit_session=kwargs['use_edit_session'],
-        log_level=None,
-    )
+    feature_count = Counter()
+    for kwargs['subset_where_sql'] in contain(kwargs['subset_where_sqls']):
+        if not kwargs['subset_where_sql'] == "1=1":
+            log("Subset: `%s`", kwargs['subset_where_sql'])
+        iters = attributes.as_iters(
+            update_dataset_path,
+            keys['row'],
+            dataset_where_sql=(
+                "({update_where_sql}) and ({subset_where_sql})".format(**kwargs)
+            )
+        )
+        view = arcobj.DatasetView(
+            dataset_path,
+            dataset_where_sql=(
+                "({dataset_where_sql}) and ({subset_where_sql})".format(**kwargs)
+            ),
+            field_names=keys['row']
+        )
+        with view:
+            feature_count.update(
+                update_from_iters(
+                    dataset_path=view.name,
+                    update_features=iters,
+                    id_field_names=keys['id'],
+                    field_names=keys['row'],
+                    delete_missing_features=kwargs['delete_missing_features'],
+                    use_edit_session=kwargs['use_edit_session'],
+                    log_level=None,
+                )
+            )
     for key in UPDATE_TYPES:
         log("%s features %s.", feature_count[key], key)
     log("End: Update.")
