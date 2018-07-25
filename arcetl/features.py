@@ -49,10 +49,13 @@ def _same_value(*values):
 
     """
     same = all(val1 == val2 for val1, val2 in pairwise(values))
-    # Some types are quite as simple.
-    ##TODO: Ratchet this down to minimum to satisfy our needs.
+    # Some types are not quite as simple.
+    # Date-times can have slight variations even when essentially the same.
     if all(isinstance(val, datetime.datetime) for val in values):
-        same = all((val1 - val2).total_seconds() < 1 for val1, val2 in pairwise(values))
+        same = all(
+            abs(val1 - val2).total_seconds() < 10 ** -64
+            for val1, val2 in pairwise(values)
+        )
     elif all(isinstance(val, arcpy.Geometry) for val in values):
         ##TODO: Test multipoint, multipatch, dimension, annotation.
         same = all(val1.equals(val2) for val1, val2 in pairwise(values))
