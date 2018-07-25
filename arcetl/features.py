@@ -41,6 +41,19 @@ def _same_feature(*features):
 def _same_value(*values):
     """Determine whether values are the same.
 
+    Notes:
+        For datetime values, currently allows for a tolerance level of up to 1s.
+        For geometry:
+            Has not been tested on the following geometry types: multipoint,
+                multipatch, dimension, annotation.
+            Adding vertices that don't alter overall polygon shape do not appear to
+                affect `geometry.equals()`.
+            Adding those vertices does change `geometry.WKB` & `geometry.WKT`, so be
+                aware that will make 'different' values.
+            Derived float values (e.g. geometry lengths & areas) can have slight
+                differences between sources when they are essentially the same. Avoid
+                comparisons between those.
+
     Args:
         *values (iter of iter): Collection of values to compare.
 
@@ -57,7 +70,6 @@ def _same_value(*values):
             for val1, val2 in pairwise(values)
         )
     elif all(isinstance(val, arcpy.Geometry) for val in values):
-        ##TODO: Test multipoint, multipatch, dimension, annotation.
         same = all(val1.equals(val2) for val1, val2 in pairwise(values))
     return same
 
