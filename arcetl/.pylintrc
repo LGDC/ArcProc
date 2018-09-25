@@ -60,7 +60,60 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=cmp-builtin,execfile-builtin,file-builtin,getslice-method,hex-method,input-builtin,map-builtin-not-iterating,locally-disabled,locally-enabled,parameter-unpacking,reduce-builtin,standarderror-builtin,useless-suppression,setslice-method,old-octal-literal,indexing-exception,reload-builtin,filter-builtin-not-iterating,no-absolute-import,zip-builtin-not-iterating,raw_input-builtin,old-raise-syntax,next-method-called,unicode-builtin,xrange-builtin,basestring-builtin,dict-iter-method,unpacking-in-except,import-star-module-level,coerce-method,dict-view-method,cmp-method,intern-builtin,nonzero-method,long-builtin,suppressed-message,coerce-builtin,using-cmp-argument,round-builtin,print-statement,range-builtin-not-iterating,oct-method,delslice-method,unichr-builtin,backtick,raising-string,old-ne-operator,metaclass-assignment,buffer-builtin,old-division,long-suffix,apply-builtin
+disable=
+	#cmp-builtin,
+	#execfile-builtin,
+	#file-builtin,
+	#getslice-method,
+	#hex-method,
+	#input-builtin,
+	#map-builtin-not-iterating,
+	locally-disabled,
+	locally-enabled,
+	#parameter-unpacking,
+	reduce-builtin,
+	standarderror-builtin,
+	useless-suppression,
+	setslice-method,
+	old-octal-literal,
+	indexing-exception,
+	reload-builtin,
+	filter-builtin-not-iterating,
+	no-absolute-import,
+	zip-builtin-not-iterating,
+	raw_input-builtin,
+	old-raise-syntax,
+	next-method-called,
+	unicode-builtin,
+	xrange-builtin,
+	basestring-builtin,
+	dict-iter-method,
+	unpacking-in-except,
+	import-star-module-level,
+	coerce-method,
+	dict-view-method,
+	cmp-method,
+	intern-builtin,
+	nonzero-method,
+	long-builtin,
+	suppressed-message,
+	coerce-builtin,
+	using-cmp-argument,
+	round-builtin,
+	print-statement,
+	range-builtin-not-iterating,
+	oct-method,
+	delslice-method,
+	unichr-builtin,
+	backtick,
+	raising-string,
+	old-ne-operator,
+	metaclass-assignment,
+	buffer-builtin,
+	old-division,
+	long-suffix,
+	apply-builtin,
+	bad-continuation,
 
 
 [REPORTS]
@@ -283,9 +336,7 @@ ignored-classes=
 # system, and so shouldn't trigger E1101 when accessed. Python regular
 # expressions are accepted.
 generated-members=
-    arcpy.da.InsertCursor,
-    arcpy.da.SearchCursor,
-    arcpy.da.UpdateCursor,
+	arcpy.da.*,
     pyodbc.connect,
 
 
