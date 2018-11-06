@@ -9,7 +9,7 @@ from arcetl.helpers import contain, leveled_logger
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 
 def add_field(dataset_path, field_name, field_type, **kwargs):

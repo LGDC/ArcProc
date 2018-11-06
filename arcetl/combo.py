@@ -9,7 +9,7 @@ from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 
 def adjust_for_shapefile(dataset_path, **kwargs):

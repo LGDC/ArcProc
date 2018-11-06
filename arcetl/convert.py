@@ -12,7 +12,7 @@ from arcetl.helpers import contain, leveled_logger, unique_name
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 
 def planarize(dataset_path, output_path, **kwargs):

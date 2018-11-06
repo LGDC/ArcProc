@@ -8,7 +8,7 @@ from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 
 def generate_token(server_url, username, password, minutes_active=60, **kwargs):

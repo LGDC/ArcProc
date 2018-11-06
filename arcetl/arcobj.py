@@ -20,7 +20,7 @@ if not hasattr(math, "isclose"):
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 
 class ArcExtension(object):

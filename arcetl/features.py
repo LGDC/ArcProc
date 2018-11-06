@@ -15,7 +15,7 @@ from arcetl.helpers import (
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 UPDATE_TYPES = ['deleted', 'inserted', 'altered', 'unchanged']
 """list of str: Types of feature updates, commonly associated wtth update counters."""

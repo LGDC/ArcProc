@@ -14,7 +14,7 @@ if sys.version_info.major >= 3:
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 
 def contain(obj, nonetypes_as_empty=True):

@@ -11,7 +11,7 @@ from arcetl import workspace
 
 
 LOG = logging.getLogger(__name__)
-"""logging.Logger: Toolbox-level logger."""
+"""logging.Logger: Module-level logger."""
 
 TYPE_ID_FUNCTION_MAP = {
     'short': (lambda x: int(x.split(' : ')[0]) if x else None),
