@@ -101,7 +101,8 @@ def identity(
                 arg_field_names=[temp_identity.field_name],
                 log_level=None,
             )
-            # Replace original chunk features with identity features.
+            # Replace original chunk features with new features.
+            features.delete(view['chunk'].name, log_level=None)
             features.insert_from_path(dataset_path, temp_output_path, log_level=None)
             dataset.delete(temp_output_path, log_level=None)
     log("End: Identity.")
@@ -212,6 +213,8 @@ def overlay(
                 arg_field_names=[temp_overlay.field_name],
                 log_level=None,
             )
+            # Replace original chunk features with new features.
+            features.delete(view['chunk'].name, log_level=None)
             features.insert_from_path(dataset_path, temp_output_path, log_level=None)
             dataset.delete(temp_output_path, log_level=None)
         if 'tolerance' in kwargs:
@@ -300,6 +303,8 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
                 arg_field_names=[temp_union.field_name],
                 log_level=None,
             )
+            # Replace original chunk features with new features.
+            features.delete(view['chunk'].name, log_level=None)
             features.insert_from_path(dataset_path, temp_output_path, log_level=None)
             dataset.delete(temp_output_path, log_level=None)
     log("End: Union.")
