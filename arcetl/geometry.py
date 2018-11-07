@@ -1,6 +1,6 @@
 """Geometry-related objects."""
 import logging
-import math
+from math import pi, sqrt
 
 from more_itertools import pairwise
 
@@ -9,33 +9,32 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 RATIO = {
-    'meter': {
-        'foot': 0.3048,
-        'feet': 0.3048,
-        'ft': 0.3048,
-        'yard': 0.9144,
-        'yards': 0.9144,
-        'yd': 0.9144,
-        'mile': 1609.34,
-        'miles': 1609.34,
-        'mi': 1609.34,
-        'meter': 1.0,
-        'meters': 1.0,
-        'm': 1.0,
-        'kilometer': 1000.0,
-        'kilometers': 1000.0,
-        'km': 1000.0,
+    "meter": {
+        "foot": 0.3048,
+        "feet": 0.3048,
+        "ft": 0.3048,
+        "yard": 0.9144,
+        "yards": 0.9144,
+        "yd": 0.9144,
+        "mile": 1609.34,
+        "miles": 1609.34,
+        "mi": 1609.34,
+        "meter": 1.0,
+        "meters": 1.0,
+        "m": 1.0,
+        "kilometer": 1000.0,
+        "kilometers": 1000.0,
+        "km": 1000.0,
     }
 }
 """dict: Two-level mapping of ratio between two types of measure.
 
-Usage: `RATIO['to_measure']['from_measure']`
-
+Usage: `RATIO[to_measure][from_measure]`
 """
 
 
 def compactness_ratio(geometry=None, **kwargs):
-    """Return compactness ratio (4pi*area/perimeter**2) result.
+    """Return compactness ratio (4pi * area / perimeter ** 2) result.
 
     If geometry is None or one of the area & perimeter keyword arguments are undefined/
     None, will return None.
@@ -51,15 +50,14 @@ def compactness_ratio(geometry=None, **kwargs):
 
     Returns:
         float: Ratio of compactness.
-
     """
     if geometry:
-        dim = {'area': geometry.area, 'perimeter': geometry.length}
-    elif kwargs.get('area') and kwargs.get('perimeter'):
-        dim = {'area': kwargs['area'], 'perimeter': kwargs['perimeter']}
+        dim = {"area": geometry.area, "perimeter": geometry.length}
+    elif kwargs.get("area") and kwargs.get("perimeter"):
+        dim = {"area": kwargs["area"], "perimeter": kwargs["perimeter"]}
     else:
         dim = {}
-    return (4 * math.pi * dim['area']) / (dim['perimeter'] ** 2) if dim else None
+    return (4 * pi * dim["area"]) / (dim["perimeter"] ** 2) if dim else None
 
 
 def coordinate_distance(*coordinates):
@@ -70,21 +68,21 @@ def coordinate_distance(*coordinates):
             `x,y,z`.
 
     Returns:
-        float: Euclidian distance between the coordinates.
-
+        float: Euclidian distance between coordinates.
     """
     distance = 0.0
     for coord1, coord2 in pairwise(coordinates):
         coord = {
-            1: dict(zip(['x', 'y', 'z'], coord1)), 2: dict(zip(['x', 'y', 'z'], coord2))
+            1: dict(zip(["x", "y", "z"], coord1)),
+            2: dict(zip(["x", "y", "z"], coord2)),
         }
-        coord[1].setdefault('z', 0)
-        coord[2].setdefault('z', 0)
-        distance += math.sqrt(
+        coord[1].setdefault("z", 0)
+        coord[2].setdefault("z", 0)
+        distance += sqrt(
             sum(
-                (coord[2]['x'] - coord[1]['x']) ** 2,
-                (coord[2]['y'] - coord[1]['y']) ** 2,
-                (coord[2]['z'] - coord[1]['z']) ** 2
+                (coord[2]["x"] - coord[1]["x"]) ** 2,
+                (coord[2]["y"] - coord[1]["y"]) ** 2,
+                (coord[2]["z"] - coord[1]["z"]) ** 2,
             )
         )
     return distance
@@ -102,19 +100,21 @@ def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0, fourth
 
     Returns:
         float: Angle in decimal degrees.
-
     """
     if degrees is None:
         return None
 
-    # Degrees must be absolute or it won't sum right with subdivisions.
+    # Degrees must be absolute or it will not sum right with subdivisions.
     absolute_decimal = abs(float(degrees))
     try:
         sign_multiplier = abs(float(degrees)) / float(degrees)
     except ZeroDivisionError:
         sign_multiplier = 1
     for count, divisor in [
-        (minutes, 60), (seconds, 3600), (thirds, 216000), (fourths, 12960000)
+        (minutes, 60),
+        (seconds, 3600),
+        (thirds, 216000),
+        (fourths, 12960000),
     ]:
         if count:
             absolute_decimal += float(count) / divisor
