@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj
+from arcetl.arcobj import Editor, dataset_metadata
 from arcetl.helpers import leveled_logger
 
 
@@ -34,56 +34,51 @@ def adjust_for_shapefile(dataset_path, **kwargs):
         numeric_null_replacement (float): Replacement value for null-values in numeric
             fields. Default is 0.0.
         string_null_replacement (str): Replacement value for null-values in string
-            fields. Default is ''.
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            fields. Default is "".
+        use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (str): Level to log the function at. Default is "info".
 
     Returns:
         str: Path of the adjusted dataset.
-
     """
-    kwargs.setdefault('dataset_where_sql')
-    kwargs.setdefault('use_edit_session', False)
-    shp_type_replace_val = {
-        'date': kwargs.setdefault('date_null_replacement', datetime.date.min),
-        'double': kwargs.setdefault('numeric_null_replacement', 0.0),
-        'single': kwargs.setdefault('numeric_null_replacement', 0.0),
-        'integer': kwargs.setdefault('integer_null_replacement', 0),
-        'smallinteger': kwargs.setdefault('integer_null_replacement', 0),
-        'string': kwargs.setdefault('string_null_replacement', ''),
-        # Shapefile loader handles these types.
-        # 'geometry', 'oid',
-    }
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("use_edit_session", False)
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Adjust features for shapefile output in %s.", dataset_path)
-    meta = {'dataset': arcobj.dataset_metadata(dataset_path)}
-    session = arcobj.Editor(
-        meta['dataset']['workspace_path'], kwargs['use_edit_session']
-    )
-    cursor_kwargs = {
-        'in_table': dataset_path, 'where_clause': kwargs['dataset_where_sql']
+    replacement_value = {
+        "date": kwargs.setdefault("date_null_replacement", datetime.date.min),
+        "double": kwargs.setdefault("numeric_null_replacement", 0.0),
+        "single": kwargs.setdefault("numeric_null_replacement", 0.0),
+        "integer": kwargs.setdefault("integer_null_replacement", 0),
+        "smallinteger": kwargs.setdefault("integer_null_replacement", 0),
+        "string": kwargs.setdefault("string_null_replacement", ""),
+        # Shapefile loader handles non-user fields seperately.
+        # "geometry", "oid",
     }
+    meta = {"dataset": dataset_metadata(dataset_path)}
+    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     with session:
-        for field in meta['dataset']['user_fields']:
-            if field['type'].lower() not in shp_type_replace_val:
+        for field in meta["dataset"]["user_fields"]:
+            if field["type"].lower() not in replacement_value:
                 log("Skipping %s field: type cannot transfer to shapefile.")
                 continue
 
             else:
-                log("Adjusting values in %s field.", field['name'])
-            cursor = arcpy.da.UpdateCursor(field_names=[field['name']], **cursor_kwargs)
+                log("Adjusting values in %s field.", field["name"])
+            cursor = arcpy.da.UpdateCursor(
+                in_table=dataset_path,
+                field_names=[field["name"]],
+                where_clause=kwargs["dataset_where_sql"],
+            )
             with cursor:
-                for old_val, in cursor:
-                    if old_val is None:
-                        new_val = shp_type_replace_val[field['type'].lower()]
-                    else:
-                        new_val = old_val
-                    if old_val != new_val:
+                for (old_value,) in cursor:
+                    if old_value is None:
+                        new_value = replacement_value[field["type"].lower()]
                         try:
-                            cursor.updateRow([new_val])
+                            cursor.updateRow([new_value])
                         except RuntimeError:
-                            LOG.error("Offending value is %s", new_val)
+                            LOG.error("Offending value is %s", new_value)
                             raise RuntimeError
 
     log("End: Adjust.")
