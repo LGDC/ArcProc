@@ -24,6 +24,7 @@ from arcetl.helpers import contain, freeze_values, unique_ids, unique_name, uniq
 from arcetl import network
 from arcetl import proximity
 from arcetl import services
+from arcetl import workspace
 
 # pylint: enable=relative-beyond-top-level, unused-import
 
