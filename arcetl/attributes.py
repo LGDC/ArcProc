@@ -2,6 +2,7 @@
 from collections import Counter, defaultdict
 from copy import copy, deepcopy
 import logging
+from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
 import arcpy
 
@@ -855,58 +856,6 @@ def update_by_joined_value(
     return update_count
 
 
-##TODO: Merge into update_by_mapping.
-def update_by_mapping_function(
-    dataset_path, field_name, function, key_field_names, **kwargs
-):
-    """Update attribute values by finding them in a function-created mapping.
-
-    Args:
-        dataset_path (str): Path of the dataset.
-        field_name (str): Name of the field.
-        function (types.FunctionType): Function to get mapping from.
-        key_field_names (iter): Fields names whose values will comprise the mapping key.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        default_value: Value to return from mapping if key value on feature not
-            present. Default is None.
-        use_edit_session (bool): Updates are done in an edit session if True. Default is
-            False.
-        log_level (str): Level to log the function at. Default is "info".
-
-    Returns:
-        collections.Counter: Counts for each update type.
-    """
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("default_value")
-    kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by mapping function %s with key in %s.",
-        field_name,
-        dataset_path,
-        function,
-        key_field_names,
-    )
-    mapping = function()
-    update_count = update_by_mapping(
-        dataset_path,
-        field_name,
-        mapping,
-        key_field_names,
-        dataset_where_sql=kwargs["dataset_where_sql"],
-        default_value=kwargs["default_value"],
-        use_edit_session=kwargs["use_edit_session"],
-        log_level=None,
-    )
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
-    log("End: Update.")
-    return update_count
-
-
 def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs):
     """Update attribute values by finding them in a mapping.
 
@@ -935,7 +884,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     kwargs.setdefault("use_edit_session", False)
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log(
-        "Start: Update attributes in %s on %s by mapping with key(s) in %s.",
+        "Start: Update attributes in %s on %s by mapping with key in %s.",
         field_name,
         dataset_path,
         key_field_names,
@@ -943,6 +892,10 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {"map": list(contain(key_field_names))}
     keys["feature"] = keys["map"] + [field_name]
+    if isinstance(
+        mapping, (BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType)
+    ):
+        mapping = mapping()
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         in_table=dataset_path,
