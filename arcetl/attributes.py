@@ -610,7 +610,7 @@ def update_by_feature_match(
     with session, cursor:
         for feature in cursor:
             value = {
-                "id": feature[0] if len(keys["id"]) == 1 else feature[:-1],
+                "id": feature[0] if len(keys["id"]) == 1 else tuple(feature[:-1]),
                 "old": feature[-1],
             }
             if update_type == "flag_value":
@@ -626,7 +626,7 @@ def update_by_feature_match(
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow(feature[:-1] + (value["new"],))
+                    cursor.updateRow(feature[:-1] + [value["new"]])
                     update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
@@ -701,7 +701,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow(feature[:-1] + (value["new"],))
+                    cursor.updateRow(feature[:-1] + [value["new"]])
                     update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
@@ -768,7 +768,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow((value["geometry"], value["new"]))
+                    cursor.updateRow([value["geometry"], value["new"]])
                     update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
@@ -836,7 +836,9 @@ def update_by_joined_value(
     with session, cursor:
         for feature in cursor:
             value = {
-                "id": feature[0] if len(keys["dataset_id"]) == 1 else feature[:-1],
+                "id": (
+                    feature[0] if len(keys["dataset_id"]) == 1 else tuple(feature[:-1])
+                ),
                 "old": feature[-1],
             }
             value["new"] = join_value.get(value["id"])
@@ -844,7 +846,7 @@ def update_by_joined_value(
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow(feature[:-1] + (value["new"],))
+                    cursor.updateRow(feature[:-1] + [value["new"]])
                     update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
@@ -914,7 +916,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow(feature[:-1] + (value["new"],))
+                    cursor.updateRow(feature[:-1] + [value["new"]])
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
@@ -968,15 +970,15 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
     with session, cursor:
         for feature in cursor:
             value = {"oid": feature[0], "old_nodes": feature[1:]}
-            value["new_nodes"] = (
+            value["new_nodes"] = [
                 oid_node[value["oid"]]["from"],
                 oid_node[value["oid"]]["to"],
-            )
+            ]
             if same_feature(value["old_nodes"], value["new_nodes"]):
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow((value["oid"],) + value["new_nodes"])
+                    cursor.updateRow([value["oid"]] + value["new_nodes"])
                     update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value one of %s", value["new_nodes"])
@@ -1151,7 +1153,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         used_ids = set()
         # First run will clear duplicate IDs & gather used IDs.
         with cursor:
-            for (id_value,) in cursor:
+            for [id_value] in cursor:
                 if id_value in used_ids:
                     cursor.updateRow([None])
                 else:
@@ -1163,7 +1165,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         # Second run will fill in missing IDs.
         update_count = Counter()
         with cursor:
-            for (id_value,) in cursor:
+            for [id_value] in cursor:
                 if id_value is not None:
                     update_count["unchanged"] += 1
                 else:
@@ -1171,7 +1173,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                     while id_value in used_ids:
                         id_value = next(id_pool)
                     try:
-                        cursor.updateRow((id_value,))
+                        cursor.updateRow([id_value])
                         update_count["altered"] += 1
                         used_ids.add(id_value)
                     except RuntimeError:
@@ -1217,12 +1219,12 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     )
     update_count = Counter()
     with session, cursor:
-        for (old_value,) in cursor:
+        for [old_value] in cursor:
             if same_value(old_value, value):
                 update_count["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow((value,))
+                    cursor.updateRow([value])
                     update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value)
