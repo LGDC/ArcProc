@@ -1,4 +1,5 @@
 """Dataset operations."""
+from collections import Counter
 import logging
 import os
 
@@ -187,7 +188,7 @@ def copy(dataset_path, output_path, **kwargs):
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        str: Path of output dataset.
+        collections.Counter: Counts for each feature action.
 
     Raises:
         ValueError: If dataset type not supported.
@@ -213,7 +214,7 @@ def copy(dataset_path, output_path, **kwargs):
             delete(output_path, log_level=None)
         exec_copy(view.name, output_path)
     log("End: Copy.")
-    return output_path
+    return Counter(copied=feature_count(output_path))
 
 
 def create(dataset_path, field_metadata_list=None, **kwargs):
