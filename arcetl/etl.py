@@ -54,7 +54,7 @@ class ArcETL(object):
             extract_where_sql (str): SQL where-clause for extract subselection.
 
         Returns:
-            str: Path of the transform-dataset with extracted features.
+            arcetl.etl.ArcETL: Reference to the instance.
         """
         LOG.info("Start: Extract %s.", dataset_path)
         self.transform_path = unique_path("extract")
@@ -67,7 +67,7 @@ class ArcETL(object):
         for action, count in feature_action_count.items():
             LOG.info("%s features %s.", count, action)
         LOG.info("End: Extract.")
-        return self.transform_path
+        return self
 
     def init_schema(self, template_path=None, **kwargs):
         """Initialize dataset schema. Use only when extracting dataset.
@@ -91,7 +91,7 @@ class ArcETL(object):
                 WGS84).  Will be ignored if template_path used.
 
         Returns:
-            str: Path of the current transformation output dataset.
+            arcetl.etl.ArcETL: Reference to the instance.
         """
         LOG.info("Start: Initialize schema.")
         self.transform_path = unique_path("init")
@@ -105,7 +105,7 @@ class ArcETL(object):
         else:
             dataset.create(dataset_path=self.transform_path, log_level=None, **kwargs)
         LOG.info("End: Initialize.")
-        return self.transform_path
+        return self
 
     def load(
         self, dataset_path, load_where_sql=None, preserve_features=False, **kwargs
@@ -124,7 +124,7 @@ class ArcETL(object):
                 Default is False.
 
         Returns:
-            collections.Counter: Counts for each feature action.
+            arcetl.etl.ArcETL: Reference to the instance.
         """
         kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load %s.", dataset_path)
@@ -155,7 +155,7 @@ class ArcETL(object):
         for action, count in feature_action_count.items():
             LOG.info("%s features %s.", count, action)
         LOG.info("End: Load.")
-        return feature_action_count
+        return self
 
     def transform(self, transformation, **kwargs):
         """Run transform operation as defined in the workspace.
@@ -166,7 +166,7 @@ class ArcETL(object):
             **kwargs: Arbitrary keyword arguments; passed through to the transformation.
 
         Returns:
-            Result object of the transformation.
+            arcetl.etl.ArcETL: Reference to the instance.
         """
         # Unless otherwise stated, dataset path is self.transform_path.
         kwargs.setdefault("dataset_path", self.transform_path)
@@ -176,13 +176,13 @@ class ArcETL(object):
                 "output_path",
                 unique_path(getattr(transformation, "__name__", "transform")),
             )
-        result = transformation(**kwargs)
+        transformation(**kwargs)
         # If there"s a new output, replace old transform.
         if "output_path" in funcsigs.signature(transformation).parameters:
             if dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path, log_level=None)
             self.transform_path = kwargs["output_path"]
-        return result
+        return self
 
     def update(self, dataset_path, id_field_names, field_names=None, **kwargs):
         """Update features from transform- to load-dataset.
@@ -203,7 +203,7 @@ class ArcETL(object):
                 Default is True.
 
         Returns:
-            collections.Counter: Counts for each feature action.
+            arcetl.etl.ArcETL: Reference to the instance.
         """
         kwargs.setdefault("update_where_sql")
         kwargs.setdefault("delete_missing_features", True)
@@ -220,4 +220,4 @@ class ArcETL(object):
         for action, count in feature_action_count.items():
             LOG.info("%s features %s.", count, action)
         LOG.info("End: Update.")
-        return feature_action_count
+        return self
