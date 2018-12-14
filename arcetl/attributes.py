@@ -458,7 +458,7 @@ def update_by_domain_code(
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
@@ -561,7 +561,7 @@ def update_by_feature_match(
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
@@ -660,7 +660,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("field_as_first_arg", True)
     kwargs.setdefault("arg_field_names", [])
@@ -732,7 +732,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
@@ -805,7 +805,7 @@ def update_by_joined_value(
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
@@ -879,7 +879,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("default_value")
@@ -943,7 +943,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault("dataset_where_sql")
@@ -1027,7 +1027,7 @@ def update_by_overlay(
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("overlay_central_coincident", False)
@@ -1129,7 +1129,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", True)
@@ -1202,7 +1202,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         log_level (str): Level to log the function at. Default is "info".
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", True)

@@ -92,7 +92,7 @@ def delete(dataset_path, **kwargs):
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('dataset_where_sql')
@@ -172,7 +172,7 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('use_edit_session', False)
@@ -412,7 +412,7 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('use_edit_session', False)
@@ -450,7 +450,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('use_edit_session', False)
@@ -492,7 +492,6 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
 
     """
     kwargs.setdefault('insert_where_sql')
@@ -566,7 +565,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('dataset_where_sql')
@@ -630,7 +629,7 @@ def update_from_dicts(
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('delete_missing_features', True)
@@ -682,7 +681,7 @@ def update_from_iters(
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('delete_missing_features', True)
@@ -788,7 +787,7 @@ def update_from_path(
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
-        collections.Counter: Counts for each update type.
+        collections.Counter: Counts for each feature action.
 
     """
     for key in ['dataset_where_sql', 'update_where_sql']:
