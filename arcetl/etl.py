@@ -4,7 +4,8 @@ import logging
 
 import funcsigs
 
-from arcetl import dataset, features
+from arcetl import dataset
+from arcetl import features
 from arcetl.helpers import unique_path
 
 
@@ -16,17 +17,15 @@ class ArcETL(object):
     """Manages a single Arc-style ETL process.
 
     Attributes:
-        name (str): Name for the ETL being managed.
+        name (str): Name reference for ETL.
         transform_path (str): Path of the current transform dataset.
-
     """
 
-    def __init__(self, name='Unnamed ETL'):
+    def __init__(self, name="Unnamed ETL"):
         """Initialize instance.
 
         Args:
-            name (str): Name for the ETL.
-
+            name (str): Name reference for ETL.
         """
         self.name = name
         self.transform_path = None
@@ -42,7 +41,7 @@ class ArcETL(object):
         """Clean up instance."""
         LOG.info("Closing ArcETL instance for %s.", self.name)
         # Clear the transform dataset.
-        if all([self.transform_path, dataset.is_valid(self.transform_path)]):
+        if self.transform_path and dataset.is_valid(self.transform_path):
             dataset.delete(self.transform_path, log_level=None)
             self.transform_path = None
         LOG.info("Closed.")
@@ -56,12 +55,11 @@ class ArcETL(object):
 
         Returns:
             str: Path of the transform-dataset with extracted features.
-
         """
         LOG.info("Start: Extract %s.", dataset_path)
         self.transform_path = dataset.copy(
             dataset_path=dataset_path,
-            output_path=unique_path('extract'),
+            output_path=unique_path("extract"),
             dataset_where_sql=extract_where_sql,
             log_level=None,
         )
@@ -80,20 +78,20 @@ class ArcETL(object):
             **kwargs: Arbitrary keyword arguments. See below.
 
         Keyword Args:
-            field_metadata_list (iter): Collection of field metadata
-                dictionaries.
-            geometry_type (str): Name of the geometry type. Valid geometry
-                types are: point, multipoint, polygon, polyline. If argument
-                not included or another value, dataset will be nonspatial.
-            spatial_reference_item: Item from which the output geometry's
-                spatial reference will be derived.
+            field_metadata_list (iter): Field metadata mappings. Will be ignored if
+                template_path used.
+            geometry_type (str): NGeometry type. Valid types are: point, multipoint,
+                polygon, polyline. If unstated or another value, dataset will be
+                nonspatial. Will be ignored if template_path used.
+            spatial_reference_item: Item from which the spatial reference of the output
+                geometry will be derived. Default is 4326 (EPSG code for unprojected
+                WGS84).  Will be ignored if template_path used.
 
         Returns:
             str: Path of the current transformation output dataset.
-
         """
         LOG.info("Start: Initialize schema.")
-        self.transform_path = unique_path('init')
+        self.transform_path = unique_path("init")
         if template_path:
             dataset.copy(
                 dataset_path=template_path,
@@ -102,16 +100,7 @@ class ArcETL(object):
                 log_level=None,
             )
         else:
-            init_kwargs = {
-                key: val
-                for key, val in kwargs.items()
-                if key in [
-                    'field_metadata_list', 'geometry_type', 'spatial_reference_item'
-                ]
-            }
-            dataset.create(
-                dataset_path=self.transform_path, log_level=None, **init_kwargs
-            )
+            dataset.create(dataset_path=self.transform_path, log_level=None, **kwargs)
         LOG.info("End: Initialize.")
         return self.transform_path
 
@@ -121,20 +110,20 @@ class ArcETL(object):
         """Load features from transform- to load-dataset.
 
         Args:
-            dataset_path (str): Path of the dataset to load.
-            load_where_sql (str): SQL where-clause for loading subselection.
-            preserve_features (bool): Flag to indicate whether to remove features in
-                the load-dataset before adding the transformed features.
+            dataset_path (str): Path of dataset to load.
+            load_where_sql (str): SQL where-clause for subselection from the
+                transform-dataset.
+            preserve_features (bool): Keep current features in load-dataset if True;
+                remove them before adding transform-features if False.
 
         Keyword Args:
-            use_edit_session (bool): Flag to perform updates in an edit session.
+            use_edit_session (bool): Updates are done in an edit session if True.
                 Default is False.
 
         Returns:
             collections.Counter: Counts for each update type.
-
         """
-        kwargs.setdefault('use_edit_session', False)
+        kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load %s.", dataset_path)
         feature_count = Counter()
         # Load to an existing dataset.
@@ -148,21 +137,20 @@ class ArcETL(object):
                     dataset_path,
                     insert_dataset_path=self.transform_path,
                     insert_where_sql=load_where_sql,
+                    use_edit_session=kwargs["use_edit_session"],
                     log_level=None,
-                    **kwargs
                 )
             )
         # Load to a new dataset.
         else:
             dataset.copy(
                 self.transform_path,
-                dataset_path,
+                output_path=dataset_path,
                 dataset_where_sql=load_where_sql,
                 log_level=None,
             )
-            feature_count['deleted'] = 0
-            feature_count['inserted'] = dataset.feature_count(dataset_path)
-        for key in ['deleted', 'inserted']:
+            feature_count["inserted"] = dataset.feature_count(dataset_path)
+        for key in ["deleted", "inserted"]:
             LOG.info("%s features %s.", feature_count[key], key)
         LOG.info("End: Load.")
         return feature_count
@@ -171,29 +159,27 @@ class ArcETL(object):
         """Run transform operation as defined in the workspace.
 
         Args:
-            transformation: Function or method to perform a transformation
-                upon the transform-dataset.
-            **kwargs: Arbitrary keyword arguments; passed through to the
-                transformation.
+            transformation: Function or method used to perform a transformation upon
+                the transform-dataset.
+            **kwargs: Arbitrary keyword arguments; passed through to the transformation.
 
         Returns:
             Result object of the transformation.
-
         """
         # Unless otherwise stated, dataset path is self.transform_path.
-        kwargs.setdefault('dataset_path', self.transform_path)
+        kwargs.setdefault("dataset_path", self.transform_path)
         # Add output_path to kwargs if needed.
-        if 'output_path' in funcsigs.signature(transformation).parameters:
+        if "output_path" in funcsigs.signature(transformation).parameters:
             kwargs.setdefault(
-                'output_path',
-                unique_path(getattr(transformation, '__name__', 'transform')),
+                "output_path",
+                unique_path(getattr(transformation, "__name__", "transform")),
             )
         result = transformation(**kwargs)
-        # If there's a new output, replace old transform.
-        if 'output_path' in funcsigs.signature(transformation).parameters:
+        # If there"s a new output, replace old transform.
+        if "output_path" in funcsigs.signature(transformation).parameters:
             if dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path, log_level=None)
-            self.transform_path = kwargs['output_path']
+            self.transform_path = kwargs["output_path"]
         return result
 
     def update(self, dataset_path, id_field_names, field_names=None, **kwargs):
@@ -201,34 +187,31 @@ class ArcETL(object):
 
         Args:
             dataset_path (str): Path of the dataset.
-            id_field_names (iter, str): Name(s) of the ID field/key(s).
-            field_names (iter, str)): Collection of field names/keys to check
-                & update. Listed field must be present in both datasets. If
-                field_names is None, all fields will be inserted.
+            id_field_names (iter): Names of the ID field.
+            field_names (iter): Field names to check & update. Listed fields must be
+                present in both datasets. If field_names is None, all fields will be
+                checked & updated.
             **kwargs: Arbitrary keyword arguments. See below.
 
         Keyword Args:
-            update_where_sql (str): SQL where-clause for update-dataset
-                subselection.
-            delete_missing_features (bool): True if update should delete
-                features missing from update_features, False otherwise.
+            update_where_sql (str): SQL where-clause for update-dataset subselection.
+            delete_missing_features (bool): Update should delete features not present in
+                update_features if True; keep them if False. Default is True.
+            use_edit_session (bool): Updates are done in an edit session if True.
                 Default is True.
-            use_edit_session (bool): Flag to perform updates in an edit
-                session. Default is True.
 
         Returns:
             collections.Counter: Counts for each update type.
-
         """
-        kwargs.setdefault('update_where_sql')
-        kwargs.setdefault('delete_missing_features', True)
-        kwargs.setdefault('use_edit_session', True)
+        kwargs.setdefault("update_where_sql")
+        kwargs.setdefault("delete_missing_features", True)
+        kwargs.setdefault("use_edit_session", True)
         LOG.info("Start: Update %s.", dataset_path)
         feature_count = features.update_from_path(
             dataset_path,
-            self.transform_path,
-            id_field_names,
-            field_names,
+            update_dataset_path=self.transform_path,
+            id_field_names=id_field_names,
+            field_names=field_names,
             log_level=None,
             **kwargs
         )
