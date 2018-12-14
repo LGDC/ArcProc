@@ -57,12 +57,15 @@ class ArcETL(object):
             str: Path of the transform-dataset with extracted features.
         """
         LOG.info("Start: Extract %s.", dataset_path)
-        self.transform_path = dataset.copy(
+        self.transform_path = unique_path("extract")
+        feature_action_count = dataset.copy(
             dataset_path=dataset_path,
-            output_path=unique_path("extract"),
+            output_path=self.transform_path,
             dataset_where_sql=extract_where_sql,
             log_level=None,
         )
+        for action, count in feature_action_count.items():
+            LOG.info("%s features %s.", count, action)
         LOG.info("End: Extract.")
         return self.transform_path
 
@@ -121,18 +124,18 @@ class ArcETL(object):
                 Default is False.
 
         Returns:
-            collections.Counter: Counts for each update type.
+            collections.Counter: Counts for each feature action.
         """
         kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load %s.", dataset_path)
-        feature_count = Counter()
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
+            feature_action_count = Counter()
             if not preserve_features:
-                feature_count.update(
+                feature_action_count.update(
                     features.delete(dataset_path, log_level=None, **kwargs)
                 )
-            feature_count.update(
+            feature_action_count.update(
                 features.insert_from_path(
                     dataset_path,
                     insert_dataset_path=self.transform_path,
@@ -143,17 +146,16 @@ class ArcETL(object):
             )
         # Load to a new dataset.
         else:
-            dataset.copy(
+            feature_action_count = dataset.copy(
                 self.transform_path,
                 output_path=dataset_path,
                 dataset_where_sql=load_where_sql,
                 log_level=None,
             )
-            feature_count["inserted"] = dataset.feature_count(dataset_path)
-        for key in ["deleted", "inserted"]:
-            LOG.info("%s features %s.", feature_count[key], key)
+        for action, count in feature_action_count.items():
+            LOG.info("%s features %s.", count, action)
         LOG.info("End: Load.")
-        return feature_count
+        return feature_action_count
 
     def transform(self, transformation, **kwargs):
         """Run transform operation as defined in the workspace.
@@ -201,13 +203,13 @@ class ArcETL(object):
                 Default is True.
 
         Returns:
-            collections.Counter: Counts for each update type.
+            collections.Counter: Counts for each feature action.
         """
         kwargs.setdefault("update_where_sql")
         kwargs.setdefault("delete_missing_features", True)
         kwargs.setdefault("use_edit_session", True)
         LOG.info("Start: Update %s.", dataset_path)
-        feature_count = features.update_from_path(
+        feature_action_count = features.update_from_path(
             dataset_path,
             update_dataset_path=self.transform_path,
             id_field_names=id_field_names,
@@ -215,7 +217,7 @@ class ArcETL(object):
             log_level=None,
             **kwargs
         )
-        for key in features.UPDATE_TYPES:
-            LOG.info("%s features %s.", feature_count[key], key)
+        for action, count in feature_action_count.items():
+            LOG.info("%s features %s.", count, action)
         LOG.info("End: Update.")
-        return feature_count
+        return feature_action_count
