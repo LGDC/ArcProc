@@ -5,7 +5,7 @@ import logging
 
 import arcpy
 
-from arcetl.arcobj import DatasetView, dataset_metadata, spatial_reference
+from arcetl.arcobj import DatasetView, dataset_metadata, spatial_reference_metadata
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import features
@@ -154,12 +154,12 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         str: Path of the converted dataset.
     """
     kwargs.setdefault("dataset_where_sql")
-    meta = {"spatial": spatial_reference(spatial_reference_item)}
+    meta = {"spatial": spatial_reference_metadata(spatial_reference_item)}
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log(
         "Start: Project %s to srid=%s in %s.",
         dataset_path,
-        meta["spatial"].factoryCode,
+        meta["spatial"]["object"].factoryCode,
         output_path,
     )
     meta["dataset"] = dataset_metadata(dataset_path)
@@ -176,7 +176,7 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         dataset_path=output_path,
         field_metadata_list=meta["dataset"]["user_fields"],
         geometry_type=meta["dataset"]["geometry_type"],
-        spatial_reference_item=meta["spatial"],
+        spatial_reference_item=meta["spatial"]["object"],
         log_level=None,
     )
     features.insert_from_path(
@@ -264,7 +264,7 @@ def table_to_points(
     kwargs.setdefault("z_field_name")
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Convert %s to spatial dataset %s.", dataset_path, output_path)
-    meta = {"spatial": spatial_reference(spatial_reference_item)}
+    meta = {"spatial": spatial_reference_metadata(spatial_reference_item)}
     view_name = unique_name()
     arcpy.management.MakeXYEventLayer(
         table=dataset_path,
