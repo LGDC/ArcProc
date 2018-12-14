@@ -13,7 +13,6 @@ from arcetl import attributes
 from arcetl import combo
 from arcetl import convert
 from arcetl import dataset
-from arcetl import diff
 from arcetl import etl
 from arcetl.etl import ArcETL
 from arcetl import features
