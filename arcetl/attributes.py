@@ -189,7 +189,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
     if field_names is None:
         meta["dataset"] = dataset_metadata(dataset_path)
-        keys = {"output": [key for key in meta["dataset"]["field_names_tokenized"]]}
+        keys = {"feature": [key for key in meta["dataset"]["field_names_tokenized"]]}
     else:
         keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
