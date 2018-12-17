@@ -58,8 +58,6 @@ GEOMETRY_PROPERTY_TRANSFORM = {
     "zmin": ["extent", "ZMin"],
 }
 """dict: Mapping of geometry property tag to cascade of geometry object properties."""
-UPDATE_TYPES = ["altered", "unchanged"]
-"""list: Types of attribute updates commonly associated with update counters."""
 
 
 class FeatureMatcher(object):
@@ -475,7 +473,7 @@ def update_by_domain_code(
         domain_name,
     )
     meta = {"domain": domain_metadata(domain_name, domain_workspace_path)}
-    update_count = update_by_function(
+    update_action_count = update_by_function(
         dataset_path,
         field_name,
         function=meta["domain"]["code_description_map"].get,
@@ -485,10 +483,10 @@ def update_by_domain_code(
         use_edit_session=kwargs["use_edit_session"],
         log_level=None,
     )
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_expression(dataset_path, field_name, expression, **kwargs):
@@ -610,7 +608,7 @@ def update_by_feature_match(
             else None
         ),
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -627,19 +625,19 @@ def update_by_feature_match(
             elif update_type == "sort_order":
                 value["new"] = matcher.increment_assigned(value["id"])
             if same_value(value["old"], value["new"]):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_function(dataset_path, field_name, function, **kwargs):
@@ -690,7 +688,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -702,19 +700,19 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                 value["args"] = [value["old"]] + value["args"]
             value["new"] = function(*value["args"], **value["kwargs"])
             if same_value(value["old"], value["new"]):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
@@ -759,7 +757,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=meta["spatial"]["object"],
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for feature in cursor:
             value = {"geometry": feature[0], "old": feature[-1]}
@@ -769,19 +767,19 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
                 *contain(geometry_properties)
             )
             if same_value(value["old"], value["new"]):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow([value["geometry"], value["new"]])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_joined_value(
@@ -836,7 +834,7 @@ def update_by_joined_value(
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -847,19 +845,19 @@ def update_by_joined_value(
             }
             value["new"] = join_value.get(value["id"])
             if same_value(value["old"], value["new"]):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs):
@@ -906,7 +904,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -915,19 +913,19 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
             }
             value["new"] = mapping.get(value["map_key"], kwargs["default_value"])
             if same_value(value["old"], value["new"]):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwargs):
@@ -969,7 +967,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for feature in cursor:
             value = {"oid": feature[0], "old_nodes": feature[1:]}
@@ -978,19 +976,19 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
                 oid_node[value["oid"]]["to"],
             ]
             if same_feature(value["old_nodes"], value["new_nodes"]):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow([value["oid"]] + value["new_nodes"])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value one of %s", value["new_nodes"])
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_overlay(
@@ -1098,7 +1096,7 @@ def update_by_overlay(
         log_level=None,
     )
     # Update values in original dataset.
-    update_count = update_by_joined_value(
+    update_action_count = update_by_joined_value(
         dataset_path,
         field_name,
         join_dataset_path=temp_output_path,
@@ -1109,10 +1107,10 @@ def update_by_overlay(
         log_level=None,
     )
     dataset.delete(temp_output_path, log_level=None)
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_unique_id(dataset_path, field_name, **kwargs):
@@ -1166,27 +1164,27 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
             string_length=meta["field"].get("length"),
         )
         # Second run will fill in missing IDs.
-        update_count = Counter()
+        update_action_count = Counter()
         with cursor:
             for [id_value] in cursor:
                 if id_value is not None:
-                    update_count["unchanged"] += 1
+                    update_action_count["unchanged"] += 1
                 else:
                     id_value = next(id_pool)
                     while id_value in used_ids:
                         id_value = next(id_pool)
                     try:
                         cursor.updateRow([id_value])
-                        update_count["altered"] += 1
+                        update_action_count["altered"] += 1
                         used_ids.add(id_value)
                     except RuntimeError:
                         LOG.error("Offending value is %s", id_value)
                         raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count
 
 
 def update_by_value(dataset_path, field_name, value, **kwargs):
@@ -1220,20 +1218,20 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         field_names=[field_name],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_count = Counter()
+    update_action_count = Counter()
     with session, cursor:
         for [old_value] in cursor:
             if same_value(old_value, value):
-                update_count["unchanged"] += 1
+                update_action_count["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow([value])
-                    update_count["altered"] += 1
+                    update_action_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value)
                     raise
 
-    for key in UPDATE_TYPES:
-        log("%s attributes %s.", update_count[key], key)
+    for action, count in sorted(update_action_count.items()):
+        log("%s attributes %s.", count, action)
     log("End: Update.")
-    return update_count
+    return update_action_count

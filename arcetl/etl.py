@@ -64,7 +64,7 @@ class ArcETL(object):
             dataset_where_sql=extract_where_sql,
             log_level=None,
         )
-        for action, count in feature_action_count.items():
+        for action, count in sorted(feature_action_count.items()):
             LOG.info("%s features %s.", count, action)
         LOG.info("End: Extract.")
         return self
@@ -152,7 +152,7 @@ class ArcETL(object):
                 dataset_where_sql=load_where_sql,
                 log_level=None,
             )
-        for action, count in feature_action_count.items():
+        for action, count in sorted(feature_action_count.items()):
             LOG.info("%s features %s.", count, action)
         LOG.info("End: Load.")
         return self
@@ -217,7 +217,7 @@ class ArcETL(object):
             log_level=None,
             **kwargs
         )
-        for action, count in feature_action_count.items():
+        for action, count in sorted(feature_action_count.items()):
             LOG.info("%s features %s.", count, action)
         LOG.info("End: Update.")
         return self
