@@ -919,6 +919,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
+                    update_count["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
