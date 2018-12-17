@@ -1,6 +1,7 @@
 """Attribute operations."""
 from collections import Counter, defaultdict
 from copy import copy, deepcopy
+import functools
 import logging
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
@@ -32,6 +33,10 @@ from arcetl.helpers import (
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+EXEC_TYPES = (
+    BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, functools.partial
+)
+"""tuple: Executable object types. Useful for determining if an object can execute."""
 GEOMETRY_PROPERTY_TRANSFORM = {
     "x": ["X"],
     "x-coordinate": ["X"],
@@ -53,7 +58,6 @@ GEOMETRY_PROPERTY_TRANSFORM = {
     "zmin": ["extent", "ZMin"],
 }
 """dict: Mapping of geometry property tag to cascade of geometry object properties."""
-
 UPDATE_TYPES = ["altered", "unchanged"]
 """list: Types of attribute updates commonly associated with update counters."""
 
@@ -894,9 +898,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {"map": list(contain(key_field_names))}
     keys["feature"] = keys["map"] + [field_name]
-    if isinstance(
-        mapping, (BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType)
-    ):
+    if isinstance(mapping, EXEC_TYPES):
         mapping = mapping()
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
