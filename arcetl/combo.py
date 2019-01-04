@@ -61,7 +61,10 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     with session:
         for field in meta["dataset"]["user_fields"]:
             if field["type"].lower() not in replacement_value:
-                log("Skipping %s field: type cannot transfer to shapefile.")
+                log(
+                    "Skipping %s field: type cannot transfer to shapefile.",
+                    field["name"]
+                )
                 continue
 
             else:
