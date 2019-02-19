@@ -18,7 +18,7 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 UPDATE_TYPES = ['deleted', 'inserted', 'altered', 'unchanged']
-"""list of str: Types of feature updates, commonly associated wtth update counters."""
+"""list of str: Types of feature updates commonly associated wtth update counters."""
 
 
 def clip(dataset_path, clip_dataset_path, **kwargs):
@@ -492,6 +492,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
+        collections.Counter: Counts for each feature action.
 
     """
     kwargs.setdefault('insert_where_sql')
@@ -511,7 +512,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         )
     else:
         keys = set(name.lower() for name in contain(field_names))
-    # OIDs & area/length "fields" have no business being part of an update.
+    # OIDs & area/length "fields" have no business being part of an insert.
     # Geometry itself is handled separately in append function.
     for _meta in meta.values():
         for key in chain(*_meta['field_token'].items()):
