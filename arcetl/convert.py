@@ -1,5 +1,8 @@
 """Conversion operations."""
-from collections import Sequence
+try:
+    from collections.abc import Sequence
+except ImportError:
+    from collections import Sequence
 import csv
 import logging
 

@@ -1,5 +1,8 @@
 """Internal module helper objects."""
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 import inspect
 import logging
 import os
