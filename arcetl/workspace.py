@@ -26,7 +26,7 @@ def build_locator(locator_path, **kwargs):
         str: Path of the built locator.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Build locator %s.", locator_path)
     arcpy.geocoding.RebuildAddressLocator(locator_path)
     log("End: Build.")
@@ -47,9 +47,9 @@ def build_network(network_path, **kwargs):
         str: Path of the built network dataset.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Build network %s.", network_path)
-    with arcobj.ArcExtension('Network'):
+    with arcobj.ArcExtension("Network"):
         arcpy.na.BuildNetwork(in_network_dataset=network_path)
     log("End: Build.")
     return network_path
@@ -73,21 +73,21 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
         ValueError: If `workspace_path` doesn't reference a compressable geodatabase.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Compress workspace %s.", workspace_path)
-    meta = {'workspace': metadata(workspace_path)}
+    meta = {"workspace": metadata(workspace_path)}
     # Disconnect only possible for enterprise workspaces.
-    disconnect_users = disconnect_users and meta['workspace']['is_enterprise_database']
-    if meta['workspace']['is_file_geodatabase']:
+    disconnect_users = disconnect_users and meta["workspace"]["is_enterprise_database"]
+    if meta["workspace"]["is_file_geodatabase"]:
         _compress = arcpy.management.CompressFileGeodatabaseData
-    elif meta['workspace']['is_enterprise_database']:
+    elif meta["workspace"]["is_enterprise_database"]:
         _compress = arcpy.management.Compress
     else:
         raise ValueError("Compressing {} unsupported.".format(workspace_path))
 
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=False)
-        arcpy.DisconnectUser(sde_workspace=workspace_path, users='all')
+        arcpy.DisconnectUser(sde_workspace=workspace_path, users="all")
     _compress(workspace_path)
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=True)
@@ -115,7 +115,7 @@ def create_file_geodatabase(
         str: Path of the created file geodatabase.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Create file geodatabase %s.", geodatabase_path)
     if os.path.exists(geodatabase_path):
         LOG.warning("Geodatabase already exists.")
@@ -124,14 +124,14 @@ def create_file_geodatabase(
     arcpy.management.CreateFileGDB(
         out_folder_path=os.path.dirname(geodatabase_path),
         out_name=os.path.basename(geodatabase_path),
-        out_version='current',
+        out_version="current",
     )
     if xml_workspace_path:
         arcpy.management.ImportXMLWorkspaceDocument(
             target_geodatabase=geodatabase_path,
             in_file=xml_workspace_path,
-            import_type=('data' if include_xml_data else 'schema_only'),
-            config_keyword='defaults',
+            import_type=("data" if include_xml_data else "schema_only"),
+            config_keyword="defaults",
         )
     log("End: Create.")
     return geodatabase_path
@@ -156,7 +156,7 @@ def create_geodatabase_xml_backup(
         str: Path of the created XML workspace document.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log(
         "Start: Create XML backup of geodatabase %s at %s.",
         geodatabase_path,
@@ -165,8 +165,8 @@ def create_geodatabase_xml_backup(
     arcpy.management.ExportXMLWorkspaceDocument(
         in_data=geodatabase_path,
         out_file=output_path,
-        export_type=('data' if include_data else 'schema_only'),
-        storage_type='binary',
+        export_type=("data" if include_data else "schema_only"),
+        storage_type="binary",
         export_metadata=include_metadata,
     )
     log("End: Create.")
@@ -194,28 +194,28 @@ def dataset_names(workspace_path, **kwargs):
         str: Name of the next dataset in the workspace.
 
     """
-    kwargs.setdefault('include_feature_classes', True)
-    kwargs.setdefault('include_rasters', True)
-    kwargs.setdefault('include_tables', True)
-    kwargs.setdefault('only_top_level', False)
-    kwargs.setdefault('name_validator', lambda n: True)
+    kwargs.setdefault("include_feature_classes", True)
+    kwargs.setdefault("include_rasters", True)
+    kwargs.setdefault("include_tables", True)
+    kwargs.setdefault("only_top_level", False)
+    kwargs.setdefault("name_validator", lambda n: True)
     dataset_types = {
-        'feature_classes': ['FeatureClass'],
-        'rasters': ['RasterCatalog', 'RasterDataset'],
-        'tables': ['Table'],
+        "feature_classes": ["FeatureClass"],
+        "rasters": ["RasterCatalog", "RasterDataset"],
+        "tables": ["Table"],
     }
     include_data_types = []
     for _type in dataset_types:
-        if kwargs['include_' + _type]:
+        if kwargs["include_" + _type]:
             include_data_types.extend(dataset_types[_type])
     for root_path, _, names in arcpy.da.Walk(
         workspace_path, datatype=include_data_types
     ):
-        if kwargs['only_top_level'] and root_path != workspace_path:
+        if kwargs["only_top_level"] and root_path != workspace_path:
             continue
 
         for name in names:
-            if kwargs['name_validator'](name):
+            if kwargs["name_validator"](name):
                 yield name
 
 
@@ -240,11 +240,11 @@ def dataset_paths(workspace_path, **kwargs):
         str: Path of the next dataset in the workspace.
 
     """
-    kwargs.setdefault('include_feature_classes', True)
-    kwargs.setdefault('include_rasters', True)
-    kwargs.setdefault('include_tables', True)
-    kwargs.setdefault('only_top_level', False)
-    kwargs.setdefault('name_validator', lambda n: True)
+    kwargs.setdefault("include_feature_classes", True)
+    kwargs.setdefault("include_rasters", True)
+    kwargs.setdefault("include_tables", True)
+    kwargs.setdefault("only_top_level", False)
+    kwargs.setdefault("name_validator", lambda n: True)
     for name in dataset_names(workspace_path, **kwargs):
         yield os.path.join(workspace_path, name)
 
@@ -276,7 +276,7 @@ def execute_sql(statement, database_path, **kwargs):
         AttributeError: If statement SQL syntax is incorrect.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Execute SQL statement.")
     conn = arcpy.ArcSDESQLExecute(server=database_path)
     try:
@@ -306,7 +306,7 @@ def is_valid(workspace_path):
         [
             workspace_path is not None,
             arcpy.Exists(workspace_path),
-            metadata(workspace_path)['data_type'] == 'Workspace',
+            metadata(workspace_path)["data_type"] == "Workspace",
         ]
     )
 
