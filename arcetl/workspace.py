@@ -4,7 +4,11 @@ import os
 
 import arcpy
 
-from arcetl import arcobj
+from arcetl.arcobj import (
+    ArcExtension,
+    domain_metadata,
+    workspace_metadata,
+)
 from arcetl.helpers import leveled_logger
 
 
@@ -49,7 +53,7 @@ def build_network(network_path, **kwargs):
     """
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Build network %s.", network_path)
-    with arcobj.ArcExtension("Network"):
+    with ArcExtension("Network"):
         arcpy.na.BuildNetwork(in_network_dataset=network_path)
     log("End: Build.")
     return network_path
@@ -249,7 +253,7 @@ def dataset_paths(workspace_path, **kwargs):
         yield os.path.join(workspace_path, name)
 
 
-domain_metadata = arcobj.domain_metadata  # pylint: disable=invalid-name
+domain_metadata = domain_metadata  # pylint: disable=invalid-name
 
 
 def execute_sql(statement, database_path, **kwargs):
@@ -306,9 +310,6 @@ def is_valid(workspace_path):
         [
             workspace_path is not None,
             arcpy.Exists(workspace_path),
-            metadata(workspace_path)["data_type"] == "Workspace",
+            workspace_metadata(workspace_path)["data_type"] == "Workspace",
         ]
     )
-
-
-metadata = arcobj.workspace_metadata  # pylint: disable=invalid-name
