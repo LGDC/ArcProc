@@ -171,6 +171,39 @@ def add_index(dataset_path, field_names, **kwargs):
     return dataset_path
 
 
+def compress(dataset_path, **kwargs):
+    """Compress dataset.
+
+    Compression only applies to datasets in file geodatabases.
+
+    Args:
+        dataset_path (str): Path of the workspace.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (str): Level to log the function at. Default is 'info'.
+
+    Returns:
+        str: Path of the compressed dataset.
+    """
+    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
+    log("Start: Compress dataset %s.", dataset_path)
+    try:
+        arcpy.management.CompressFileGeodatabaseData(dataset_path)
+    except arcpy.ExecuteError as error:
+        # Bad allocation error just means the dataset is too big to compress.
+        if str(error) == "bad allocation":
+            LOG.warning("Compress error: bad allocation.")
+            pass
+        else:
+            log("""error str: "%s\"""", error)
+            log("error repr: %r", error)
+            raise
+
+    log("End: Compress.")
+    return dataset_path
+
+
 def copy(dataset_path, output_path, **kwargs):
     """Copy features into a new dataset.
 
