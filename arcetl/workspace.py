@@ -75,24 +75,16 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
 
     Raises:
         ValueError: If `workspace_path` doesn't reference a compressable geodatabase.
-
     """
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Compress workspace %s.", workspace_path)
-    meta = {"workspace": metadata(workspace_path)}
-    # Disconnect only possible for enterprise workspaces.
-    disconnect_users = disconnect_users and meta["workspace"]["is_enterprise_database"]
-    if meta["workspace"]["is_file_geodatabase"]:
-        _compress = arcpy.management.CompressFileGeodatabaseData
-    elif meta["workspace"]["is_enterprise_database"]:
-        _compress = arcpy.management.Compress
-    else:
+    meta = {"workspace": workspace_metadata(workspace_path)}
+    if not meta["workspace"]["is_enterprise_database"]:
         raise ValueError("Compressing {} unsupported.".format(workspace_path))
-
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=False)
         arcpy.DisconnectUser(sde_workspace=workspace_path, users="all")
-    _compress(workspace_path)
+    arcpy.management.Compress(workspace_path)
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=True)
     log("End: Compress.")
