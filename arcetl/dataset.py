@@ -192,12 +192,13 @@ def compress(dataset_path, **kwargs):
         arcpy.management.CompressFileGeodatabaseData(dataset_path)
     except arcpy.ExecuteError as error:
         # Bad allocation error just means the dataset is too big to compress.
-        if str(error) == "bad allocation":
-            LOG.warning("Compress error: bad allocation.")
-            pass
+        if str(error) == (
+            "bad allocation\nFailed to execute (CompressFileGeodatabaseData).\n"
+        ):
+            LOG.error("Compress error: bad allocation.")
         else:
-            log("""error str: "%s\"""", error)
-            log("error repr: %r", error)
+            LOG.error("""str(error) = "%s\"""", error)
+            LOG.error("""repr(error) = "%r\"""", error)
             raise
 
     log("End: Compress.")
