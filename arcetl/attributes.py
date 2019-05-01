@@ -5,6 +5,8 @@ import functools
 import logging
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
+from xsorted import xsorted
+
 import arcpy
 
 from arcetl.arcobj import (
@@ -20,6 +22,7 @@ from arcetl.arcobj import (
 from arcetl import dataset
 from arcetl.helpers import (
     contain,
+    freeze_values,
     leveled_logger,
     property_value,
     same_feature,
@@ -33,10 +36,14 @@ from arcetl.helpers import (
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
-EXEC_TYPES = (
-    BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, functools.partial
-)
-"""tuple: Executable object types. Useful for determining if an object can execute."""
+EXEC_TYPES = [
+    BuiltinFunctionType,
+    BuiltinMethodType,
+    FunctionType,
+    MethodType,
+    functools.partial,
+]
+"""list: Executable object types. Useful for determining if an object can execute."""
 GEOMETRY_PROPERTY_TRANSFORM = {
     "x": ["X"],
     "x-coordinate": ["X"],
@@ -433,6 +440,45 @@ def id_node_map(
             id_nodes[feature_id][keys["node"]["from"]] = from_node_id
             id_nodes[feature_id][keys["node"]["to"]] = to_node_id
     return id_nodes
+
+
+def id_values(dataset_path, id_field_names, field_names, **kwargs):
+    """Generate tuple with feature ID & attributes value-tuples sorted in ID order.
+
+    If there is only one field name listed to retrieve values from, value will be
+        returned as itself, rather than in a value-tuple.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        id_field_names (iter): Ordered collection of fields used to identify a feature.
+        field_names (iter): Ordered collection of fields to attribute to feature.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        sort_by_id (bool): Sort generated tuples in ID order. Default is False.
+        dataset_where_sql (str): SQL where-clause for dataset subselection. Default is
+            None.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived. Only relevant if geometry or geometry property are
+            attributed. Default is None (uses spatial reference of the dataset).
+
+    Yields:
+        tuple
+    """
+    keys = {"id": list(contain(id_field_names)), "val": list(contain(field_names))}
+    pivot = len(keys["id"])
+    feats = as_iters(
+        dataset_path=dataset_path,
+        field_names=keys["id"] + keys["val"],
+        dataset_where_sql=kwargs.get("dataset_where_sql"),
+        spatial_reference_item=kwargs.get("spatial_reference_item"),
+    )
+    if kwargs.get("sort_by_id", False):
+        feats = xsorted(iterable=feats, key=(lambda x: x[:pivot]))
+    for feat in feats:
+        feat_id = tuple(freeze_values(*feat[:pivot]))
+        feat_vals = tuple(feat[pivot:]) if len(keys["val"]) > 1 else feat[pivot]
+        yield (feat_id, feat_vals)
 
 
 def update_by_domain_code(
