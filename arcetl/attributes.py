@@ -323,57 +323,6 @@ def coordinate_node_map(
     return coordinate_node
 
 
-def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
-    """Return mapping of feature ID to attribute value or tuple of values.
-
-    Notes:
-        There is no guarantee that the ID value(s) are unique.
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path (str): Path of the dataset.
-        id_field_names (iter, str): Name(s) of the ID field(s).
-        field_names (iter, str): Name(s) of the field(s).
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived.
-
-    Returns:
-        dict.
-    """
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("spatial_reference_item")
-    meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
-    keys = {
-        "id": list(contain(id_field_names)),
-        "attribute": list(contain(field_names)),
-    }
-    cursor = arcpy.da.SearchCursor(
-        in_table=dataset_path,
-        field_names=keys["id"] + keys["attribute"],
-        where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=meta["spatial"]["object"],
-    )
-    id_attributes = {}
-    with cursor:
-        for feature in cursor:
-            value = {
-                "id": feature[0]
-                if len(keys["id"]) == 1
-                else feature[: len(keys["id"])],
-                "attributes": (
-                    feature[len(keys["id"])]
-                    if len(keys["attribute"]) == 1
-                    else tuple(feature[len(keys["id"]) :])
-                ),
-            }
-            id_attributes[value["id"]] = value["attributes"]
-    return id_attributes
-
-
 ##TODO: Add spatial_reference_item kwarg?
 def id_node_map(
     dataset_path,
@@ -481,6 +430,57 @@ def id_values(dataset_path, id_field_names, field_names, **kwargs):
         feat_vals = tuple(feat[pivot:]) if len(keys["val"]) > 1 else feat[pivot]
         yield (feat_id, feat_vals)
 
+
+def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
+    """Return mapping of feature ID to attribute value or tuple of values.
+
+    Notes:
+        There is no guarantee that the ID value(s) are unique.
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        id_field_names (iter, str): Name(s) of the ID field(s).
+        field_names (iter, str): Name(s) of the field(s).
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+
+    Returns:
+        dict.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("spatial_reference_item")
+    meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
+    keys = {
+        "id": list(contain(id_field_names)),
+        "attribute": list(contain(field_names)),
+    }
+    cursor = arcpy.da.SearchCursor(
+        in_table=dataset_path,
+        field_names=keys["id"] + keys["attribute"],
+        where_clause=kwargs["dataset_where_sql"],
+        spatial_reference=meta["spatial"]["object"],
+    )
+    id_attributes = {}
+    with cursor:
+        for feature in cursor:
+            value = {
+                "id": feature[0]
+                if len(keys["id"]) == 1
+                else feature[: len(keys["id"])],
+                "attributes": (
+                    feature[len(keys["id"])]
+                    if len(keys["attribute"]) == 1
+                    else tuple(feature[len(keys["id"]) :])
+                ),
+            }
+            id_attributes[value["id"]] = value["attributes"]
+    return id_attributes
+    
 
 def update_by_domain_code(
     dataset_path,
