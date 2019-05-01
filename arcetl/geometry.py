@@ -4,6 +4,10 @@ from math import pi, sqrt
 
 from more_itertools import pairwise
 
+import arcpy
+
+from arcetl.helpers import same_value
+
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
@@ -60,6 +64,27 @@ def compactness_ratio(geometry=None, **kwargs):
     return (4 * pi * dim["area"]) / (dim["perimeter"] ** 2) if dim else None
 
 
+def convex_hull(*geometries):
+    """Return convex hull polygon covering given geometries.
+
+    Args:
+        *geometries (arcpy.Geometry): Feature geometries in displacement order.
+
+    Returns:
+        arcpy.Polyline.
+    """
+    if same_value(*geometries):
+        return geometries[0]
+
+    diff_geom = None
+    for geom in geometries:
+        if not diff_geom:
+            diff_geom = geom
+        elif geom:
+            diff_geom = diff_geom.union(geom).convexHull()
+    return diff_geom
+
+
 def coordinate_distance(*coordinates):
     """Return total distance between coordinates.
 
@@ -86,6 +111,20 @@ def coordinate_distance(*coordinates):
             )
         )
     return distance
+
+
+def line_between_centroids(*geometries):
+    """Return line geometry connecting given geometry centroids.
+
+    Args:
+        *geometries (list of arcpy.Geometry): Ordered collection of geometries.
+
+    Returns:
+        arcpy.Polyline
+    """
+    points = [geom.centroid for geom in geometries]
+    line = arcpy.Polyline(arcpy.Array(points), geometries[0].spatialReference)
+    return line
 
 
 def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0, fourths=0):
