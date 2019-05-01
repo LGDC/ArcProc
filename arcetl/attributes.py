@@ -323,8 +323,8 @@ def coordinate_node_map(
     return coordinate_node
 
 
-def id_map(dataset_path, id_field_names, field_names, **kwargs):
-    """Return mapping of feature ID to attribute or list of attributes.
+def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
+    """Return mapping of feature ID to attribute value or tuple of values.
 
     Notes:
         There is no guarantee that the ID value(s) are unique.
@@ -367,7 +367,7 @@ def id_map(dataset_path, id_field_names, field_names, **kwargs):
                 "attributes": (
                     feature[len(keys["id"])]
                     if len(keys["attribute"]) == 1
-                    else feature[len(keys["id"]) :]
+                    else tuple(feature[len(keys["id"]) :])
                 ),
             }
             id_attributes[value["id"]] = value["attributes"]
@@ -442,8 +442,9 @@ def id_node_map(
     return id_nodes
 
 
+##TODO: Test.
 def id_values(dataset_path, id_field_names, field_names, **kwargs):
-    """Generate tuple with feature ID & attributes value-tuples sorted in ID order.
+    """Generate tuple with feature ID & attributes value or tuple of values.
 
     If there is only one field name listed to retrieve values from, value will be
         returned as itself, rather than in a value-tuple.
@@ -871,7 +872,7 @@ def update_by_joined_value(
         "join_id": list(pair[1] for pair in on_field_pairs),
     }
     keys["feature"] = keys["dataset_id"] + [field_name]
-    join_value = id_map(
+    join_value = id_values_map(
         join_dataset_path, id_field_names=keys["join_id"], field_names=join_field_name
     )
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])

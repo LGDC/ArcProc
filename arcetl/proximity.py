@@ -65,10 +65,10 @@ def id_near_info_map(
             closest=False,
             closest_count=kwargs['near_rank'],
         )
-        oid_id_map = attributes.id_map(
+        oid_id_map = attributes.id_values_map(
             view['dataset'].name, 'oid@', dataset_id_field_name
         )
-        near_oid_id_map = attributes.id_map(
+        near_oid_id_map = attributes.id_values_map(
             view['near'].name, 'oid@', near_id_field_name
         )
     field_names = [
