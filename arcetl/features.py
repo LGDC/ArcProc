@@ -10,7 +10,7 @@ from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
 from arcetl.helpers import (
-    contain, freeze_values, leveled_logger, unique_name, unique_path
+    contain, freeze_values, leveled_logger, same_feature, unique_name, unique_path
 )
 
 
@@ -734,7 +734,7 @@ def update_from_iters(
 
                 elif (
                     _id in feats['id_update']
-                    and not arcobj.same_feature(feat, feats['id_update'][_id])
+                    and not same_feature(feat, feats['id_update'][_id])
                 ):
                     cursor.updateRow(feats['id_update'][_id])
                     feature_count['altered'] += 1

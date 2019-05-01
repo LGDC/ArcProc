@@ -15,8 +15,6 @@ from arcetl.arcobj import (
     domain_metadata,
     field_metadata,
     python_type,
-    same_feature,
-    same_value,
     spatial_reference_metadata,
 )
 from arcetl import dataset
@@ -24,6 +22,8 @@ from arcetl.helpers import (
     contain,
     leveled_logger,
     property_value,
+    same_feature,
+    same_value,
     unique_ids,
     unique_name,
     unique_path,

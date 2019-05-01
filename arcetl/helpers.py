@@ -3,18 +3,24 @@ try:
     from collections.abc import Iterable
 except ImportError:
     from collections import Iterable
+import datetime
 import inspect
 import logging
+import math
 import os
 import random
 import string
 import sys
 import uuid
 
+from more_itertools import pairwise
+
+import arcpy
+
+
 if sys.version_info.major >= 3:
     basestring = str
     """Defining a basestring type instance for Py3+."""
-
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
@@ -30,7 +36,6 @@ def contain(obj, nonetypes_as_empty=True):
 
     Yields:
         obj or its contents.
-
     """
     if nonetypes_as_empty and obj is None:
         return
@@ -46,7 +51,7 @@ def contain(obj, nonetypes_as_empty=True):
 
 
 def freeze_values(*values):
-    """Generate 'frozen' versions of mutable objects.
+    """Generate "frozen" versions of mutable objects.
 
     Currently only freezes bytearrays to bytes.
 
@@ -56,7 +61,6 @@ def freeze_values(*values):
     Yields:
         object: If a value is mutable, will yield value as immutable type of the value.
             Otherwise will yield as original value/type.
-
     """
     for val in values:
         if isinstance(val, bytearray):
@@ -75,7 +79,6 @@ def leveled_logger(logger, level_repr=None):
 
     Returns:
         function.
-
     """
 
     def _logger(msg, *args, **kwargs):
@@ -96,11 +99,11 @@ def log_level(level_repr=None):
     """
     level = {
         None: 0,
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR,
-        'critical': logging.CRITICAL,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
     }
     if level_repr in level.values():
         result = level_repr
@@ -126,7 +129,6 @@ def property_value(item, property_transform_map, *properties):
 
     Returns:
         Value of the property represented in the ordered properties.
-
     """
     if item is None:
         return None
@@ -143,6 +145,57 @@ def property_value(item, property_transform_map, *properties):
     return current_val
 
 
+def same_feature(*features):
+    """Determine whether feature representations are the same.
+
+    Args:
+        *features (iter of iter): Collection of features to compare.
+
+    Returns:
+        bool: True if same feature, False otherwise.
+    """
+    same = all(same_value(*vals) for pair in pairwise(features) for vals in zip(*pair))
+    return same
+
+
+def same_value(*values):
+    """Determine whether values are the same.
+
+    Notes:
+        For datetime values, currently allows for a tolerance level of up to 10 ** -64.
+        For geometry:
+            Has not been tested on the following geometry types: multipoint, multipatch,
+                dimension, annotation.
+            Adding vertices that do not alter overall polygon shape do not appear to
+                effect `geometry.equals()`.
+            Adding those vertices does change `geometry.WKB` & `geometry.WKT`, so be
+                aware that will make "different" values.
+            Derived float values (e.g. geometry lengths & areas) can have slight
+                differences between sources when they are essentially the same. Avoid
+                comparisons between those.
+
+    Args:
+        *values (iter of iter): Collection of values to compare.
+
+    Returns:
+        bool: True if same value, False otherwise.
+    """
+    same = all(val1 == val2 for val1, val2 in pairwise(values))
+    # Some types are not quite as simple.
+    # Date-times & floats can have slight variations even when essentially the same.
+    if all(isinstance(val, datetime.datetime) for val in values):
+        same = all(
+            abs(val1 - val2).total_seconds() < 10 ** -64
+            for val1, val2 in pairwise(values)
+        )
+    if all(isinstance(val, float) for val in values):
+        same = all(math.isclose(val1, val2) for val1, val2 in pairwise(values))
+    # Geometry equality has extra considerations.
+    elif all(isinstance(val, (arcpy.Geometry, arcpy.Point)) for val in values):
+        same = all(val1.equals(val2) for val1, val2 in pairwise(values))
+    return same
+
+
 def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generate unique IDs.
 
@@ -153,7 +206,6 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
 
     Yields:
         Unique ID.
-
     """
     if data_type in [float, int]:
         # Skip 0 (problematic - some processing functions use 0 for null).
@@ -170,7 +222,7 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
         seed = string.ascii_letters + string.digits
         used_ids = set()
         while True:
-            unique_id = ''.join(random.choice(seed) for _ in range(string_length))
+            unique_id = "".join(random.choice(seed) for _ in range(string_length))
             if unique_id in used_ids:
                 continue
 
@@ -183,7 +235,7 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
         )
 
 
-def unique_name(prefix='', suffix='', unique_length=4, allow_initial_digit=True):
+def unique_name(prefix="", suffix="", unique_length=4, allow_initial_digit=True):
     """Generate unique name.
 
     Args:
@@ -195,7 +247,6 @@ def unique_name(prefix='', suffix='', unique_length=4, allow_initial_digit=True)
 
     Returns:
         str: Unique name.
-
     """
     name = prefix + next(unique_ids(str, unique_length)) + suffix
     if not allow_initial_digit and name[0].isdigit():
@@ -203,7 +254,7 @@ def unique_name(prefix='', suffix='', unique_length=4, allow_initial_digit=True)
     return name
 
 
-def unique_path(prefix='', suffix='', unique_length=4, workspace_path='in_memory'):
+def unique_path(prefix="", suffix="", unique_length=4, workspace_path="in_memory"):
     """Create unique temporary dataset path.
 
     Args:
@@ -214,7 +265,6 @@ def unique_path(prefix='', suffix='', unique_length=4, workspace_path='in_memory
 
     Returns:
         str: Path of the created dataset.
-
     """
     name = unique_name(prefix, suffix, unique_length, allow_initial_digit=False)
     return os.path.join(workspace_path, name)

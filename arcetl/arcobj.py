@@ -4,8 +4,6 @@ import logging
 import math
 import uuid
 
-from more_itertools import pairwise
-
 import arcpy
 
 from arcetl import geometry
@@ -669,57 +667,6 @@ def python_type(type_description):
         "text": str,
     }
     return instance[type_description.lower()]
-
-
-def same_feature(*features):
-    """Determine whether feature representations are the same.
-
-    Args:
-        *features (iter of iter): Collection of features to compare.
-
-    Returns:
-        bool: True if same feature, False otherwise.
-    """
-    same = all(same_value(*vals) for pair in pairwise(features) for vals in zip(*pair))
-    return same
-
-
-def same_value(*values):
-    """Determine whether values are the same.
-
-    Notes:
-        For datetime values, currently allows for a tolerance level of up to 10 ** -64.
-        For geometry:
-            Has not been tested on the following geometry types: multipoint, multipatch,
-                dimension, annotation.
-            Adding vertices that don't alter overall polygon shape do not appear to
-                effect `geometry.equals()`.
-            Adding those vertices does change `geometry.WKB` & `geometry.WKT`, so be
-                aware that will make 'different' values.
-            Derived float values (e.g. geometry lengths & areas) can have slight
-                differences between sources when they are essentially the same. Avoid
-                comparisons between those.
-
-    Args:
-        *values (iter of iter): Collection of values to compare.
-
-    Returns:
-        bool: True if same value, False otherwise.
-    """
-    same = all(val1 == val2 for val1, val2 in pairwise(values))
-    # Some types are not quite as simple.
-    # Date-times & floats can have slight variations even when essentially the same.
-    if all(isinstance(val, datetime.datetime) for val in values):
-        same = all(
-            abs(val1 - val2).total_seconds() < 10 ** -64
-            for val1, val2 in pairwise(values)
-        )
-    if all(isinstance(val, float) for val in values):
-        same = all(math.isclose(val1, val2) for val1, val2 in pairwise(values))
-    # Geometry equality has extra considerations.
-    elif all(isinstance(val, (arcpy.Geometry, arcpy.Point)) for val in values):
-        same = all(val1.equals(val2) for val1, val2 in pairwise(values))
-    return same
 
 
 def spatial_reference(item):
