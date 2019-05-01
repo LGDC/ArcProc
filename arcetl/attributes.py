@@ -90,39 +90,39 @@ class FeatureMatcher(object):
             as_iters(dataset_path, id_field_names, dataset_where_sql=dataset_where_sql)
         )
 
-    def assigned_count(self, id_values):
+    def assigned_count(self, feature_id):
         """Return the assigned count for features with the given identifier.
 
         Args:
-            id_values (iter): Feature identifier values.
+            feature_id (iter): Feature identifier values.
         """
-        return self.assigned[tuple(contain(id_values))]
+        return self.assigned[tuple(contain(feature_id))]
 
-    def increment_assigned(self, id_values):
+    def increment_assigned(self, feature_id):
         """Increment assigned count for given feature ID.
 
         Args:
-            id_values (iter): Feature identifier values.
+            feature_id (iter): Feature identifier values.
         """
-        _id = tuple(contain(id_values))
+        _id = tuple(contain(feature_id))
         self.assigned[_id] += 1
         return self.assigned[_id]
 
-    def is_duplicate(self, id_values):
+    def is_duplicate(self, feature_id):
         """Return True if more than one feature has given ID.
 
         Args:
-            id_values (iter): Feature identifier values.
+            feature_id (iter): Feature identifier values.
         """
-        return self.matched[tuple(contain(id_values))] > 1
+        return self.matched[tuple(contain(feature_id))] > 1
 
-    def match_count(self, id_values):
+    def match_count(self, feature_id):
         """Return match count for features with given ID.
 
         Args:
-            id_values (iter): Feature identifier values.
+            feature_id (iter): Feature identifier values.
         """
-        return self.matched[tuple(contain(id_values))]
+        return self.matched[tuple(contain(feature_id))]
 
 
 def _update_coordinate_node_map(coordinate_node, node_id_field_metadata):
