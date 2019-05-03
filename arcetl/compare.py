@@ -310,7 +310,7 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
     init = {}
     new = {}
     for i, (init["id"], init["geom"]) in enumerate(id_vals["init"], 1):
-        init["id"] = tuple(contain(init["id'"]))
+        init["id"] = tuple(contain(init["id"]))
         while not new or new["id"] < init["id"]:
             try:
                 (new["id"], new["geom"]) = next(id_vals["new"])
