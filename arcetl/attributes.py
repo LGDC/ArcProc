@@ -22,7 +22,6 @@ from arcetl.arcobj import (
 from arcetl import dataset
 from arcetl.helpers import (
     contain,
-    freeze_values,
     leveled_logger,
     property_value,
     same_feature,
@@ -392,7 +391,6 @@ def id_node_map(
     return id_nodes
 
 
-##TODO: Test.
 def id_values(dataset_path, id_field_names, field_names, **kwargs):
     """Generate tuple with feature ID & attributes value or tuple of values.
 
@@ -407,6 +405,8 @@ def id_values(dataset_path, id_field_names, field_names, **kwargs):
 
     Keyword Args:
         sort_by_id (bool): Sort generated tuples in ID order. Default is False.
+        use_external_sort (bool): Use external sort if sort_by_id=True. Helpful for
+            memory management with large datasets. Default is False.
         dataset_where_sql (str): SQL where-clause for dataset subselection. Default is
             None.
         spatial_reference_item: Item from which the spatial reference of the output
@@ -425,9 +425,10 @@ def id_values(dataset_path, id_field_names, field_names, **kwargs):
         spatial_reference_item=kwargs.get("spatial_reference_item"),
     )
     if kwargs.get("sort_by_id", False):
-        feats = xsorted(iterable=feats, key=(lambda x: x[:pivot]))
+        sort_func = xsorted if kwargs.get("use_external_sort", False) else sorted
+        feats = (feat for feat in sort_func(feats, key=(lambda x: x[:pivot])))
     for feat in feats:
-        feat_id = tuple(freeze_values(*feat[:pivot]))
+        feat_id = tuple(feat[:pivot]) if len(keys["val"]) > 1 else feat[0]
         feat_vals = tuple(feat[pivot:]) if len(keys["val"]) > 1 else feat[pivot]
         yield (feat_id, feat_vals)
 
