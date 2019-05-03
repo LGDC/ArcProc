@@ -73,16 +73,13 @@ def convex_hull(*geometries):
     Returns:
         arcpy.Polyline.
     """
-    if same_value(*geometries):
-        return geometries[0]
-
-    diff_geom = None
+    hull_geom = None
     for geom in geometries:
-        if not diff_geom:
-            diff_geom = geom
-        elif geom:
-            diff_geom = diff_geom.union(geom).convexHull()
-    return diff_geom
+        if geom:
+            hull_geom = hull_geom.union(geom).convexHull() if hull_geom else geom
+    if hull_geom and isinstance(hull_geom, (arcpy.PointGeometry, arcpy.Polyline)):
+        hull_geom = hull_geom.buffer(1)
+    return hull_geom
 
 
 def coordinate_distance(*coordinates):
