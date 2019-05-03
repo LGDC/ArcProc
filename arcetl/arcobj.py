@@ -465,7 +465,12 @@ def _dataset_object_metadata(dataset_object):
     ]
     meta["user_field_names"] = [field["name"] for field in meta["user_fields"]]
     if hasattr(meta["object"], "spatialReference"):
-        meta["spatial_reference"] = getattr(meta["object"], "spatialReference")
+        # Must do the SpatialReference call, to convert "geoprocessing spatial reference
+        # object" (which cannot be used as spatial reference in ArcPy GP tools). to
+        # "SpatialReference object" (which can).
+        meta["spatial_reference"] = arcpy.SpatialReference(
+            getattr(getattr(meta["object"], "spatialReference"), "factoryCode")
+        )
         meta["spatial_reference_id"] = getattr(meta["spatial_reference"], "factoryCode")
     else:
         meta["spatial_reference"] = None
