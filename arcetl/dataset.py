@@ -9,7 +9,7 @@ from arcetl.arcobj import (
     DatasetView,
     dataset_metadata,
     field_metadata,
-    spatial_reference_metadata,
+    spatial_reference,
 )
 from arcetl.helpers import contain, leveled_logger
 
@@ -181,7 +181,7 @@ def compress(dataset_path, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (str): Level to log the function at. Default is "info".
 
     Returns:
         str: Path of the compressed dataset.
@@ -272,7 +272,6 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     kwargs.setdefault("spatial_reference_item", 4326)
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Create dataset %s.", dataset_path)
-    meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
     create_kwargs = {
         "out_path": os.path.dirname(dataset_path),
         "out_name": os.path.basename(dataset_path),
@@ -280,7 +279,9 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     if kwargs["geometry_type"]:
         exec_create = arcpy.management.CreateFeatureclass
         create_kwargs["geometry_type"] = kwargs["geometry_type"]
-        create_kwargs["spatial_reference"] = meta["spatial"]["object"]
+        create_kwargs["spatial_reference"] = spatial_reference(
+            kwargs["spatial_reference_item"]
+        )
     else:
         exec_create = arcpy.management.CreateTable
     exec_create(**create_kwargs)

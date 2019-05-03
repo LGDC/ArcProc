@@ -17,7 +17,7 @@ from arcetl.arcobj import (
     domain_metadata,
     field_metadata,
     python_type,
-    spatial_reference_metadata,
+    spatial_reference,
 )
 from arcetl import dataset
 from arcetl.helpers import (
@@ -191,17 +191,19 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
-    meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
     if field_names is None:
-        meta["dataset"] = dataset_metadata(dataset_path)
-        keys = {"feature": [key for key in meta["dataset"]["field_names_tokenized"]]}
+        keys = {
+            "feature": [
+                key for key in dataset_metadata(dataset_path)["field_names_tokenized"]
+            ]
+        }
     else:
         keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
         in_table=dataset_path,
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=meta["spatial"]["object"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
     with cursor:
         for feature in cursor:
@@ -232,13 +234,12 @@ def as_iters(dataset_path, field_names, **kwargs):
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("iter_type", tuple)
-    meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
     keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
         in_table=dataset_path,
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=meta["spatial"]["object"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
     with cursor:
         for feature in cursor:
@@ -454,7 +455,6 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
-    meta = {"spatial": spatial_reference_metadata(kwargs["spatial_reference_item"])}
     keys = {
         "id": list(contain(id_field_names)),
         "attribute": list(contain(field_names)),
@@ -463,7 +463,7 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
         in_table=dataset_path,
         field_names=keys["id"] + keys["attribute"],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=meta["spatial"]["object"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
     id_attributes = {}
     with cursor:
@@ -480,7 +480,7 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
             }
             id_attributes[value["id"]] = value["attributes"]
     return id_attributes
-    
+
 
 def update_by_domain_code(
     dataset_path,
@@ -793,16 +793,14 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         dataset_path,
         geometry_properties,
     )
-    meta = {
-        "dataset": dataset_metadata(dataset_path),
-        "spatial": spatial_reference_metadata(kwargs["spatial_reference_item"]),
-    }
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(
+        dataset_metadata(dataset_path)["workspace_path"], kwargs["use_edit_session"]
+    )
     cursor = arcpy.da.UpdateCursor(
         in_table=dataset_path,
         field_names=["shape@", field_name],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=meta["spatial"]["object"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
     update_action_count = Counter()
     with session, cursor:

@@ -8,7 +8,12 @@ import logging
 
 import arcpy
 
-from arcetl.arcobj import DatasetView, dataset_metadata, spatial_reference_metadata
+from arcetl.arcobj import (
+    DatasetView,
+    dataset_metadata,
+    spatial_reference,
+    spatial_reference_metadata,
+)
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import features
@@ -166,15 +171,14 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         output_path,
     )
     meta["dataset"] = dataset_metadata(dataset_path)
-    """Project tool cannot output to an in-memory workspace (will throw error 000944).
-    This is not a bug. Esri"s Project documentation (as of v10.6) specifically states:
-    "The in_memory workspace is not supported as a location to write the output
-    dataset."
-    https://desktop.arcgis.com/en/arcmap/latest/tools/data-management-toolbox/project.htm
-    https://pro.arcgis.com/en/pro-app/tool-reference/data-management/project.htm
-    To avoid all this ado, using create to clone a (reprojected)
-    dataset & insert features into it.
-    """
+    # Project tool cannot output to an in-memory workspace (will throw error 000944).
+    # This is not a bug. Esri"s Project documentation (as of v10.6) specifically states:
+    # "The in_memory workspace is not supported as a location to write the output
+    # dataset."
+    # https://desktop.arcgis.com/en/arcmap/latest/tools/data-management-toolbox/project.htm
+    # https://pro.arcgis.com/en/pro-app/tool-reference/data-management/project.htm
+    # To avoid all this ado, using create to clone a (reprojected)
+    # dataset & insert features into it.
     dataset.create(
         dataset_path=output_path,
         field_metadata_list=meta["dataset"]["user_fields"],
@@ -267,7 +271,6 @@ def table_to_points(
     kwargs.setdefault("z_field_name")
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Convert %s to spatial dataset %s.", dataset_path, output_path)
-    meta = {"spatial": spatial_reference_metadata(spatial_reference_item)}
     view_name = unique_name()
     arcpy.management.MakeXYEventLayer(
         table=dataset_path,
@@ -275,7 +278,7 @@ def table_to_points(
         in_x_field=x_field_name,
         in_y_field=y_field_name,
         in_z_field=kwargs.get("z_field_name"),
-        spatial_reference=meta["spatial"]["object"],
+        spatial_reference=spatial_reference(spatial_reference_item),
     )
     dataset.copy(
         view_name,
