@@ -460,8 +460,9 @@ def _dataset_object_metadata(dataset_object):
     meta["user_fields"] = [
         field
         for field in meta["fields"]
-        if field["name"] != meta["oid_field_name"]
-        and "{}.".format(meta["geometry_field_name"]) not in field["name"]
+        if field["name"] not in (meta["oid_field_name"], meta["geom_field_name"])
+        and "{}.".format(meta["geom_field_name"]) not in field["name"]
+        and "{}_".format(meta["geom_field_name"]) not in field["name"]
     ]
     meta["user_field_names"] = [field["name"] for field in meta["user_fields"]]
     if hasattr(meta["object"], "spatialReference"):
