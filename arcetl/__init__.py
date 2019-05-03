@@ -11,6 +11,7 @@ from arcetl.arcobj import (
 )
 from arcetl import attributes
 from arcetl import combo
+from arcetl import compare
 from arcetl import convert
 from arcetl import dataset
 from arcetl import etl
