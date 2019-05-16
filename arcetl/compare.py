@@ -125,8 +125,7 @@ def differences(
         init_dataset_path (str): Path of initial dataset.
         new_dataset_path (str): Path of new dataset.
         id_field_names (iter): Ordered collection of fields used to identify a feature.
-        field_names (iter): Ordered collection of fields to attribute to feature.
-        cmp_field_names (iter): Ordered collection of fields to compate attributes
+        cmp_field_names (iter): Ordered collection of fields to compare attributes
             between datasets for differences.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -236,7 +235,7 @@ def differences(
                 )
 
         if i % kwargs["log_evaluated_count"] == 0:
-            LOG.info("%s features evaluated.", i)
+            log("%s features evaluated.", i)
     # No more init features: remaining new features have been added.
     for i, (new["id"], new["vals"]) in enumerate(id_vals["new"], i + 1):
         for key in ["id", "vals"]:
@@ -249,8 +248,8 @@ def differences(
         )
 
         if i % kwargs["log_evaluated_count"] == 0:
-            LOG.info("%s features evaluated.", i)
-    LOG.info("%s features evaluated.", i)
+            log("%s features evaluated.", i)
+    log("%s features evaluated.", i)
     log("End: Evaluate.")
 
 
@@ -330,8 +329,8 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
                     )
 
         if i % kwargs["log_evaluated_count"] == 0:
-            LOG.info("%s features evaluated.", i)
-    LOG.info("%s features evaluated.", i)  # pylint: disable=undefined-loop-variable
+            log("%s features evaluated.", i)
+    log("%s features evaluated.", i)  # pylint: disable=undefined-loop-variable
     log("End: Evaluate.")
 
 
