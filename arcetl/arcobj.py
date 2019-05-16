@@ -9,14 +9,6 @@ import arcpy
 from arcetl import geometry
 from arcetl.helpers import log_level, unique_name, unique_path
 
-if not hasattr(math, "isclose"):
-
-    def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
-        """Backporting Python 3.5+ `math.isclose()`."""
-        return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
-
-    math.isclose = isclose
-
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""

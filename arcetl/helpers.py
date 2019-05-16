@@ -22,6 +22,14 @@ if sys.version_info.major >= 3:
     basestring = str
     """Defining a basestring type instance for Py3+."""
 
+if not hasattr(math, "isclose"):
+
+    def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+        """Backporting Python 3.5+ `math.isclose()`."""
+        return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+
+    math.isclose = isclose
+
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
