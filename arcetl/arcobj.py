@@ -416,7 +416,7 @@ def _dataset_object_metadata(dataset_object):
         dict.
     """
     meta = {"object": dataset_object}
-    meta["name"] = getattr(meta["object"], "name")
+    meta["name"] = getattr(meta["object"], "name", None)
     meta["path"] = getattr(meta["object"], "catalogPath")
     meta["data_type"] = getattr(meta["object"], "dataType")
     meta["workspace_path"] = getattr(meta["object"], "path")
