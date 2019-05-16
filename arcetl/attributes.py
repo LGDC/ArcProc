@@ -942,7 +942,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {"map": list(contain(key_field_names))}
     keys["feature"] = keys["map"] + [field_name]
-    if isinstance(mapping, EXEC_TYPES):
+    if isinstance(mapping, tuple(EXEC_TYPES)):
         mapping = mapping()
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
