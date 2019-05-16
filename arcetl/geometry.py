@@ -71,7 +71,7 @@ def convex_hull(*geometries):
         *geometries (arcpy.Geometry): Feature geometries in displacement order.
 
     Returns:
-        arcpy.Polyline.
+        arcpy.Polygon.
     """
     hull_geom = None
     for geom in geometries:
