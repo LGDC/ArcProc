@@ -1,7 +1,11 @@
 """Interfaces for ArcObjects."""
+try:
+    from contextlib import ContextDecorator
+except ImportError:
+    # Py2.
+    from contextlib2 import ContextDecorator
 import datetime
 import logging
-import math
 import uuid
 
 import arcpy
@@ -14,7 +18,7 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 
-class ArcExtension(object):
+class ArcExtension(ContextDecorator):
     """Context manager for an ArcGIS extension.
 
     Attributes:
@@ -102,7 +106,7 @@ class ArcExtension(object):
         return not self.activated
 
 
-class DatasetView(object):
+class DatasetView(ContextDecorator):
     """Context manager for an ArcGIS dataset view (feature layer/table view).
 
     Attributes:
@@ -261,7 +265,7 @@ class DatasetView(object):
         return not self.exists
 
 
-class Editor(object):
+class Editor(ContextDecorator):
     """Context manager for editing features.
 
     Attributes:
@@ -320,7 +324,7 @@ class Editor(object):
         return not self.active
 
 
-class TempDatasetCopy(object):
+class TempDatasetCopy(ContextDecorator):
     """Context manager for a temporary copy of a dataset.
 
     Attributes:

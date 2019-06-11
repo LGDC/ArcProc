@@ -37,6 +37,7 @@ def build_locator(locator_path, **kwargs):
     return locator_path
 
 
+@ArcExtension("Network")
 def build_network(network_path, **kwargs):
     """Build network dataset.
 
@@ -53,8 +54,7 @@ def build_network(network_path, **kwargs):
     """
     log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
     log("Start: Build network %s.", network_path)
-    with ArcExtension("Network"):
-        arcpy.na.BuildNetwork(in_network_dataset=network_path)
+    arcpy.na.BuildNetwork(in_network_dataset=network_path)
     log("End: Build.")
     return network_path
 

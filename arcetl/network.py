@@ -4,6 +4,7 @@ import logging
 import arcpy
 
 from arcetl import arcobj
+from arcetl.arcobj import ArcExtension
 from arcetl import attributes
 from arcetl import dataset
 from arcetl.helpers import leveled_logger
@@ -27,6 +28,7 @@ TYPE_ID_FUNCTION_MAP = {
 build = workspace.build_network  # pylint: disable=invalid-name
 
 
+@ArcExtension("Network")
 def closest_facility_route(
     dataset_path,
     id_field_name,
@@ -91,72 +93,71 @@ def closest_facility_route(
         'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql']),
         'facility': arcobj.DatasetView(facility_path, kwargs['facility_where_sql']),
     }
-    with arcobj.ArcExtension('Network'):
-        arcpy.na.MakeClosestFacilityLayer(
-            in_network_dataset=network_path,
-            out_network_analysis_layer='closest',
-            impedance_attribute=cost_attribute,
-            travel_from_to=(
-                'travel_from' if kwargs['travel_from_facility'] else 'travel_to'
-            ),
-            default_cutoff=kwargs['max_cost'],
-            UTurn_policy='allow_dead_ends_and_intersections_only',
-            restriction_attribute_name=kwargs['restriction_attributes'],
-            hierarchy='no_hierarchy',
-            output_path_shape='true_lines_with_measures',
-        )
-        # Load facilities.
-        with view['facility']:
-            arcpy.na.AddFieldToAnalysisLayer(
-                in_network_analysis_layer='closest',
-                sub_layer='Facilities',
-                field_name='facility_id',
-                field_type=meta['id_field']['facility']['type'],
-                field_precision=meta['id_field']['facility']['precision'],
-                field_scale=meta['id_field']['facility']['scale'],
-                field_length=meta['id_field']['facility']['length'],
-                field_is_nullable=True,
-            )
-            arcpy.na.AddLocations(
-                in_network_analysis_layer='closest',
-                sub_layer='Facilities',
-                in_table=view['facility'].name,
-                field_mappings='facility_id {} #'.format(facility_id_field_name),
-                append=False,
-                exclude_restricted_elements=True,
-            )
-        facility_oid_id = attributes.id_values_map(
-            'closest/Facilities', id_field_names='oid@', field_names='facility_id'
-        )
-        # Load dataset locations.
-        with view['dataset']:
-            arcpy.na.AddFieldToAnalysisLayer(
-                in_network_analysis_layer='closest',
-                sub_layer='Incidents',
-                field_name='dataset_id',
-                field_type=meta['id_field']['dataset']['type'],
-                field_precision=meta['id_field']['dataset']['precision'],
-                field_scale=meta['id_field']['dataset']['scale'],
-                field_length=meta['id_field']['dataset']['length'],
-                field_is_nullable=True,
-            )
-            arcpy.na.AddLocations(
-                in_network_analysis_layer='closest',
-                sub_layer='Incidents',
-                in_table=view['dataset'].name,
-                field_mappings='dataset_id {} #'.format(id_field_name),
-                append=False,
-                snap_to_position_along_network=False,
-                exclude_restricted_elements=True,
-            )
-        dataset_oid_id = attributes.id_values_map(
-            'closest/Incidents', id_field_names='oid@', field_names='dataset_id'
-        )
-        arcpy.na.Solve(
+    arcpy.na.MakeClosestFacilityLayer(
+        in_network_dataset=network_path,
+        out_network_analysis_layer='closest',
+        impedance_attribute=cost_attribute,
+        travel_from_to=(
+            'travel_from' if kwargs['travel_from_facility'] else 'travel_to'
+        ),
+        default_cutoff=kwargs['max_cost'],
+        UTurn_policy='allow_dead_ends_and_intersections_only',
+        restriction_attribute_name=kwargs['restriction_attributes'],
+        hierarchy='no_hierarchy',
+        output_path_shape='true_lines_with_measures',
+    )
+    # Load facilities.
+    with view['facility']:
+        arcpy.na.AddFieldToAnalysisLayer(
             in_network_analysis_layer='closest',
-            ignore_invalids=True,
-            terminate_on_solve_error=True,
+            sub_layer='Facilities',
+            field_name='facility_id',
+            field_type=meta['id_field']['facility']['type'],
+            field_precision=meta['id_field']['facility']['precision'],
+            field_scale=meta['id_field']['facility']['scale'],
+            field_length=meta['id_field']['facility']['length'],
+            field_is_nullable=True,
         )
+        arcpy.na.AddLocations(
+            in_network_analysis_layer='closest',
+            sub_layer='Facilities',
+            in_table=view['facility'].name,
+            field_mappings='facility_id {} #'.format(facility_id_field_name),
+            append=False,
+            exclude_restricted_elements=True,
+        )
+    facility_oid_id = attributes.id_values_map(
+        'closest/Facilities', id_field_names='oid@', field_names='facility_id'
+    )
+    # Load dataset locations.
+    with view['dataset']:
+        arcpy.na.AddFieldToAnalysisLayer(
+            in_network_analysis_layer='closest',
+            sub_layer='Incidents',
+            field_name='dataset_id',
+            field_type=meta['id_field']['dataset']['type'],
+            field_precision=meta['id_field']['dataset']['precision'],
+            field_scale=meta['id_field']['dataset']['scale'],
+            field_length=meta['id_field']['dataset']['length'],
+            field_is_nullable=True,
+        )
+        arcpy.na.AddLocations(
+            in_network_analysis_layer='closest',
+            sub_layer='Incidents',
+            in_table=view['dataset'].name,
+            field_mappings='dataset_id {} #'.format(id_field_name),
+            append=False,
+            snap_to_position_along_network=False,
+            exclude_restricted_elements=True,
+        )
+    dataset_oid_id = attributes.id_values_map(
+        'closest/Incidents', id_field_names='oid@', field_names='dataset_id'
+    )
+    arcpy.na.Solve(
+        in_network_analysis_layer='closest',
+        ignore_invalids=True,
+        terminate_on_solve_error=True,
+    )
     cursor = arcpy.da.SearchCursor('closest/Routes', field_names=keys['cursor'])
     with cursor:
         for row in cursor:
@@ -172,6 +173,7 @@ def closest_facility_route(
     log("End: Generate.")
 
 
+@ArcExtension("Network")
 def generate_service_areas(
     dataset_path, output_path, network_path, cost_attribute, max_distance, **kwargs
 ):
@@ -218,43 +220,42 @@ def generate_service_areas(
     else:
         trim_value = None
     view = {'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])}
-    with arcobj.ArcExtension('Network'):
-        arcpy.na.MakeServiceAreaLayer(
-            in_network_dataset=network_path,
-            out_network_analysis_layer='service_area',
-            impedance_attribute=cost_attribute,
-            travel_from_to=(
-                'travel_from' if kwargs['travel_from_facility'] else 'travel_to'
-            ),
-            default_break_values='{}'.format(max_distance),
-            polygon_type=(
-                'detailed_polys' if kwargs['detailed_features'] else 'simple_polys'
-            ),
-            merge=('no_merge' if kwargs['overlap_facilities'] else 'no_overlap'),
-            nesting_type='disks',
-            UTurn_policy='allow_dead_ends_and_intersections_only',
-            restriction_attribute_name=kwargs['restriction_attributes'],
-            polygon_trim=(True if trim_value else False),
-            poly_trim_value=trim_value,
-            hierarchy='no_hierarchy',
-        )
-        with view['dataset']:
-            arcpy.na.AddLocations(
-                in_network_analysis_layer="service_area",
-                sub_layer="Facilities",
-                in_table=view['dataset'].name,
-                field_mappings='Name {} #'.format(kwargs['id_field_name']),
-                search_tolerance=max_distance,
-                match_type='match_to_closest',
-                append='clear',
-                snap_to_position_along_network='no_snap',
-                exclude_restricted_elements=True,
-            )
-        arcpy.na.Solve(
+    arcpy.na.MakeServiceAreaLayer(
+        in_network_dataset=network_path,
+        out_network_analysis_layer='service_area',
+        impedance_attribute=cost_attribute,
+        travel_from_to=(
+            'travel_from' if kwargs['travel_from_facility'] else 'travel_to'
+        ),
+        default_break_values='{}'.format(max_distance),
+        polygon_type=(
+            'detailed_polys' if kwargs['detailed_features'] else 'simple_polys'
+        ),
+        merge=('no_merge' if kwargs['overlap_facilities'] else 'no_overlap'),
+        nesting_type='disks',
+        UTurn_policy='allow_dead_ends_and_intersections_only',
+        restriction_attribute_name=kwargs['restriction_attributes'],
+        polygon_trim=(True if trim_value else False),
+        poly_trim_value=trim_value,
+        hierarchy='no_hierarchy',
+    )
+    with view['dataset']:
+        arcpy.na.AddLocations(
             in_network_analysis_layer="service_area",
-            ignore_invalids=True,
-            terminate_on_solve_error=True,
+            sub_layer="Facilities",
+            in_table=view['dataset'].name,
+            field_mappings='Name {} #'.format(kwargs['id_field_name']),
+            search_tolerance=max_distance,
+            match_type='match_to_closest',
+            append='clear',
+            snap_to_position_along_network='no_snap',
+            exclude_restricted_elements=True,
         )
+    arcpy.na.Solve(
+        in_network_analysis_layer="service_area",
+        ignore_invalids=True,
+        terminate_on_solve_error=True,
+    )
     dataset.copy('service_area/Polygons', output_path, log_level=None)
     dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:
@@ -274,6 +275,7 @@ def generate_service_areas(
     return output_path
 
 
+@ArcExtension("Network")
 def generate_service_rings(
     dataset_path,
     output_path,
@@ -329,47 +331,46 @@ def generate_service_rings(
     else:
         trim_value = None
     view = {'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])}
-    with arcobj.ArcExtension('Network'):
-        arcpy.na.MakeServiceAreaLayer(
-            in_network_dataset=network_path,
-            out_network_analysis_layer='service_area',
-            impedance_attribute=cost_attribute,
-            travel_from_to=(
-                'travel_from' if kwargs['travel_from_facility'] else 'travel_to'
-            ),
-            default_break_values=(
-                ' '.join(
-                    str(x) for x in range(ring_width, max_distance + 1, ring_width)
-                )
-            ),
-            polygon_type=(
-                'detailed_polys' if kwargs['detailed_features'] else 'simple_polys'
-            ),
-            merge=('no_merge' if kwargs['overlap_facilities'] else 'no_overlap'),
-            nesting_type='rings',
-            UTurn_policy='allow_dead_ends_and_intersections_only',
-            restriction_attribute_name=kwargs['restriction_attributes'],
-            polygon_trim=(True if trim_value else False),
-            poly_trim_value=trim_value,
-            hierarchy='no_hierarchy',
-        )
-        with view['dataset']:
-            arcpy.na.AddLocations(
-                in_network_analysis_layer="service_area",
-                sub_layer="Facilities",
-                in_table=view['dataset'].name,
-                field_mappings='Name {} #'.format(kwargs['id_field_name']),
-                search_tolerance=max_distance,
-                match_type='match_to_closest',
-                append='clear',
-                snap_to_position_along_network='no_snap',
-                exclude_restricted_elements=True,
+    arcpy.na.MakeServiceAreaLayer(
+        in_network_dataset=network_path,
+        out_network_analysis_layer='service_area',
+        impedance_attribute=cost_attribute,
+        travel_from_to=(
+            'travel_from' if kwargs['travel_from_facility'] else 'travel_to'
+        ),
+        default_break_values=(
+            ' '.join(
+                str(x) for x in range(ring_width, max_distance + 1, ring_width)
             )
-        arcpy.na.Solve(
+        ),
+        polygon_type=(
+            'detailed_polys' if kwargs['detailed_features'] else 'simple_polys'
+        ),
+        merge=('no_merge' if kwargs['overlap_facilities'] else 'no_overlap'),
+        nesting_type='rings',
+        UTurn_policy='allow_dead_ends_and_intersections_only',
+        restriction_attribute_name=kwargs['restriction_attributes'],
+        polygon_trim=(True if trim_value else False),
+        poly_trim_value=trim_value,
+        hierarchy='no_hierarchy',
+    )
+    with view['dataset']:
+        arcpy.na.AddLocations(
             in_network_analysis_layer="service_area",
-            ignore_invalids=True,
-            terminate_on_solve_error=True,
+            sub_layer="Facilities",
+            in_table=view['dataset'].name,
+            field_mappings='Name {} #'.format(kwargs['id_field_name']),
+            search_tolerance=max_distance,
+            match_type='match_to_closest',
+            append='clear',
+            snap_to_position_along_network='no_snap',
+            exclude_restricted_elements=True,
         )
+    arcpy.na.Solve(
+        in_network_analysis_layer="service_area",
+        ignore_invalids=True,
+        terminate_on_solve_error=True,
+    )
     dataset.copy('service_area/Polygons', output_path, log_level=None)
     dataset.delete('service_area', log_level=None)
     if kwargs['id_field_name']:

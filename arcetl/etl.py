@@ -1,5 +1,10 @@
 """ETL objects."""
 from collections import Counter
+try:
+    from contextlib import ContextDecorator
+except ImportError:
+    # Py2.
+    from contextlib2 import ContextDecorator
 import logging
 
 import funcsigs
@@ -13,7 +18,7 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 
-class ArcETL(object):
+class ArcETL(ContextDecorator):
     """Manages a single Arc-style ETL process.
 
     Attributes:
