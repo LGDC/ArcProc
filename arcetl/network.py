@@ -30,7 +30,6 @@ arcpy.SetLogHistory(False)
 build = workspace.build_network  # pylint: disable=invalid-name
 
 
-@ArcExtension("Network")
 def closest_facility_route(
     dataset_path,
     id_field_name,
@@ -155,11 +154,12 @@ def closest_facility_route(
     dataset_oid_id = attributes.id_values_map(
         'closest/Incidents', id_field_names='oid@', field_names='dataset_id'
     )
-    arcpy.na.Solve(
-        in_network_analysis_layer='closest',
-        ignore_invalids=True,
-        terminate_on_solve_error=True,
-    )
+    with ArcExtension("Network"):
+        arcpy.na.Solve(
+            in_network_analysis_layer='closest',
+            ignore_invalids=True,
+            terminate_on_solve_error=True,
+        )
     cursor = arcpy.da.SearchCursor('closest/Routes', field_names=keys['cursor'])
     with cursor:
         for row in cursor:
