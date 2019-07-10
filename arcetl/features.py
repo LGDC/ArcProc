@@ -118,6 +118,8 @@ def delete(dataset_path, **kwargs):
         'ERROR 001260',
         # Operation not supported on a feature class in a controller dataset.
         'ERROR 001395',
+        # Only the data owner may execute truncate.
+        "ERROR 001400",
     ]
     feature_count = Counter()
     # Can use (faster) truncate when no sub-selection or edit session.
