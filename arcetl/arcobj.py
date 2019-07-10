@@ -435,19 +435,20 @@ def _dataset_object_metadata(dataset_object):
     meta["geom_type"] = meta["geometry_type"]
     meta["geometry_field_name"] = getattr(meta["object"], "shapeFieldName", None)
     meta["geom_field_name"] = meta["geometry_field_name"]
+    for key in ["area", "length"]:
+        meta[key + "_field_name"] = getattr(meta["object"], key + "FieldName", None)
+        if meta[key + "_field_name"] == "":
+            meta[key + "_field_name"] = None
     meta["field_token"] = {}
-    if meta["oid_field_name"]:
-        meta["field_token"][meta["oid_field_name"]] = "oid@"
-    if meta["geom_field_name"]:
-        meta["field_token"].update(
-            {
-                meta["geom_field_name"]: "shape@",
-                meta["geom_field_name"] + "_Area": "shape@area",
-                meta["geom_field_name"] + "_Length": "shape@length",
-                meta["geom_field_name"] + ".STArea()": "shape@area",
-                meta["geom_field_name"] + ".STLength()": "shape@length",
-            }
-        )
+    system_field_tokens = {
+        "oid": "oid@",
+        "geom": "shape@",
+        "area": "shape@area",
+        "length": "shape@length",
+    }
+    for key, token in system_field_tokens:
+        if meta[key + "_field_name"]:
+            meta["field_token"][meta[key + "_field_name"]] = token
     meta["fields"] = [
         _field_object_metadata(field) for field in getattr(meta["object"], "fields", [])
     ]
@@ -458,9 +459,9 @@ def _dataset_object_metadata(dataset_object):
     meta["user_fields"] = [
         field
         for field in meta["fields"]
-        if field["name"] not in (meta["oid_field_name"], meta["geom_field_name"])
-        and "{}.".format(meta["geom_field_name"]) not in field["name"]
-        and "{}_".format(meta["geom_field_name"]) not in field["name"]
+        if field["name"] not in [
+            meta[key + "_field_name"] for key in system_field_tokens
+        ]
     ]
     meta["user_field_names"] = [field["name"] for field in meta["user_fields"]]
     if hasattr(meta["object"], "spatialReference"):
