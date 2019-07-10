@@ -36,6 +36,8 @@ RATIO = {
 Usage: `RATIO[to_measure][from_measure]`
 """
 
+arcpy.SetLogHistory(False)
+
 
 def compactness_ratio(geometry=None, **kwargs):
     """Return compactness ratio (4pi * area / perimeter ** 2) result.

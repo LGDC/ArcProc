@@ -24,6 +24,8 @@ TYPE_ID_FUNCTION_MAP = {
 }
 """dict: Mapping of ArcGIS field type to function to get ID from analysis layer label."""
 
+arcpy.SetLogHistory(False)
+
 
 build = workspace.build_network  # pylint: disable=invalid-name
 

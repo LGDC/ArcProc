@@ -65,6 +65,8 @@ GEOMETRY_PROPERTY_TRANSFORM = {
 }
 """dict: Mapping of geometry property tag to cascade of geometry object properties."""
 
+arcpy.SetLogHistory(False)
+
 
 class FeatureMatcher(object):
     """Tracks features that share ID values.

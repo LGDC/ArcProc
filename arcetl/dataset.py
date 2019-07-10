@@ -17,6 +17,8 @@ from arcetl.helpers import contain, leveled_logger
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+arcpy.SetLogHistory(False)
+
 
 ##TODO: Drop field_ from field_* args/kwargs.
 ##TODO: Then deprecate add_field_from_metadata, replace with add_field(dataset_path, **metadata).

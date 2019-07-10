@@ -20,6 +20,8 @@ LOG = logging.getLogger(__name__)
 UPDATE_TYPES = ['deleted', 'inserted', 'altered', 'unchanged']
 """list of str: Types of feature updates commonly associated wtth update counters."""
 
+arcpy.SetLogHistory(False)
+
 
 def clip(dataset_path, clip_dataset_path, **kwargs):
     """Clip feature geometry where it overlaps clip-dataset geometry.

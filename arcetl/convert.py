@@ -23,6 +23,8 @@ from arcetl.helpers import contain, leveled_logger, unique_name
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+arcpy.SetLogHistory(False)
+
 
 def planarize(dataset_path, output_path, **kwargs):
     """Planarize feature geometry into lines.

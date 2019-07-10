@@ -11,6 +11,8 @@ from arcetl.helpers import leveled_logger
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+arcpy.SetLogHistory(False)
+
 
 def adjust_for_shapefile(dataset_path, **kwargs):
     """Adjust features to meet shapefile requirements.

@@ -33,6 +33,8 @@ if not hasattr(math, "isclose"):
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+arcpy.SetLogHistory(False)
+
 
 def contain(obj, nonetypes_as_empty=True):
     """Generate contained items if a collection, otherwise generate object.
