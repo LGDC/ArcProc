@@ -247,7 +247,6 @@ def as_iters(dataset_path, field_names, **kwargs):
             yield kwargs["iter_type"](feature)
 
 
-##TODO: Add spatial_reference_item kwarg?
 def coordinate_node_map(
     dataset_path,
     from_id_field_name,
@@ -325,7 +324,6 @@ def coordinate_node_map(
     return coordinate_node
 
 
-##TODO: Add spatial_reference_item kwarg?
 def id_node_map(
     dataset_path,
     from_id_field_name,
