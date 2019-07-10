@@ -191,7 +191,6 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
     session = arcobj.Editor(
         meta['dataset']['workspace_path'], kwargs['use_edit_session']
     )
-    ##TODO: Preserve possible generators!
     if ids['delete']:
         cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys['id'])
         with session, cursor:

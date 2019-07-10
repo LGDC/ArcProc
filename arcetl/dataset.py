@@ -20,8 +20,6 @@ LOG = logging.getLogger(__name__)
 arcpy.SetLogHistory(False)
 
 
-##TODO: Drop field_ from field_* args/kwargs.
-##TODO: Then deprecate add_field_from_metadata, replace with add_field(dataset_path, **metadata).
 def add_field(dataset_path, field_name, field_type, **kwargs):
     """Add field to dataset.
 

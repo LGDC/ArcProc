@@ -530,8 +530,6 @@ def _workspace_object_metadata(workspace_object):
     Returns:
         dict.
     """
-    ##TODO: Finish stub.
-    ##http://pro.arcgis.com/en/pro-app/arcpy/functions/workspace-properties.htm
     meta = {"object": workspace_object}
     meta["factory_prog_id"] = getattr(meta["object"], "workspaceFactoryProgID", "")
     meta["name"] = getattr(meta["object"], "name")
@@ -603,7 +601,6 @@ def field_metadata(dataset_path, field_name):
     try:
         field_object = arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
     except IndexError:
-        ##TODO: Replace with new FieldNotPresentError/NoSuchFieldError.
         raise AttributeError(
             "Field {} not present on {}".format(field_name, dataset_path)
         )
@@ -713,8 +710,6 @@ def spatial_reference_metadata(item):
     Returns:
         dict.
     """
-    ##TODO: Finish stub.
-    ##https://pro.arcgis.com/en/pro-app/arcpy/classes/spatialreference.htm
     meta = {"object": spatial_reference(item)}
     meta["spatial_reference_id"] = getattr(meta["object"], "factoryCode", None)
     meta["angular_unit"] = getattr(meta["object"], "angularUnitName", None)

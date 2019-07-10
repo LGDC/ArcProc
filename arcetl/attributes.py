@@ -1096,7 +1096,6 @@ def update_by_overlay(
     join_kwargs = {"join_operation": "join_one_to_many", "join_type": "keep_all"}
     if kwargs["overlay_central_coincident"]:
         join_kwargs["match_option"] = "have_their_center_in"
-    ##TODO: Implement overlay_most_coincident.
     elif kwargs["overlay_most_coincident"]:
         raise NotImplementedError("overlay_most_coincident not yet implemented.")
 

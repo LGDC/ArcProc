@@ -30,5 +30,4 @@ from arcetl import workspace
 
 
 __all__ = []
-##TODO: Replace YYYY.MM with semantic versioning.
 __version__ = "2016.11"
