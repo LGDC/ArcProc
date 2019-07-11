@@ -446,7 +446,7 @@ def _dataset_object_metadata(dataset_object):
         "area": "shape@area",
         "length": "shape@length",
     }
-    for key, token in system_field_tokens:
+    for key, token in system_field_tokens.items():
         if meta[key + "_field_name"]:
             meta["field_token"][meta[key + "_field_name"]] = token
     meta["fields"] = [
