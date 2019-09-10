@@ -199,8 +199,7 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
                 if _id in ids['delete']:
                     cursor.deleteRow()
                     feature_count['deleted'] += 1
-                else:
-                    feature_count['unchanged'] += 1
+    feature_count['unchanged'] = dataset.feature_count(dataset_path)
     for key in ['deleted', 'unchanged']:
         log("%s features %s.", feature_count[key], key)
     log("End: Delete.")
@@ -680,8 +679,7 @@ def update_from_iters(
     Keyword Args:
         delete_missing_features (bool): True if update should delete features missing
             from update_features, False otherwise. Default is True.
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            True.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is True.
         log_level (str): Level to log the function at. Default is 'info'.
 
     Returns:
