@@ -1,7 +1,7 @@
 """Attribute operations."""
 from collections import Counter, defaultdict
 from copy import copy, deepcopy
-import functools
+from functools import partial
 import logging
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
@@ -40,7 +40,7 @@ EXEC_TYPES = [
     BuiltinMethodType,
     FunctionType,
     MethodType,
-    functools.partial,
+    partial,
 ]
 """list: Executable object types. Useful for determining if an object can execute."""
 GEOMETRY_PROPERTY_TRANSFORM = {

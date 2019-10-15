@@ -337,6 +337,7 @@ ignored-classes=
 # expressions are accepted.
 generated-members=
 	arcpy.da.*,
+	arcpy.management.*,
     pyodbc.connect,
 
 
