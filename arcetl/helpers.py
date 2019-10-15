@@ -190,8 +190,6 @@ def same_value(*values):
     Returns:
         bool: True if same value, False otherwise.
     """
-    same = all(val1 == val2 for val1, val2 in pairwise(values))
-    # Some types are not quite as simple.
     # Date-times & floats can have slight variations even when essentially the same.
     if all(isinstance(val, datetime.datetime) for val in values):
         same = all(
@@ -203,6 +201,8 @@ def same_value(*values):
     # Geometry equality has extra considerations.
     elif all(isinstance(val, (arcpy.Geometry, arcpy.Point)) for val in values):
         same = all(val1.equals(val2) for val1, val2 in pairwise(values))
+    else:
+        same = all(val1 == val2 for val1, val2 in pairwise(values))
     return same
 
 
