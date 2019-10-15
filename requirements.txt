@@ -1,5 +1,8 @@
-arcpy
+# Installed with app.
+#arcpy
+# For Python 2 compatibility.
 contextlib2
 funcsigs
-more_itertools
+more-itertools
 requests
+xsorted
