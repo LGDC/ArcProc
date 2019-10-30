@@ -126,9 +126,7 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
                 # Cannot create an OID-type field, so force to long.
                 if meta[side]["id_field"]["type"].lower() == "oid":
                     meta[side]["id_field"]["type"] = "long"
-                dataset.add_field_from_metadata(
-                    output_path, meta[side]["id_field"], log_level=None
-                )
+                dataset.add_field(output_path, log_level=None, **meta[side]["id_field"])
                 attributes.update_by_joined_value(
                     output_path,
                     field_name=meta[side]["id_field"]["name"],

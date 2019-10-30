@@ -267,7 +267,7 @@ def generate_service_areas(
         meta = {
             "id_field": arcobj.field_metadata(dataset_path, kwargs["id_field_name"])
         }
-        dataset.add_field_from_metadata(output_path, meta["id_field"], log_level=None)
+        dataset.add_field(output_path, log_level=None, **meta["id_field"])
         attributes.update_by_function(
             output_path,
             field_name=meta["id_field"]["name"],
@@ -380,7 +380,7 @@ def generate_service_rings(
         meta = {
             "id_field": arcobj.field_metadata(dataset_path, kwargs["id_field_name"])
         }
-        dataset.add_field_from_metadata(output_path, meta["id_field"], log_level=None)
+        dataset.add_field(output_path, log_level=None, **meta["id_field"])
         attributes.update_by_function(
             output_path,
             meta["id_field"]["name"],
