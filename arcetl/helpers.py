@@ -61,6 +61,29 @@ def contain(obj, nonetypes_as_empty=True):
         yield obj
 
 
+def elapsed(start_time, logger=None, log_level=logging.INFO):
+    """Return time-delta since start time.
+
+    Args:
+        start_time (datetime.datetime): Start to measure time elapsed since.
+        logger (logging.Logger, None): If not None, logger to emit elapsed message.
+        log_level (int): Level to emit elapsed message at.
+
+    Returns:
+        datetime.timedelta
+    """
+    span = datetime.datetime.now() - start_time
+    if logger:
+        logger.log(
+            log_level,
+            "Elapsed: %s hrs, %s min, %s sec.",
+            (span.days * 24 + span.seconds // 3600),
+            ((span.seconds // 60) % 60),
+            (span.seconds % 60),
+        )
+    return span
+
+
 def freeze_values(*values):
     """Generate "frozen" versions of mutable objects.
 
