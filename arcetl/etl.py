@@ -6,13 +6,14 @@ try:
 except ImportError:
     # Py2.
     from contextlib2 import ContextDecorator
+import datetime
 import logging
 
 import funcsigs
 
 from arcetl import dataset
 from arcetl import features
-from arcetl.helpers import log_entity_states, unique_path
+from arcetl.helpers import elapsed, log_entity_states, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class ArcETL(ContextDecorator):
         Args:
             name (str): Name reference for ETL.
         """
+        self.start_time = datetime.datetime.now()
         self.name = name
         self.transform_path = None
         LOG.info("""Initialized ArcETL instance for "%s".""", self.name)
@@ -50,6 +52,7 @@ class ArcETL(ContextDecorator):
         if self.transform_path and dataset.is_valid(self.transform_path):
             dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = None
+        elapsed(self.start_time, LOG)
         LOG.info("Closed.")
 
     def extract(self, dataset_path, extract_where_sql=None):
