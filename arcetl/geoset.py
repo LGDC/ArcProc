@@ -7,7 +7,7 @@ from arcetl import arcobj
 from arcetl import attributes
 from arcetl import dataset
 from arcetl import features
-from arcetl.helpers import leveled_logger, unique_name, unique_path
+from arcetl.helpers import unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -43,71 +43,76 @@ def identity(
             subselection.
         replacement_value: Value to replace identity field values with.
         tolerance (float): Tolerance for coincidence, in dataset's units.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the dataset updated.
-
     """
-    kwargs.setdefault('chunk_size', 4096)
-    kwargs.setdefault('dataset_where_sql')
-    kwargs.setdefault('identity_where_sql')
-    kwargs.setdefault('tolerance')
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log(
-        "Start: Identity-set attributes in %s on %s by overlay values in %s on %s.",
-        field_name,
+    kwargs.setdefault("chunk_size", 4096)
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("identity_where_sql")
+    kwargs.setdefault("tolerance")
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Identity-set attributes in `%s.%s` by overlay values in `%s.%s`.",
         dataset_path,
-        identity_field_name,
+        field_name,
         identity_dataset_path,
+        identity_field_name,
     )
-    if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:
-        update_function = (lambda x: kwargs['replacement_value'] if x else None)
-    else:
-        # Identity puts empty string when identity feature not present.
-        # Fix to null (replacement value function does this inherently).
-        update_function = (lambda x: None if x == '' else x)
-    view = {'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])}
+    view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     # Create a temporary copy of the overlay dataset.
     temp_identity = arcobj.TempDatasetCopy(
         identity_dataset_path,
-        kwargs['identity_where_sql'],
+        kwargs["identity_where_sql"],
         field_names=[identity_field_name],
     )
-    with view['dataset'], temp_identity:
+    with view["dataset"], temp_identity:
         # Avoid field name collisions with neutral holding field.
         temp_identity.field_name = dataset.rename_field(
             temp_identity.path,
             identity_field_name,
             new_field_name=unique_name(identity_field_name),
-            log_level=None,
+            log_level=logging.DEBUG,
         )
-        for view['chunk'] in view['dataset'].as_chunks(kwargs['chunk_size']):
-            temp_output_path = unique_path('output')
+        for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
+            temp_output_path = unique_path("output")
             arcpy.analysis.Identity(
-                in_features=view['chunk'].name,
+                in_features=view["chunk"].name,
                 identity_features=temp_identity.path,
                 out_feature_class=temp_output_path,
-                join_attributes='all',
-                cluster_tolerance=kwargs['tolerance'],
+                join_attributes="all",
+                cluster_tolerance=kwargs["tolerance"],
                 relationship=False,
             )
             # Clean up bad or null geometry created in processing.
             arcpy.management.RepairGeometry(temp_output_path)
-            # Push identity (or replacement) value from temp to update field.
+            # Push identity value from temp to update field.
+            # Identity puts empty string when identity feature not present; fix to null.
             attributes.update_by_function(
                 temp_output_path,
                 field_name,
-                update_function,
+                function=lambda x: None if x == "" else x,
                 field_as_first_arg=False,
                 arg_field_names=[temp_identity.field_name],
-                log_level=None,
+                log_level=logging.DEBUG,
             )
+            # Apply replacement value if necessary.
+            if kwargs.get("replacement_value") is not None:
+                attributes.update_by_function(
+                    temp_output_path,
+                    field_name,
+                    function=lambda x: kwargs["replacement_value"] if x else None,
+                    log_level=logging.DEBUG,
+                )
             # Replace original chunk features with new features.
-            features.delete(view['chunk'].name, log_level=None)
-            features.insert_from_path(dataset_path, temp_output_path, log_level=None)
-            dataset.delete(temp_output_path, log_level=None)
-    log("End: Identity.")
+            features.delete(view["chunk"].name, log_level=logging.DEBUG)
+            features.insert_from_path(
+                dataset_path, temp_output_path, log_level=logging.DEBUG
+            )
+            dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    LOG.log(level, "End: Identity.")
     return dataset_path
 
 
@@ -146,82 +151,88 @@ def overlay(
         overlay_where_sql (str): SQL where-clause for the overlay dataset subselection.
         replacement_value: Value to replace overlay field values with.
         tolerance (float): Tolerance for coincidence, in dataset's units.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the dataset updated.
-
     """
-    kwargs.setdefault('chunk_size', 4096)
-    kwargs.setdefault('dataset_where_sql')
-    kwargs.setdefault('overlay_central_coincident', False)
-    kwargs.setdefault('overlay_most_coincident', False)
-    kwargs.setdefault('overlay_where_sql')
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log(
-        "Start: Overlay-set attributes in %s on %s by overlay values in %s on %s.",
-        field_name,
+    kwargs.setdefault("chunk_size", 4096)
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("overlay_central_coincident", False)
+    kwargs.setdefault("overlay_most_coincident", False)
+    kwargs.setdefault("overlay_where_sql")
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Overlay-set attributes in `%s.%s` by overlay values in `%s.%s`.",
         dataset_path,
-        overlay_field_name,
+        field_name,
         overlay_dataset_path,
+        overlay_field_name,
     )
     # Check flags & set details for spatial join call.
-    join_kwargs = {'join_operation': 'join_one_to_many', 'join_type': 'keep_all'}
-    if kwargs['overlay_central_coincident']:
-        join_kwargs['match_option'] = 'have_their_center_in'
-    elif kwargs['overlay_most_coincident']:
+    join_kwargs = {"join_operation": "join_one_to_many", "join_type": "keep_all"}
+    if kwargs["overlay_central_coincident"]:
+        join_kwargs["match_option"] = "have_their_center_in"
+    elif kwargs["overlay_most_coincident"]:
         raise NotImplementedError("overlay_most_coincident not yet implemented.")
 
     else:
-        join_kwargs['match_option'] = 'intersect'
-    if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:
-        update_function = (lambda x: kwargs['replacement_value'] if x else None)
-    else:
-        update_function = (lambda x: x)
-    meta = {'orig_tolerance': arcpy.env.XYTolerance}
-    view = {'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])}
+        join_kwargs["match_option"] = "intersect"
+    meta = {"orig_tolerance": arcpy.env.XYTolerance}
+    view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     # Create temporary copy of overlay dataset.
     temp_overlay = arcobj.TempDatasetCopy(
         overlay_dataset_path,
-        kwargs['overlay_where_sql'],
+        kwargs["overlay_where_sql"],
         field_names=[overlay_field_name],
     )
-    with view['dataset'], temp_overlay:
+    with view["dataset"], temp_overlay:
         # Avoid field name collisions with neutral field name.
         temp_overlay.field_name = dataset.rename_field(
             temp_overlay.path,
             overlay_field_name,
             new_field_name=unique_name(overlay_field_name),
-            log_level=None,
+            log_level=logging.DEBUG,
         )
-        if 'tolerance' in kwargs:
-            arcpy.env.XYTolerance = kwargs['tolerance']
-        for view['chunk'] in view['dataset'].as_chunks(kwargs['chunk_size']):
-            temp_output_path = unique_path('output')
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = kwargs["tolerance"]
+        for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
+            temp_output_path = unique_path("output")
             arcpy.analysis.SpatialJoin(
-                target_features=view['chunk'].name,
+                target_features=view["chunk"].name,
                 join_features=temp_overlay.path,
                 out_feature_class=temp_output_path,
                 **join_kwargs
             )
             # Clean up bad or null geometry created in processing.
             arcpy.management.RepairGeometry(temp_output_path)
-            # Push identity (or replacement) value from temp to update field.
+            # Push overlay value from temp to update field.
             attributes.update_by_function(
                 temp_output_path,
                 field_name,
-                update_function,
+                function=lambda x: x,
                 field_as_first_arg=False,
                 arg_field_names=[temp_overlay.field_name],
-                log_level=None,
+                # log_level=logging.DEBUG,
             )
+            # Apply replacement value if necessary.
+            if kwargs.get("replacement_value") is not None:
+                attributes.update_by_function(
+                    temp_output_path,
+                    field_name,
+                    function=lambda x: kwargs["replacement_value"] if x else None,
+                    log_level=logging.DEBUG,
+                )
             # Replace original chunk features with new features.
-            features.delete(view['chunk'].name, log_level=None)
-            features.insert_from_path(dataset_path, temp_output_path, log_level=None)
-            dataset.delete(temp_output_path, log_level=None)
-        if 'tolerance' in kwargs:
-            arcpy.env.XYTolerance = meta['orig_tolerance']
-    log("End: Overlay.")
+            features.delete(view["chunk"].name, log_level=logging.DEBUG)
+            features.insert_from_path(
+                dataset_path, temp_output_path, log_level=logging.DEBUG
+            )
+            dataset.delete(temp_output_path, log_level=logging.DEBUG)
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = meta["orig_tolerance"]
+    LOG.log(level, "End: Overlay.")
     return dataset_path
 
 
@@ -248,66 +259,71 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
         union_where_sql (str): SQL where-clause for the union dataset subselection.
         replacement_value: Value to replace overlay field values with.
         tolerance (float): Tolerance for coincidence, in dataset's units.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the dataset updated.
-
     """
-    kwargs.setdefault('chunk_size', 4096)
-    kwargs.setdefault('dataset_where_sql')
-    kwargs.setdefault('union_where_sql')
-    kwargs.setdefault('tolerance')
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log(
-        "Start: Union-set attributes in %s on %s by overlay values in %s on %s.",
-        field_name,
+    kwargs.setdefault("chunk_size", 4096)
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("union_where_sql")
+    kwargs.setdefault("tolerance")
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Union-set attributes in `%s.%s` by overlay values in `%s.%s`.",
         dataset_path,
-        union_field_name,
+        field_name,
         union_dataset_path,
+        union_field_name,
     )
-    if 'replacement_value' in kwargs and kwargs['replacement_value'] is not None:
-        update_function = (lambda x: kwargs['replacement_value'] if x else None)
-    else:
-        # Union puts empty string when identity feature not present.
-        # Fix to null (replacement value function does this inherently).
-        update_function = (lambda x: None if x == '' else x)
-    view = {'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql'])}
+    view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     # Create a temporary copy of the union dataset.
     temp_union = arcobj.TempDatasetCopy(
-        union_dataset_path, kwargs['union_where_sql'], field_names=[union_field_name]
+        union_dataset_path, kwargs["union_where_sql"], field_names=[union_field_name]
     )
-    with view['dataset'], temp_union:
+    with view["dataset"], temp_union:
         # Avoid field name collisions with neutral field name.
         temp_union.field_name = dataset.rename_field(
             temp_union.path,
             union_field_name,
             new_field_name=unique_name(union_field_name),
-            log_level=None,
+            log_level=logging.DEBUG,
         )
-        for view['chunk'] in view['dataset'].as_chunks(kwargs['chunk_size']):
-            temp_output_path = unique_path('output')
+        for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
+            temp_output_path = unique_path("output")
             arcpy.analysis.Union(
-                in_features=[view['chunk'].name, temp_union.path],
+                in_features=[view["chunk"].name, temp_union.path],
                 out_feature_class=temp_output_path,
-                join_attributes='all',
-                cluster_tolerance=kwargs['tolerance'],
+                join_attributes="all",
+                cluster_tolerance=kwargs["tolerance"],
                 gaps=False,
             )
             # Clean up bad or null geometry created in processing.
             arcpy.management.RepairGeometry(temp_output_path)
-            # Push identity (or replacement) value from temp to update field.
+            # Push union value from temp to update field.
+            # Union puts empty string when union feature not present; fix to null.
             attributes.update_by_function(
                 temp_output_path,
                 field_name,
-                update_function,
+                function=lambda x: None if x == "" else x,
                 field_as_first_arg=False,
                 arg_field_names=[temp_union.field_name],
-                log_level=None,
+                log_level=logging.DEBUG,
             )
+            # Apply replacement value if necessary.
+            if kwargs.get("replacement_value") is not None:
+                attributes.update_by_function(
+                    temp_output_path,
+                    field_name,
+                    function=lambda x: kwargs["replacement_value"] if x else None,
+                    log_level=logging.DEBUG,
+                )
             # Replace original chunk features with new features.
-            features.delete(view['chunk'].name, log_level=None)
-            features.insert_from_path(dataset_path, temp_output_path, log_level=None)
-            dataset.delete(temp_output_path, log_level=None)
-    log("End: Union.")
+            features.delete(view["chunk"].name, log_level=logging.DEBUG)
+            features.insert_from_path(
+                dataset_path, temp_output_path, log_level=logging.DEBUG
+            )
+            dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    LOG.log(level, "End: Union.")
     return dataset_path

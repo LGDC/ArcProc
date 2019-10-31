@@ -10,3 +10,4 @@ repos:
       args:
       - --max-line-length=88
       - --exclude=resources/*
+      - --ignore=E203

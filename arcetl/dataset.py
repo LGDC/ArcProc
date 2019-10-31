@@ -11,7 +11,7 @@ from arcetl.arcobj import (
     field_metadata,
     spatial_reference,
 )
-from arcetl.helpers import contain, leveled_logger
+from arcetl.helpers import contain
 
 
 LOG = logging.getLogger(__name__)
@@ -34,11 +34,11 @@ def add_field(dataset_path, name, **kwargs):
         precision (int): Precision of field. Only applies to float/double fields.
         scale (int): Scale of field. Only applies to float/double fields.
         is_nullable (bool): Field can be nullable if True. Default is True.
-        is_required (bool): Field value will be required for feature if True.
-            Default is False.
+        is_required (bool): Field value will be required for feature if True. Default is
+            False.
         exist_ok (bool): If field already exists: will raise an error if False;
             will act as if field was added if True. Default is False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Name of the field added.
@@ -46,8 +46,8 @@ def add_field(dataset_path, name, **kwargs):
     Raises:
         RuntimeError: If `exist_ok=False` and field already exists.
     """
-    log = leveled_logger(LOG, kwargs.get("log_level", "info"))
-    log("Start: Add field %s to %s.", name, dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Add field `%s.%s`.", dataset_path, name)
     if arcpy.ListFields(dataset_path, name):
         LOG.info("Field already exists.")
         if not kwargs.get("exist_ok", False):
@@ -66,7 +66,7 @@ def add_field(dataset_path, name, **kwargs):
         for key, default in default_add_kwargs.items():
             add_kwargs["field_" + key] = kwargs[key] if key in kwargs else default
         arcpy.management.AddField(dataset_path, name, **add_kwargs)
-    log("End: Add.")
+    LOG.log(level, "End: Add.")
     return name
 
 
@@ -91,7 +91,7 @@ def add_index(dataset_path, field_names, **kwargs):
         is_unique (bool): Build index with unique constraint if True. Default is False.
         fail_on_lock_ok (bool): If True, indicate success even if dataset locks prevent
             adding index. Default is False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the dataset receiving the index.
@@ -105,8 +105,10 @@ def add_index(dataset_path, field_names, **kwargs):
     kwargs.setdefault("is_ascending", False)
     kwargs.setdefault("is_unique", False)
     kwargs.setdefault("fail_on_lock_ok", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Add index to field(s) %s on %s.", field_names, dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level, "Start: Add index to field(s) `%s` on `%s`.", field_names, dataset_path
+    )
     meta = {"dataset": dataset_metadata(dataset_path)}
     meta["field_types"] = {
         field["type"].lower()
@@ -136,7 +138,7 @@ def add_index(dataset_path, field_names, **kwargs):
             if not kwargs["fail_on_lock_ok"]:
                 raise
 
-    log("End: Add.")
+    LOG.log(level, "End: Add.")
     return dataset_path
 
 
@@ -150,13 +152,13 @@ def compress(dataset_path, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the compressed dataset.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Compress dataset %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Compress dataset `%s`.", dataset_path)
     try:
         arcpy.management.CompressFileGeodatabaseData(dataset_path)
     except arcpy.ExecuteError as error:
@@ -170,7 +172,7 @@ def compress(dataset_path, **kwargs):
             LOG.error("""repr(error) = "%r\"""", error)
             raise
 
-    log("End: Compress.")
+    LOG.log(level, "End: Compress.")
     return dataset_path
 
 
@@ -188,10 +190,10 @@ def copy(dataset_path, output_path, **kwargs):
             False.
         overwrite (bool): Overwrite the output dataset if it exists, if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each copy-state.
 
     Raises:
         ValueError: If dataset type not supported.
@@ -201,8 +203,8 @@ def copy(dataset_path, output_path, **kwargs):
     kwargs.setdefault("overwrite", False)
     if kwargs["schema_only"]:
         kwargs["dataset_where_sql"] = "0=1"
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Copy dataset %s to %s.", dataset_path, output_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
     meta = {"dataset": dataset_metadata(dataset_path)}
     view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     with view:
@@ -211,13 +213,14 @@ def copy(dataset_path, output_path, **kwargs):
         elif meta["dataset"]["is_table"]:
             exec_copy = arcpy.management.CopyRows
         else:
-            raise ValueError("{} unsupported dataset type.".format(dataset_path))
+            raise ValueError("`{}` unsupported dataset type.".format(dataset_path))
 
         if kwargs["overwrite"] and arcpy.Exists(output_path):
-            delete(output_path, log_level=None)
+            delete(output_path, log_level=logging.DEBUG)
         exec_copy(view.name, output_path)
-    log("End: Copy.")
-    return Counter(copied=feature_count(output_path))
+    LOG.log(level, "End: Copy.")
+    states = Counter(copied=feature_count(output_path))
+    return states
 
 
 def create(dataset_path, field_metadata_list=None, **kwargs):
@@ -232,15 +235,15 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
         geometry_type (str): Type of geometry, if a spatial dataset.
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived. Default is 4326 (EPSG code for unprojected WGS84).
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the dataset created.
     """
     kwargs.setdefault("geometry_type")
     kwargs.setdefault("spatial_reference_item", 4326)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Create dataset %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Create dataset `%s`.", dataset_path)
     create_kwargs = {
         "out_path": os.path.dirname(dataset_path),
         "out_name": os.path.basename(dataset_path),
@@ -256,8 +259,8 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     exec_create(**create_kwargs)
     if field_metadata_list:
         for field_meta in field_metadata_list:
-            add_field(dataset_path, log_level=None, **field_meta)
-    log("End: Create.")
+            add_field(dataset_path, log_level=logging.DEBUG, **field_meta)
+    LOG.log(level, "End: Create.")
     return dataset_path
 
 
@@ -269,15 +272,15 @@ def delete(dataset_path, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of deleted dataset.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Delete dataset %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Delete dataset `%s`.", dataset_path)
     arcpy.management.Delete(in_data=dataset_path)
-    log("End: Delete.")
+    LOG.log(level, "End: Delete.")
     return dataset_path
 
 
@@ -290,15 +293,15 @@ def delete_field(dataset_path, field_name, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Name of the field deleted.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Delete field %s on %s.", field_name, dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Delete field `%s.%s`.", field_name, dataset_path)
     arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
-    log("End: Delete.")
+    LOG.log(level, "End: Delete.")
     return field_name
 
 
@@ -314,25 +317,26 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Name of the field created.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Duplicate field %s as %s on %s.",
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Duplicate field `%s.%s` as `%s`.",
+        dataset_path,
         field_name,
         new_field_name,
-        dataset_path,
     )
     meta = {"field": field_metadata(dataset_path, field_name)}
     meta["field"]["name"] = new_field_name
     # Cannot add OID-type field, so change to long.
     if meta["field"]["type"].lower() == "oid":
         meta["field"]["type"] = "long"
-    add_field(dataset_path, log_level=None, **meta["field"])
-    log("End: Duplicate.")
+    add_field(dataset_path, log_level=logging.DEBUG, **meta["field"])
+    LOG.log(level, "End: Duplicate.")
     return new_field_name
 
 
@@ -364,10 +368,12 @@ def is_valid(dataset_path):
     Returns:
         bool: True if dataset is valid, False otherwise.
     """
-    valid = (
-        dataset_path
-        and arcpy.Exists(dataset_path)
-        and dataset_metadata(dataset_path)["is_table"]
+    valid = all(
+        [
+            dataset_path,
+            arcpy.Exists(dataset_path),
+            dataset_metadata(dataset_path)["is_table"],
+        ]
     )
     return valid
 
@@ -391,16 +397,17 @@ def join_field(
         **kwargs: Arbitrary keyword arguments. See below.
 
    Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Name of the joined field.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Join field %s on %s from %s.",
-        join_field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Join field `%s.%s` from `%s`.",
         dataset_path,
+        join_field_name,
         join_dataset_path,
     )
     arcpy.management.JoinField(
@@ -410,7 +417,7 @@ def join_field(
         join_field=on_join_field_name,
         fields=[join_field_name],
     )
-    log("End: Join.")
+    LOG.log(level, "End: Join.")
     return join_field_name
 
 
@@ -424,17 +431,23 @@ def rename_field(dataset_path, field_name, new_field_name, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: New name of the field.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Rename field %s to %s on %s.", field_name, new_field_name, dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Rename field `%s.%s` to `%s`.",
+        dataset_path,
+        field_name,
+        new_field_name,
+    )
     arcpy.management.AlterField(
         in_table=dataset_path, field=field_name, new_field_name=new_field_name
     )
-    log("End: Rename.")
+    LOG.log(level, "End: Rename.")
     return new_field_name
 
 
@@ -452,19 +465,20 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None, **
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the dataset with changed privileges.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
+    level = kwargs.get("log_level", logging.INFO)
     privilege_keyword = {True: "grant", False: "revoke", None: "as_is"}
     privilege = {
         "View": privilege_keyword.get(allow_view, "as_is"),
         "Edit": privilege_keyword.get(allow_edit, "as_is"),
     }
-    log(
-        "Start: Set privileges on dataset %s for %s to view=%s, edit=%s.",
+    LOG.log(
+        level,
+        """Start: Set privileges on `%s` for `%s` to view="%s", edit="%s".""",
         dataset_path,
         user_name,
         privilege["View"],
@@ -473,5 +487,5 @@ def set_privileges(dataset_path, user_name, allow_view=None, allow_edit=None, **
     arcpy.management.ChangePrivileges(
         in_dataset=dataset_path, user=user_name, **privilege
     )
-    log("End: Set.")
+    LOG.log(level, "End: Set.")
     return dataset_path

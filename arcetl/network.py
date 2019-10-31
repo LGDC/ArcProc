@@ -7,7 +7,6 @@ from arcetl import arcobj
 from arcetl.arcobj import ArcExtension
 from arcetl import attributes
 from arcetl import dataset
-from arcetl.helpers import leveled_logger
 from arcetl import workspace
 
 
@@ -22,7 +21,8 @@ TYPE_ID_FUNCTION_MAP = {
     "string": (lambda x: x.split(" : ")[0] if x else None),
     "text": (lambda x: x.split(" : ")[0] if x else None),
 }
-"""dict: Mapping of ArcGIS field type to function to get ID from analysis layer label."""
+"""dict: Mapping of ArcGIS field type to ID extract function."""
+
 
 arcpy.SetLogHistory(False)
 
@@ -39,7 +39,7 @@ def closest_facility_route(
     cost_attribute,
     **kwargs
 ):
-    """Generate route info dictionaries for dataset features's closest facility.
+    """Generate route info dictionaries for closest facility to each location feature.
 
     Args:
         dataset_path (str): Path of the dataset.
@@ -53,29 +53,29 @@ def closest_facility_route(
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         facility_where_sql (str): SQL where-clause for facility subselection.
-        max_cost (float): Maximum travel cost the search will attempt, in the cost
-            attribute's units.
+        max_cost (float): Maximum travel cost the search will attempt, in the units of
+            the cost attribute.
         restriction_attributes (iter): Collection of network restriction attribute
             names to use.
         travel_from_facility (bool): Flag to indicate performing the analysis
             travelling from (True) or to (False) the facility. Default is False.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Yields:
-        dict: The next feature's analysis result details.
-            Dictionary keys: 'dataset_id', 'facility_id', 'cost', 'geometry',
-            'cost' value (float) will match units of the cost_attribute.
-            'geometry' (arcpy.Geometry) will match spatial reference to the dataset.
-
+        dict: Analysis result details of feature.
+            Dictionary keys: "dataset_id", "facility_id", "cost", "geometry",
+            "cost" value (float) will match units of the cost_attribute.
+            "geometry" (arcpy.Geometry) will match spatial reference to the dataset.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("facility_where_sql")
     kwargs.setdefault("max_cost")
     kwargs.setdefault("restriction_attributes")
     kwargs.setdefault("travel_from_facility", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Generate closest facility in %s to locations in %s.",
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Generate closest facility in `%s` to locations in `%s`.",
         facility_path,
         dataset_path,
     )
@@ -174,8 +174,8 @@ def closest_facility_route(
                 "geometry": feat["shape@"],
             }
 
-    dataset.delete("closest", log_level=None)
-    log("End: Generate.")
+    dataset.delete("closest", log_level=logging.DEBUG)
+    LOG.log(level, "End: Generate.")
 
 
 @ArcExtension("Network")
@@ -190,7 +190,7 @@ def generate_service_areas(
         network_path (str): Path of the network dataset.
         cost_attribute (str): Name of the network cost attribute to use.
         max_distance (float): Distance in travel from the facility the outer ring will
-            extend to, in the dataset's units.
+            extend to, in the units of the dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -205,7 +205,7 @@ def generate_service_areas(
         overlap_facilities (bool): Flag to overlap different facility service areas.
             Default is True.
         trim_value (float): Dstance from the network features to trim service areas at.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the output service areas dataset.
@@ -217,8 +217,8 @@ def generate_service_areas(
     kwargs.setdefault("detailed_features", False)
     kwargs.setdefault("overlap_facilities", True)
     kwargs.setdefault("trim_value")
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Generate service areas for %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Generate service areas for `%s`.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs["trim_value"] is not None:
         trim_value = arcobj.linear_unit_string(kwargs["trim_value"], dataset_path)
@@ -261,22 +261,22 @@ def generate_service_areas(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy("service_area/Polygons", output_path, log_level=None)
-    dataset.delete("service_area", log_level=None)
+    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
+    dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
         meta = {
             "id_field": arcobj.field_metadata(dataset_path, kwargs["id_field_name"])
         }
-        dataset.add_field(output_path, log_level=None, **meta["id_field"])
+        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
             output_path,
             field_name=meta["id_field"]["name"],
             function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
             field_as_first_arg=False,
             arg_field_names=["Name"],
-            log_level=None,
+            log_level=logging.DEBUG,
         )
-    log("End: Generate.")
+    LOG.log(level, "End: Generate.")
     return output_path
 
 
@@ -298,9 +298,9 @@ def generate_service_rings(
         network_path (str): Path of the network dataset.
         cost_attribute (str): Name of the network cost attribute to use.
         ring_width (float): Distance a service ring represents in travel, in the
-            dataset's units.
+            units of the dataset.
         max_distance (float): Distance in travel from the facility the outer ring will
-            extend to, in the dataset's units.
+            extend to, in the units of the dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -315,11 +315,10 @@ def generate_service_rings(
         overlap_facilities (bool): Flag to overlap different facility service areas.
             Default is True.
         trim_value (float): Dstance from the network features to trim service areas at.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the output service rings dataset.
-
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("id_field_name")
@@ -328,8 +327,8 @@ def generate_service_rings(
     kwargs.setdefault("detailed_features", False)
     kwargs.setdefault("overlap_facilities", True)
     kwargs.setdefault("trim_value")
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Generate service rings for %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Generate service rings for `%s`.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs["trim_value"] is not None:
         trim_value = arcobj.linear_unit_string(kwargs["trim_value"], dataset_path)
@@ -374,20 +373,20 @@ def generate_service_rings(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy("service_area/Polygons", output_path, log_level=None)
-    dataset.delete("service_area", log_level=None)
+    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
+    dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
         meta = {
             "id_field": arcobj.field_metadata(dataset_path, kwargs["id_field_name"])
         }
-        dataset.add_field(output_path, log_level=None, **meta["id_field"])
+        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
             output_path,
             meta["id_field"]["name"],
             function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
             field_as_first_arg=False,
             arg_field_names=["Name"],
-            log_level=None,
+            log_level=logging.DEBUG,
         )
-    log("End: Generate.")
+    LOG.log(level, "End: Generate.")
     return output_path

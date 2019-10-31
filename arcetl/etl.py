@@ -1,5 +1,6 @@
 """ETL objects."""
 from collections import Counter
+
 try:
     from contextlib import ContextDecorator
 except ImportError:
@@ -11,7 +12,7 @@ import funcsigs
 
 from arcetl import dataset
 from arcetl import features
-from arcetl.helpers import unique_path
+from arcetl.helpers import log_entity_states, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class ArcETL(ContextDecorator):
         """
         self.name = name
         self.transform_path = None
-        LOG.info("Initialized ArcETL instance for %s.", self.name)
+        LOG.info("""Initialized ArcETL instance for "%s".""", self.name)
 
     def __enter__(self):
         return self
@@ -44,10 +45,10 @@ class ArcETL(ContextDecorator):
 
     def close(self):
         """Clean up instance."""
-        LOG.info("Closing ArcETL instance for %s.", self.name)
+        LOG.info("""Closing ArcETL instance for "%s".""", self.name)
         # Clear the transform dataset.
         if self.transform_path and dataset.is_valid(self.transform_path):
-            dataset.delete(self.transform_path, log_level=None)
+            dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = None
         LOG.info("Closed.")
 
@@ -61,16 +62,15 @@ class ArcETL(ContextDecorator):
         Returns:
             arcetl.etl.ArcETL: Reference to the instance.
         """
-        LOG.info("Start: Extract %s.", dataset_path)
+        LOG.info("Start: Extract `%s`.", dataset_path)
         self.transform_path = unique_path("extract")
-        feature_action_count = dataset.copy(
+        states = dataset.copy(
             dataset_path=dataset_path,
             output_path=self.transform_path,
             dataset_where_sql=extract_where_sql,
-            log_level=None,
+            log_level=logging.DEBUG,
         )
-        for action, count in sorted(feature_action_count.items()):
-            LOG.info("%s features %s.", count, action)
+        log_entity_states("features", states, LOG)
         LOG.info("End: Extract.")
         return self
 
@@ -105,10 +105,12 @@ class ArcETL(ContextDecorator):
                 dataset_path=template_path,
                 output_path=self.transform_path,
                 schema_only=True,
-                log_level=None,
+                log_level=logging.DEBUG,
             )
         else:
-            dataset.create(dataset_path=self.transform_path, log_level=None, **kwargs)
+            dataset.create(
+                dataset_path=self.transform_path, log_level=logging.DEBUG, **kwargs
+            )
         LOG.info("End: Initialize.")
         return self
 
@@ -132,33 +134,32 @@ class ArcETL(ContextDecorator):
             arcetl.etl.ArcETL: Reference to the instance.
         """
         kwargs.setdefault("use_edit_session", False)
-        LOG.info("Start: Load %s.", dataset_path)
+        LOG.info("Start: Load `%s`.", dataset_path)
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
-            feature_action_count = Counter()
+            states = Counter()
             if not preserve_features:
-                feature_action_count.update(
-                    features.delete(dataset_path, log_level=None, **kwargs)
+                states.update(
+                    features.delete(dataset_path, log_level=logging.DEBUG, **kwargs)
                 )
-            feature_action_count.update(
+            states.update(
                 features.insert_from_path(
                     dataset_path,
                     insert_dataset_path=self.transform_path,
                     insert_where_sql=load_where_sql,
                     use_edit_session=kwargs["use_edit_session"],
-                    log_level=None,
+                    log_level=logging.DEBUG,
                 )
             )
         # Load to a new dataset.
         else:
-            feature_action_count = dataset.copy(
+            states = dataset.copy(
                 self.transform_path,
                 output_path=dataset_path,
                 dataset_where_sql=load_where_sql,
-                log_level=None,
+                log_level=logging.DEBUG,
             )
-        for action, count in sorted(feature_action_count.items()):
-            LOG.info("%s features %s.", count, action)
+        log_entity_states("features", states, LOG)
         LOG.info("End: Load.")
         return self
 
@@ -185,7 +186,7 @@ class ArcETL(ContextDecorator):
         # If there"s a new output, replace old transform.
         if "output_path" in funcsigs.signature(transformation).parameters:
             if dataset.is_valid(self.transform_path):
-                dataset.delete(self.transform_path, log_level=None)
+                dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = kwargs["output_path"]
         return self
 
@@ -213,16 +214,15 @@ class ArcETL(ContextDecorator):
         kwargs.setdefault("update_where_sql")
         kwargs.setdefault("delete_missing_features", True)
         kwargs.setdefault("use_edit_session", True)
-        LOG.info("Start: Update %s.", dataset_path)
-        feature_action_count = features.update_from_path(
+        LOG.info("Start: Update `%s`.", dataset_path)
+        states = features.update_from_path(
             dataset_path,
             update_dataset_path=self.transform_path,
             id_field_names=id_field_names,
             field_names=field_names,
-            log_level=None,
+            log_level=logging.DEBUG,
             **kwargs
         )
-        for action, count in sorted(feature_action_count.items()):
-            LOG.info("%s features %s.", count, action)
+        log_entity_states("features", states, LOG)
         LOG.info("End: Update.")
         return self

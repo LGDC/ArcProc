@@ -4,12 +4,7 @@ import os
 
 import arcpy
 
-from arcetl.arcobj import (
-    ArcExtension,
-    domain_metadata,
-    workspace_metadata,
-)
-from arcetl.helpers import leveled_logger
+from arcetl.arcobj import ArcExtension, domain_metadata, workspace_metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -26,16 +21,15 @@ def build_locator(locator_path, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the built locator.
-
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Build locator %s.", locator_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Build locator `%s`.", locator_path)
     arcpy.geocoding.RebuildAddressLocator(locator_path)
-    log("End: Build.")
+    LOG.log(level, "End: Build.")
     return locator_path
 
 
@@ -48,16 +42,16 @@ def build_network(network_path, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the built network dataset.
 
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Build network %s.", network_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Build network `%s`.", network_path)
     arcpy.na.BuildNetwork(in_network_dataset=network_path)
-    log("End: Build.")
+    LOG.log(level, "End: Build.")
     return network_path
 
 
@@ -70,26 +64,27 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the compressed workspace.
+        str: Path of compressed workspace.
 
     Raises:
         ValueError: If `workspace_path` doesn't reference a compressable geodatabase.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Compress workspace %s.", workspace_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Compress workspace `%s`.", workspace_path)
     meta = {"workspace": workspace_metadata(workspace_path)}
     if not meta["workspace"]["is_enterprise_database"]:
-        raise ValueError("Compressing {} unsupported.".format(workspace_path))
+        raise ValueError("Compressing `{}` unsupported.".format(workspace_path))
+
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=False)
         arcpy.DisconnectUser(sde_workspace=workspace_path, users="all")
     arcpy.management.Compress(workspace_path)
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=True)
-    log("End: Compress.")
+    LOG.log(level, "End: Compress.")
     return workspace_path
 
 
@@ -107,14 +102,13 @@ def create_file_geodatabase(
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the created file geodatabase.
-
+        str: Path of created file geodatabase.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Create file geodatabase %s.", geodatabase_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Create file geodatabase `%s`.", geodatabase_path)
     if os.path.exists(geodatabase_path):
         LOG.warning("Geodatabase already exists.")
         return geodatabase_path
@@ -131,7 +125,7 @@ def create_file_geodatabase(
             import_type=("data" if include_xml_data else "schema_only"),
             config_keyword="defaults",
         )
-    log("End: Create.")
+    LOG.log(level, "End: Create.")
     return geodatabase_path
 
 
@@ -148,15 +142,15 @@ def create_geodatabase_xml_backup(
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the created XML workspace document.
-
+        str: Path of created XML workspace document.
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Create XML backup of geodatabase %s at %s.",
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Create XML backup of geodatabase `%s` at `%s`.",
         geodatabase_path,
         output_path,
     )
@@ -167,7 +161,7 @@ def create_geodatabase_xml_backup(
         storage_type="binary",
         export_metadata=include_metadata,
     )
-    log("End: Create.")
+    LOG.log(level, "End: Create.")
     return output_path
 
 
@@ -190,7 +184,6 @@ def dataset_names(workspace_path, **kwargs):
 
     Yields:
         str: Name of the next dataset in the workspace.
-
     """
     kwargs.setdefault("include_feature_classes", True)
     kwargs.setdefault("include_rasters", True)
@@ -236,7 +229,6 @@ def dataset_paths(workspace_path, **kwargs):
 
     Yields:
         str: Path of the next dataset in the workspace.
-
     """
     kwargs.setdefault("include_feature_classes", True)
     kwargs.setdefault("include_rasters", True)
@@ -261,10 +253,10 @@ def execute_sql(statement, database_path, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        object: Return value from the SQL statement's execution. Likely return types:
+        object: Return value from the SQL statement execution. Likely return types:
             bool: True for successful execution of statement with no return value or
                 retured rows. False if failure.
             list: A List of lists representing returned rows.
@@ -272,10 +264,9 @@ def execute_sql(statement, database_path, **kwargs):
 
     Raises:
         AttributeError: If statement SQL syntax is incorrect.
-
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Execute SQL statement.")
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Execute SQL statement.")
     conn = arcpy.ArcSDESQLExecute(server=database_path)
     try:
         result = conn.execute(statement)
@@ -286,7 +277,7 @@ def execute_sql(statement, database_path, **kwargs):
     finally:
         # Yeah, what can you do?
         del conn
-    log("End: Execute.")
+    LOG.log(level, "End: Execute.")
     return result
 
 
@@ -298,7 +289,6 @@ def is_valid(workspace_path):
 
     Returns:
         bool: True if workspace is valid, False otherwise.
-
     """
     return all(
         [

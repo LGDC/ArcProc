@@ -7,7 +7,7 @@ from arcetl.arcobj import dataset_metadata, field_metadata
 from arcetl import attributes
 from arcetl import dataset
 from arcetl.geometry import convex_hull, line_between_centroids
-from arcetl.helpers import contain, leveled_logger, same_feature, same_value
+from arcetl.helpers import contain, same_feature, same_value
 
 
 LOG = logging.getLogger(__name__)
@@ -138,15 +138,16 @@ def differences(
             Default is None.
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived (if needed). Default is same as the init dataset.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
         log_evaluated_count (int): Divisor at which the function will log how many
             features it has evaluated. Default is 10,000.
 
     Yields:
         tuple
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
         "Start: Evaluate differences from `%s` to `%s`.",
         init_dataset_path,
         new_dataset_path,
@@ -235,7 +236,7 @@ def differences(
                 )
 
         if i % kwargs["log_evaluated_count"] == 0:
-            log("%s features evaluated.", i)
+            LOG.log(level, "%s features evaluated.", i)
     # No more init features: remaining new features have been added.
     for i, (new["id"], new["vals"]) in enumerate(id_vals["new"], i + 1):
         for key in ["id", "vals"]:
@@ -248,9 +249,9 @@ def differences(
         )
 
         if i % kwargs["log_evaluated_count"] == 0:
-            log("%s features evaluated.", i)
-    log("%s features evaluated.", i)
-    log("End: Evaluate.")
+            LOG.log(level, "%s features evaluated.", i)
+    LOG.log(level, "%s features evaluated.", i)
+    LOG.log(level, "End: Evaluate.")
 
 
 def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs):
@@ -271,15 +272,16 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
             Default is None.
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived (if needed). Default is same as the init dataset.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
         log_evaluated_count (int): Divisor at which the function will log how many
             features it has evaluated. Default is 10,000.
 
     Yields:
         tuple
     """
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
         "Start: Evaluate displacements from `%s` to `%s`.",
         init_dataset_path,
         new_dataset_path,
@@ -329,9 +331,11 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
                     )
 
         if i % kwargs["log_evaluated_count"] == 0:
-            log("%s features evaluated.", i)
-    log("%s features evaluated.", i)  # pylint: disable=undefined-loop-variable
-    log("End: Evaluate.")
+            LOG.log(level, "%s features evaluated.", i)
+    LOG.log(
+        level, "%s features evaluated.", i
+    )  # pylint: disable=undefined-loop-variable
+    LOG.log(level, "End: Evaluate.")
 
 
 def create_output_dataset(
@@ -351,14 +355,14 @@ def create_output_dataset(
     Keyword Args:
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived (if needed). Default is same as comparison dataset.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns
         str: Path of dataset.
     """
     kwargs.setdefault("spatial_reference_item", cmp_dataset_path)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Initialize comparison dataset at %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Initialize comparison dataset at `%s`.", dataset_path)
     field_metadata_list = [
         {
             key: val
@@ -377,7 +381,7 @@ def create_output_dataset(
             else None
         ),
         spatial_reference_item=kwargs["spatial_reference_item"],
-        log_level=None,
+        log_level=logging.DEBUG,
     )
-    log("End: Initialize.")
+    LOG.log(level, "End: Initialize.")
     return dataset_path

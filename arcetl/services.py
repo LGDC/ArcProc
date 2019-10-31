@@ -4,8 +4,6 @@ import re
 
 import requests
 
-from arcetl.helpers import leveled_logger
-
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
@@ -24,30 +22,29 @@ def generate_token(server_url, username, password, minutes_active=60, **kwargs):
     Keyword Args:
         referer_url (str): URL of the referring web app.
         requestor_ip (str): IP address of the machine using the token.
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: The generated token.
-
     """
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log("Start: Generate token for %s.", server_url)
-    post_url = requests.compat.urljoin(server_url, 'admin/generateToken')
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Generate token for `%s`.", server_url)
+    post_url = requests.compat.urljoin(server_url, "admin/generateToken")
     post_data = {
-        'f': 'json',
-        'username': username,
-        'password': password,
-        'expiration': minutes_active,
+        "f": "json",
+        "username": username,
+        "password": password,
+        "expiration": minutes_active,
     }
-    if 'referer_url' in kwargs:
-        post_data.update({'client': 'referer', 'referer': kwargs['referer_url']})
-    elif 'requestor_ip' in kwargs:
-        post_data.update({'client': 'ip', 'referer': kwargs['requestor_ip']})
+    if "referer_url" in kwargs:
+        post_data.update({"client": "referer", "referer": kwargs["referer_url"]})
+    elif "requestor_ip" in kwargs:
+        post_data.update({"client": "ip", "referer": kwargs["requestor_ip"]})
     else:
-        post_data['client'] = 'requestip'
-    token = requests.post(url=post_url, data=post_data).json()['token']
-    log("Token = %s.", token)
-    log("End: Generate.")
+        post_data["client"] = "requestip"
+    token = requests.post(url=post_url, data=post_data).json()["token"]
+    LOG.log(level, """Token = "%s".""", token)
+    LOG.log(level, "End: Generate.")
     return token
 
 
@@ -65,33 +62,32 @@ def toggle_service(
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
-        log_level (str): Level to log the function at. Default is 'info'.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: URL for the toggled service.
 
     Raises:
         requests.HTTPError: An error in the HTTP request occurred.
-
     """
     if start_service:
-        toggle = 'start'
+        toggle = "start"
     elif stop_service:
-        toggle = 'stop'
+        toggle = "stop"
     else:
-        raise ValueError("start_service or stop_service must be True")
+        raise ValueError(""""start_service" or "stop_service" must be True.""")
 
-    log = leveled_logger(LOG, kwargs.setdefault('log_level', 'info'))
-    log("Start: Toggle-%s service %s.", toggle, service_url)
-    url_parts = service_url.split('/')
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Toggle-%s service `%s`.", toggle, service_url)
+    url_parts = service_url.split("/")
     post_url = re.sub(
-        '/arcgis/rest/services/',
-        '/arcgis/admin/services/',
-        '/'.join(url_parts[:-1]) + '.{}/{}'.format(url_parts[-1], toggle),
+        "/arcgis/rest/services/",
+        "/arcgis/admin/services/",
+        "/".join(url_parts[:-1]) + ".{}/{}".format(url_parts[-1], toggle),
         flags=re.I,
     )
-    post_data = {'f': 'json', 'token': token}
+    post_data = {"f": "json", "token": token}
     response = requests.post(url=post_url, data=post_data)
     response.raise_for_status()
-    log("End: Toggle.")
+    LOG.log(level, "End: Toggle.")
     return service_url

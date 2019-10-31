@@ -2,6 +2,7 @@
 try:
     from collections.abc import Iterable
 except ImportError:
+    # Py2.
     from collections import Iterable
 import datetime
 import inspect
@@ -80,51 +81,26 @@ def freeze_values(*values):
             yield val
 
 
-def leveled_logger(logger, level_repr=None):
-    """Return logger function to log at the given level.
+def log_entity_states(
+    entity_type, states, logger=None, fmt="{count} {entity_type} {state}."
+):
+    """Log the counts for entities in each state from provided counter.
 
     Args:
-        logger (logging.Logger): Logger to log to.
-        level_repr: Representation of the logging level.
-
-    Returns:
-        function.
+        entity_type (str): Label for the entity type whose states are counted.
+            Preferably plural, e.g. "datasets".
+        states (collections.Counter): State-counts.
+        logger (logging.Logger): Loger to handle emitted loglines.
+        fmt (str): Format-string for logline. Use keywords in default value (`state` &
+            `count` are the key & value of a single item in `states`).
     """
-
-    def _logger(msg, *args, **kwargs):
-        return logger.log(log_level(level_repr), msg, *args, **kwargs)
-
-    return _logger
-
-
-def log_level(level_repr=None):
-    """Return integer for logging module level.
-
-    Args:
-        level_repr: Representation of the logging level.
-
-    Returns:
-        int: Logging module level.
-
-    """
-    level = {
-        None: 0,
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-        "critical": logging.CRITICAL,
-    }
-    if level_repr in level.values():
-        result = level_repr
-    elif level_repr is None:
-        result = level[level_repr]
-    elif isinstance(level_repr, basestring):
-        result = level[level_repr.lower()]
+    if not logger:
+        logger = LOG
+    if sum(states.values()) == 0:
+        logger.info("No %s states to log.", entity_type)
     else:
-        raise RuntimeError("level_repr invalid.")
-
-    return result
+        for state, count in sorted(states.items()):
+            logger.info(fmt.format(count=count, entity_type=entity_type, state=state))
 
 
 def property_value(item, property_transform_map, *properties):

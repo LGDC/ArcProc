@@ -5,7 +5,6 @@ import logging
 import arcpy
 
 from arcetl.arcobj import Editor, dataset_metadata
-from arcetl.helpers import leveled_logger
 
 
 LOG = logging.getLogger(__name__)
@@ -39,15 +38,15 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             fields. Default is "".
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Path of the adjusted dataset.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log("Start: Adjust features for shapefile output in %s.", dataset_path)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Adjust features for shapefile output in `%s`.", dataset_path)
     replacement_value = {
         "date": kwargs.setdefault("date_null_replacement", datetime.date.min),
         "double": kwargs.setdefault("numeric_null_replacement", 0.0),
@@ -63,14 +62,15 @@ def adjust_for_shapefile(dataset_path, **kwargs):
     with session:
         for field in meta["dataset"]["user_fields"]:
             if field["type"].lower() not in replacement_value:
-                log(
-                    "Skipping %s field: type cannot transfer to shapefile.",
-                    field["name"]
+                LOG.log(
+                    level,
+                    "Skipping `%s`: field type cannot transfer to shapefile.",
+                    field["name"],
                 )
                 continue
 
             else:
-                log("Adjusting values in %s field.", field["name"])
+                LOG.log(level, "Adjusting values in `%s`.", field["name"])
             cursor = arcpy.da.UpdateCursor(
                 in_table=dataset_path,
                 field_names=[field["name"]],
@@ -83,8 +83,8 @@ def adjust_for_shapefile(dataset_path, **kwargs):
                         try:
                             cursor.updateRow([new_value])
                         except RuntimeError:
-                            LOG.error("Offending value is %s", new_value)
+                            LOG.error("Offending value is `%s`.", new_value)
                             raise RuntimeError
 
-    log("End: Adjust.")
+    LOG.log(level, "End: Adjust.")
     return dataset_path

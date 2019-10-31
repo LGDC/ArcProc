@@ -11,7 +11,7 @@ import uuid
 import arcpy
 
 from arcetl import geometry
-from arcetl.helpers import log_level, unique_name, unique_path
+from arcetl.helpers import unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -33,27 +33,27 @@ class ArcExtension(ContextDecorator):
         "CheckedIn": {
             "activated": False,
             "message": "Extension deactivated.",
-            "log_level": log_level("info"),
+            "log_level": logging.INFO,
         },
         "CheckedOut": {
             "activated": True,
             "message": "Extension activated.",
-            "log_level": log_level("info"),
+            "log_level": logging.INFO,
         },
         "Failed": {
             "activated": False,
             "message": "System failure.",
-            "log_level": log_level("warning"),
+            "log_level": logging.WARNING,
         },
         "NotInitialized": {
             "activated": False,
             "message": "No desktop license set.",
-            "log_level": log_level("warning"),
+            "log_level": logging.WARNING,
         },
         "Unavailable": {
             "activated": False,
             "message": "Extension unavailable.",
-            "log_level": log_level("warning"),
+            "log_level": logging.WARNING,
         },
     }
     """dict: Information mapped to each extension result string."""
@@ -459,9 +459,8 @@ def _dataset_object_metadata(dataset_object):
     meta["user_fields"] = [
         field
         for field in meta["fields"]
-        if field["name"] not in [
-            meta[key + "_field_name"] for key in system_field_tokens
-        ]
+        if field["name"]
+        not in [meta[key + "_field_name"] for key in system_field_tokens]
     ]
     meta["user_field_names"] = [field["name"] for field in meta["user_fields"]]
     if hasattr(meta["object"], "spatialReference"):

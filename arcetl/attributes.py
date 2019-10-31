@@ -22,7 +22,7 @@ from arcetl.arcobj import (
 from arcetl import dataset
 from arcetl.helpers import (
     contain,
-    leveled_logger,
+    log_entity_states,
     property_value,
     same_feature,
     same_value,
@@ -35,13 +35,7 @@ from arcetl.helpers import (
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
-EXEC_TYPES = [
-    BuiltinFunctionType,
-    BuiltinMethodType,
-    FunctionType,
-    MethodType,
-    partial,
-]
+EXEC_TYPES = [BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, partial]
 """list: Executable object types. Useful for determining if an object can execute."""
 GEOMETRY_PROPERTY_TRANSFORM = {
     "x": ["X"],
@@ -505,23 +499,24 @@ def update_by_domain_code(
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by code in %s using domain %s.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by code in `%s` using domain `%s`.",
         dataset_path,
+        field_name,
         code_field_name,
         domain_name,
     )
     meta = {"domain": domain_metadata(domain_name, domain_workspace_path)}
-    update_action_count = update_by_function(
+    states = update_by_function(
         dataset_path,
         field_name,
         function=meta["domain"]["code_description_map"].get,
@@ -529,12 +524,11 @@ def update_by_domain_code(
         arg_field_names=[code_field_name],
         dataset_where_sql=kwargs["dataset_where_sql"],
         use_edit_session=kwargs["use_edit_session"],
-        log_level=None,
+        log_level=logging.DEBUG,
     )
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_expression(dataset_path, field_name, expression, **kwargs):
@@ -552,18 +546,19 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         str: Name of the field updated.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s using expression: `%s`.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` using expression `%s`.",
         dataset_path,
+        field_name,
         expression,
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
@@ -576,7 +571,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
             expression=expression,
             expression_type="python_9.3",
         )
-    log("End: Update.")
+    LOG.log(level, "End: Update.")
     return field_name
 
 
@@ -608,19 +603,20 @@ def update_by_feature_match(
             Only affects output when update_type="sort_order".
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s"
-        + " by feature-matching %s on identifiers (%s).",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` with %s by feature-matching"
+        " on identifiers `%s`.",
         dataset_path,
+        field_name,
         update_type.replace("_", " "),
         id_field_names,
     )
@@ -633,7 +629,7 @@ def update_by_feature_match(
     }.items():
         if update_type == _type and kwarg not in kwargs:
             raise TypeError(
-                """{} is required keyword argument when update_type == "{}", .""".format(
+                """{} is required keyword argument when update_type == "{}".""".format(
                     _type, kwarg
                 )
             )
@@ -656,7 +652,7 @@ def update_by_feature_match(
             else None
         ),
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -673,19 +669,18 @@ def update_by_feature_match(
             elif update_type == "sort_order":
                 value["new"] = matcher.increment_assigned(value["id"])
             if same_value(value["old"], value["new"]):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_function(dataset_path, field_name, function, **kwargs):
@@ -707,21 +702,22 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("field_as_first_arg", True)
     kwargs.setdefault("arg_field_names", [])
     kwargs.setdefault("kwarg_field_names", [])
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by function %s.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by function `%s`.",
         dataset_path,
+        field_name,
         function,
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
@@ -736,7 +732,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -748,19 +744,18 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                 value["args"] = [value["old"]] + value["args"]
             value["new"] = function(*value["args"], **value["kwargs"])
             if same_value(value["old"], value["new"]):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
@@ -779,19 +774,20 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
             geometry property will be derived. Default is the update dataset.
         use_edit_session (bool): Updates are done in an edit session if True. If not
             not specified or None, the spatial reference of the dataset is used.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by geometry properties %s.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by geometry properties `%s`.",
         dataset_path,
+        field_name,
         geometry_properties,
     )
     session = Editor(
@@ -803,7 +799,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for feature in cursor:
             value = {"geometry": feature[0], "old": feature[-1]}
@@ -813,19 +809,18 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
                 *contain(geometry_properties)
             )
             if same_value(value["old"], value["new"]):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow([value["geometry"], value["new"]])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_joined_value(
@@ -850,20 +845,21 @@ def update_by_joined_value(
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by joined values in %s on %s.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by joined values in `%s.%s`.",
         dataset_path,
-        join_field_name,
+        field_name,
         join_dataset_path,
+        join_field_name,
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {
@@ -880,7 +876,7 @@ def update_by_joined_value(
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -891,19 +887,18 @@ def update_by_joined_value(
             }
             value["new"] = join_value.get(value["id"])
             if same_value(value["old"], value["new"]):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
-                    LOG.error("Offending value is %s", value["new"])
+                    LOG.error("Offending value is `%s`", value["new"])
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwargs):
@@ -924,19 +919,20 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
             present. Default is None.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("default_value")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by mapping with key in %s.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by mapping with key in `%s`.",
         dataset_path,
+        field_name,
         key_field_names,
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
@@ -950,7 +946,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for feature in cursor:
             value = {
@@ -959,19 +955,18 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
             }
             value["new"] = mapping.get(value["map_key"], kwargs["default_value"])
             if same_value(value["old"], value["new"]):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
-                    LOG.error("Offending value is %s", value["new"])
+                    LOG.error("Offending value is `%s`", value["new"])
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwargs):
@@ -987,20 +982,20 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
-
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s & %s on %s by node IDs.",
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` & `%s` by node IDs.",
+        dataset_path,
         from_id_field_name,
         to_id_field_name,
-        dataset_path,
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {"feature": ["oid@", from_id_field_name, to_id_field_name]}
@@ -1013,7 +1008,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for feature in cursor:
             value = {"oid": feature[0], "old_nodes": feature[1:]}
@@ -1022,19 +1017,18 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
                 oid_node[value["oid"]]["to"],
             ]
             if same_feature(value["old_nodes"], value["new_nodes"]):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow([value["oid"]] + value["new_nodes"])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value one of %s", value["new_nodes"])
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_overlay(
@@ -1071,23 +1065,24 @@ def update_by_overlay(
         tolerance (float): Tolerance for coincidence, in units of the dataset.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("overlay_central_coincident", False)
     kwargs.setdefault("overlay_most_coincident", False)
     kwargs.setdefault("overlay_where_sql")
     kwargs.setdefault("use_edit_session", False)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by overlay values in %s on %s.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by overlay values in `%s.%s`.",
         dataset_path,
-        overlay_field_name,
+        field_name,
         overlay_dataset_path,
+        overlay_field_name,
     )
     meta = {
         "dataset": dataset_metadata(dataset_path),
@@ -1113,7 +1108,7 @@ def update_by_overlay(
             overlay_copy.path,
             overlay_field_name,
             new_field_name=unique_name(overlay_field_name),
-            log_level=None,
+            log_level=logging.DEBUG,
         )
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
@@ -1129,19 +1124,16 @@ def update_by_overlay(
             arcpy.env.XYTolerance = meta["original_tolerance"]
     # Push overlay (or replacement) value from output to update field.
     if "replacement_value" in kwargs and kwargs["replacement_value"] is not None:
-        function = lambda x: kwargs["replacement_value"] if x else None
-    else:
-        function = lambda x: x
-    update_by_function(
-        temp_output_path,
-        field_name,
-        function,
-        field_as_first_arg=False,
-        arg_field_names=[overlay_copy.field_name],
-        log_level=None,
-    )
+        update_by_function(
+            temp_output_path,
+            field_name,
+            function=lambda x: kwargs["replacement_value"] if x else None,
+            field_as_first_arg=False,
+            arg_field_names=[overlay_copy.field_name],
+            log_level=logging.DEBUG,
+        )
     # Update values in original dataset.
-    update_action_count = update_by_joined_value(
+    states = update_by_joined_value(
         dataset_path,
         field_name,
         join_dataset_path=temp_output_path,
@@ -1149,13 +1141,12 @@ def update_by_overlay(
         on_field_pairs=[(meta["dataset"]["oid_field_name"], "target_fid")],
         dataset_where_sql=kwargs["dataset_where_sql"],
         use_edit_session=kwargs["use_edit_session"],
-        log_level=None,
+        log_level=logging.DEBUG,
     )
-    dataset.delete(temp_output_path, log_level=None)
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_unique_id(dataset_path, field_name, **kwargs):
@@ -1172,18 +1163,19 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", True)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by assigning unique IDs.",
-        field_name,
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by assigning unique IDs.",
         dataset_path,
+        field_name,
     )
     meta = {
         "dataset": dataset_metadata(dataset_path),
@@ -1209,27 +1201,26 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
             string_length=meta["field"].get("length"),
         )
         # Second run will fill in missing IDs.
-        update_action_count = Counter()
+        states = Counter()
         with cursor:
             for [id_value] in cursor:
                 if id_value is not None:
-                    update_action_count["unchanged"] += 1
+                    states["unchanged"] += 1
                 else:
                     id_value = next(id_pool)
                     while id_value in used_ids:
                         id_value = next(id_pool)
                     try:
                         cursor.updateRow([id_value])
-                        update_action_count["altered"] += 1
+                        states["altered"] += 1
                         used_ids.add(id_value)
                     except RuntimeError:
                         LOG.error("Offending value is %s", id_value)
                         raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states
 
 
 def update_by_value(dataset_path, field_name, value, **kwargs):
@@ -1245,16 +1236,19 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
-        log_level (str): Level to log the function at. Default is "info".
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        collections.Counter: Counts for each feature action.
+        collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", True)
-    log = leveled_logger(LOG, kwargs.setdefault("log_level", "info"))
-    log(
-        "Start: Update attributes in %s on %s by given value.", field_name, dataset_path
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by given value.",
+        dataset_path,
+        field_name,
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
@@ -1263,20 +1257,19 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         field_names=[field_name],
         where_clause=kwargs["dataset_where_sql"],
     )
-    update_action_count = Counter()
+    states = Counter()
     with session, cursor:
         for [old_value] in cursor:
             if same_value(old_value, value):
-                update_action_count["unchanged"] += 1
+                states["unchanged"] += 1
             else:
                 try:
                     cursor.updateRow([value])
-                    update_action_count["altered"] += 1
+                    states["altered"] += 1
                 except RuntimeError:
-                    LOG.error("Offending value is %s", value)
+                    LOG.error("Offending value is `%s`.", value)
                     raise
 
-    for action, count in sorted(update_action_count.items()):
-        log("%s attributes %s.", count, action)
-    log("End: Update.")
-    return update_action_count
+    log_entity_states("attributes", states, LOG)
+    LOG.log(level, "End: Update.")
+    return states

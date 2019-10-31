@@ -41,53 +41,58 @@ def id_near_info_map(
 
     Returns:
         dict: Mapping of the dataset ID to a near-feature info dictionary.
-            Info dictionary keys: 'id', 'near_id', 'rank', 'distance',
-            'angle', 'near_x', 'near_y'.
-            'distance' value (float) will match linear unit of the dataset's
+            Info dictionary keys: "id", "near_id", "rank", "distance",
+            "angle", "near_x", "near_y".
+            "distance" value (float) will match linear unit of the dataset"s
             spatial reference.
-            'angle' value (float) is in decimal degrees.
-
+            "angle" value (float) is in decimal degrees.
     """
-    kwargs.setdefault('dataset_where_sql')
-    kwargs.setdefault('near_where_sql')
-    kwargs.setdefault('near_rank', 1)
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("near_where_sql")
+    kwargs.setdefault("near_rank", 1)
     view = {
-        'dataset': arcobj.DatasetView(dataset_path, kwargs['dataset_where_sql']),
-        'near': arcobj.DatasetView(near_dataset_path, kwargs['near_where_sql']),
+        "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
+        "near": arcobj.DatasetView(near_dataset_path, kwargs["near_where_sql"]),
     }
-    with view['dataset'], view['near']:
-        temp_near_path = unique_path('near')
+    with view["dataset"], view["near"]:
+        temp_near_path = unique_path("near")
         arcpy.analysis.GenerateNearTable(
-            in_features=view['dataset'].name,
-            near_features=view['near'].name,
+            in_features=view["dataset"].name,
+            near_features=view["near"].name,
             out_table=temp_near_path,
             search_radius=max_near_distance,
             location=True,
             angle=True,
             closest=False,
-            closest_count=kwargs['near_rank'],
+            closest_count=kwargs["near_rank"],
         )
         oid_id_map = attributes.id_values_map(
-            view['dataset'].name, 'oid@', dataset_id_field_name
+            view["dataset"].name, "oid@", dataset_id_field_name
         )
         near_oid_id_map = attributes.id_values_map(
-            view['near'].name, 'oid@', near_id_field_name
+            view["near"].name, "oid@", near_id_field_name
         )
     field_names = [
-        'in_fid', 'near_fid', 'near_dist', 'near_angle', 'near_x', 'near_y', 'near_rank'
+        "in_fid",
+        "near_fid",
+        "near_dist",
+        "near_angle",
+        "near_x",
+        "near_y",
+        "near_rank",
     ]
     near_info_map = {}
     for near_info in attributes.as_dicts(temp_near_path, field_names):
-        if near_info['near_rank'] == kwargs['near_rank']:
-            _id = oid_id_map[near_info['in_fid']]
+        if near_info["near_rank"] == kwargs["near_rank"]:
+            _id = oid_id_map[near_info["in_fid"]]
             near_info_map[_id] = {
-                'id': _id,
-                'near_id': near_oid_id_map[near_info['near_fid']],
-                'rank': near_info['near_rank'],
-                'distance': near_info['near_dist'],
-                'angle': near_info['near_angle'],
-                'near_x': near_info['near_x'],
-                'near_y': near_info['near_y'],
+                "id": _id,
+                "near_id": near_oid_id_map[near_info["near_fid"]],
+                "rank": near_info["near_rank"],
+                "distance": near_info["near_dist"],
+                "angle": near_info["near_angle"],
+                "near_x": near_info["near_x"],
+                "near_y": near_info["near_y"],
             }
-    dataset.delete(temp_near_path, log_level=None)
+    dataset.delete(temp_near_path, log_level=logging.DEBUG)
     return near_info_map

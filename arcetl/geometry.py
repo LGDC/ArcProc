@@ -6,8 +6,6 @@ from more_itertools import pairwise
 
 import arcpy
 
-from arcetl.helpers import same_value
-
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
