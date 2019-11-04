@@ -1122,14 +1122,11 @@ def update_by_overlay(
         )
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = meta["original_tolerance"]
-    # Push overlay (or replacement) value from output to update field.
-    if "replacement_value" in kwargs and kwargs["replacement_value"] is not None:
+    if kwargs.get("replacement_value") is not None:
         update_by_function(
             temp_output_path,
-            field_name,
+            field_name=overlay_copy.field_name,
             function=lambda x: kwargs["replacement_value"] if x else None,
-            field_as_first_arg=False,
-            arg_field_names=[overlay_copy.field_name],
             log_level=logging.DEBUG,
         )
     # Update values in original dataset.
@@ -1137,7 +1134,7 @@ def update_by_overlay(
         dataset_path,
         field_name,
         join_dataset_path=temp_output_path,
-        join_field_name=field_name,
+        join_field_name=overlay_copy.field_name,
         on_field_pairs=[(meta["dataset"]["oid_field_name"], "target_fid")],
         dataset_where_sql=kwargs["dataset_where_sql"],
         use_edit_session=kwargs["use_edit_session"],
