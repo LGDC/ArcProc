@@ -212,6 +212,24 @@ def same_value(*values):
     return same
 
 
+def slugify(text, separator="-", force_lowercase=True):
+    """Return text in slug-form.
+
+    Args:
+        text (str): String to slugify.
+        separator (str): String to use as separator.
+
+    Returns:
+        str
+    """
+    slug = text.lower() if force_lowercase else text
+    for char in string.punctuation + string.whitespace:
+        slug = slug.replace(char, separator)
+    while separator * 2 in slug:
+        slug = slug.replace(separator * 2, separator)
+    return slug
+
+
 def unique_ids(data_type=uuid.UUID, string_length=4):
     """Generate unique IDs.
 
