@@ -526,7 +526,7 @@ def update_by_domain_code(
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
     )
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -678,7 +678,7 @@ def update_by_feature_match(
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -753,7 +753,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -818,7 +818,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -896,7 +896,7 @@ def update_by_joined_value(
                     LOG.error("Offending value is `%s`", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -964,7 +964,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
                     LOG.error("Offending value is `%s`", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1026,7 +1026,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
                     LOG.error("Offending value one of %s", value["new_nodes"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1141,7 +1141,7 @@ def update_by_overlay(
         log_level=logging.DEBUG,
     )
     dataset.delete(temp_output_path, log_level=logging.DEBUG)
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1215,7 +1215,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                         LOG.error("Offending value is %s", id_value)
                         raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1267,6 +1267,6 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
                     LOG.error("Offending value is `%s`.", value)
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
