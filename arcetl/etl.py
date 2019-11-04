@@ -13,7 +13,7 @@ import funcsigs
 
 from arcetl import dataset
 from arcetl import features
-from arcetl.helpers import elapsed, log_entity_states, unique_path
+from arcetl.helpers import elapsed, log_entity_states, slugify, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ class ArcETL(ContextDecorator):
         """
         self.start_time = datetime.datetime.now()
         self.name = name
+        self.slug = slugify(name, separator="_")
         self.transform_path = None
         LOG.info("""Initialized ArcETL instance for "%s".""", self.name)
 
@@ -66,7 +67,7 @@ class ArcETL(ContextDecorator):
             arcetl.etl.ArcETL: Reference to the instance.
         """
         LOG.info("Start: Extract `%s`.", dataset_path)
-        self.transform_path = unique_path("extract")
+        self.transform_path = unique_path(self.slug + "_")
         states = dataset.copy(
             dataset_path=dataset_path,
             output_path=self.transform_path,
@@ -102,7 +103,7 @@ class ArcETL(ContextDecorator):
             arcetl.etl.ArcETL: Reference to the instance.
         """
         LOG.info("Start: Initialize schema.")
-        self.transform_path = unique_path("init")
+        self.transform_path = unique_path(self.slug + "_")
         if template_path:
             dataset.copy(
                 dataset_path=template_path,
@@ -181,10 +182,7 @@ class ArcETL(ContextDecorator):
         kwargs.setdefault("dataset_path", self.transform_path)
         # Add output_path to kwargs if needed.
         if "output_path" in funcsigs.signature(transformation).parameters:
-            kwargs.setdefault(
-                "output_path",
-                unique_path(getattr(transformation, "__name__", "transform")),
-            )
+            kwargs.setdefault("output_path", unique_path(self.slug + "_"))
         transformation(**kwargs)
         # If there"s a new output, replace old transform.
         if "output_path" in funcsigs.signature(transformation).parameters:
