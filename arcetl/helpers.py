@@ -104,9 +104,7 @@ def freeze_values(*values):
             yield val
 
 
-def log_entity_states(
-    entity_type, states, logger=None, fmt="{count} {entity_type} {state}."
-):
+def log_entity_states(entity_type, states, logger=None, **kwargs):
     """Log the counts for entities in each state from provided counter.
 
     Args:
@@ -114,16 +112,25 @@ def log_entity_states(
             Preferably plural, e.g. "datasets".
         states (collections.Counter): State-counts.
         logger (logging.Logger): Loger to handle emitted loglines.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
         fmt (str): Format-string for logline. Use keywords in default value (`state` &
-            `count` are the key & value of a single item in `states`).
+            `count` are the key & value of a single item in `states`). Default is
+            "{count} {entity_type} {state}."
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
     """
     if not logger:
         logger = LOG
+    level = kwargs.get("log_level", logging.INFO)
     if sum(states.values()) == 0:
-        logger.info("No %s states to log.", entity_type)
+        logger.log(level, "No %s states to log.", entity_type)
     else:
         for state, count in sorted(states.items()):
-            logger.info(fmt.format(count=count, entity_type=entity_type, state=state))
+            line = kwargs.get("fmt", "{count} {entity_type} {state}.").format(
+                count=count, entity_type=entity_type, state=state
+            )
+            logger.log(level, line)
 
 
 def property_value(item, property_transform_map, *properties):

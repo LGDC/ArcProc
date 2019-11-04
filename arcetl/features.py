@@ -147,8 +147,7 @@ def delete(dataset_path, **kwargs):
         with view["dataset"], session:
             states["deleted"] = view["dataset"].count
             arcpy.management.DeleteRows(in_rows=view["dataset"].name)
-        states["unchanged"] = dataset.feature_count(dataset_path)
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Delete.")
     return states
 
@@ -195,7 +194,7 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
                     cursor.deleteRow()
                     states["deleted"] += 1
     states["unchanged"] = dataset.feature_count(dataset_path)
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Delete.")
     return states
 
@@ -429,7 +428,7 @@ def insert_from_dicts(dataset_path, insert_features, field_names, **kwargs):
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
     )
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Insert.")
     return states
 
@@ -468,7 +467,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
         for row in insert_features:
             cursor.insertRow(tuple(row))
             states["inserted"] += 1
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Insert.")
     return states
 
@@ -548,7 +547,7 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
     with view, session:
         arcpy.management.Append(**append_kwargs)
         states = Counter(inserted=view.count)
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Insert.")
     return states
 
@@ -602,7 +601,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
             in_layer=view["dataset"].name, selection_type="switch_selection"
         )
         states = delete(view["dataset"].name, log_level=logging.DEBUG)
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Keep.")
     return states
 
@@ -652,7 +651,7 @@ def update_from_dicts(
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
     )
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Update.")
     return states
 
@@ -751,7 +750,7 @@ def update_from_iters(
                     raise
 
                 states["inserted"] += 1
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Update.")
     return states
 
@@ -846,6 +845,6 @@ def update_from_path(
                     log_level=logging.DEBUG,
                 )
             )
-    log_entity_states("features", states, LOG)
+    log_entity_states("features", states, LOG, log_level=logging.DEBUG)
     LOG.log(level, "End: Update.")
     return states

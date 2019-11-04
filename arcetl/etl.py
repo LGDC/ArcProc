@@ -73,7 +73,7 @@ class ArcETL(ContextDecorator):
             dataset_where_sql=extract_where_sql,
             log_level=logging.DEBUG,
         )
-        log_entity_states("features", states, LOG)
+        log_entity_states("features", states, LOG, log_level=logging.DEBUG)
         LOG.info("End: Extract.")
         return self
 
@@ -162,7 +162,7 @@ class ArcETL(ContextDecorator):
                 dataset_where_sql=load_where_sql,
                 log_level=logging.DEBUG,
             )
-        log_entity_states("features", states, LOG)
+        log_entity_states("features", states, LOG, log_level=logging.DEBUG)
         LOG.info("End: Load.")
         return self
 
@@ -226,6 +226,6 @@ class ArcETL(ContextDecorator):
             log_level=logging.DEBUG,
             **kwargs
         )
-        log_entity_states("features", states, LOG)
+        log_entity_states("features", states, LOG, log_level=logging.DEBUG)
         LOG.info("End: Update.")
         return self
