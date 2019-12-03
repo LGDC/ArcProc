@@ -19,6 +19,7 @@ from more_itertools import pairwise
 import arcpy
 
 
+# Py2.
 if sys.version_info.major >= 3:
     basestring = str
     """Defining a basestring type instance for Py3+."""
