@@ -368,13 +368,14 @@ def is_valid(dataset_path):
     Returns:
         bool: True if dataset is valid, False otherwise.
     """
-    valid = all(
-        [
-            dataset_path,
-            arcpy.Exists(dataset_path),
-            dataset_metadata(dataset_path)["is_table"],
-        ]
-    )
+    exists = dataset_path and arcpy.Exists(dataset_path)
+    if exists:
+        try:
+            valid = dataset_metadata(dataset_path)["is_table"]
+        except IOError:
+            valid = False
+    else:
+        valid = False
     return valid
 
 
