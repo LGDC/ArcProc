@@ -251,7 +251,8 @@ def unique_ids(data_type=uuid.UUID, string_length=4):
             unique_id += 1
     elif data_type in [uuid.UUID]:
         while True:
-            yield uuid.uuid4()
+            # Brackets required for Arc UUIDs for some fucking reason.
+            yield "{" + str(uuid.uuid4()) + "}"
 
     elif data_type in [str]:
         seed = string.ascii_letters + string.digits
