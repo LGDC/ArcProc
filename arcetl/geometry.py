@@ -102,9 +102,11 @@ def coordinate_distance(*coordinates):
         coord[2].setdefault("z", 0)
         distance += sqrt(
             sum(
-                (coord[2]["x"] - coord[1]["x"]) ** 2,
-                (coord[2]["y"] - coord[1]["y"]) ** 2,
-                (coord[2]["z"] - coord[1]["z"]) ** 2,
+                [
+                    (coord[2]["x"] - coord[1]["x"]) ** 2,
+                    (coord[2]["y"] - coord[1]["y"]) ** 2,
+                    (coord[2]["z"] - coord[1]["z"]) ** 2,
+                ]
             )
         )
     return distance
