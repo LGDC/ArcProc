@@ -728,24 +728,25 @@ def update_from_iters(
                 if _id in ids["delete"]:
                     cursor.deleteRow()
                     states["deleted"] += 1
-                    continue
-
-                elif _id in feats["id_update"] and not same_feature(
-                    feat, feats["id_update"][_id]
-                ):
-                    cursor.updateRow(feats["id_update"][_id])
-                    states["altered"] += 1
+                elif _id in feats["id_update"]:
+                    new_feat = feats["id_update"].pop(_id)
+                    if not same_feature(feat, new_feat):
+                        cursor.updateRow(new_feat)
+                        states["altered"] += 1
+                    else:
+                        states["unchanged"] += 1
                 else:
                     states["unchanged"] += 1
     if feats["insert"]:
         cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys["feat"])
         with session, cursor:
-            for feat in feats["insert"]:
+            while feats["insert"]:
+                new_feat = feats["insert"].pop()
                 try:
-                    cursor.insertRow(feat)
+                    cursor.insertRow(new_feat)
                 except RuntimeError:
                     LOG.error("Feature failed to write to cursor. Offending row:")
-                    for key, val in zip(keys["feat"], feat):
+                    for key, val in zip(keys["feat"], new_feat):
                         LOG.error("%s: %s", key, val)
                     raise
 
