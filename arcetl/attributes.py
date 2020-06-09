@@ -241,6 +241,42 @@ def as_iters(dataset_path, field_names, **kwargs):
             yield kwargs["iter_type"](feature)
 
 
+def as_values(dataset_path, field_names, **kwargs):
+    """Generate feature attribute values.
+
+    Values of all given field names will be yielded as they are uncovered.
+
+    Notes:
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_names (iter): Collection of field names.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+
+    Yields:
+        object.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("spatial_reference_item")
+    keys = {"feature": list(contain(field_names))}
+    cursor = arcpy.da.SearchCursor(
+        in_table=dataset_path,
+        field_names=keys["feature"],
+        where_clause=kwargs["dataset_where_sql"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
+    )
+    with cursor:
+        for feature in cursor:
+            for value in feature:
+                yield value
+
+
 def coordinate_node_map(
     dataset_path,
     from_id_field_name,
