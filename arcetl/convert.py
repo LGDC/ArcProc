@@ -234,7 +234,7 @@ def rows_to_csvfile(rows, output_path, field_names, header=False, **kwargs):
     """
     kwargs.setdefault("file_mode", "wb")
     level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Convert rows to CSV file `%s`.", output_path)
+    LOG.log(level, "Start: Write rows to CSV file `%s`.", output_path)
     field_names = list(contain(field_names))
     with open(output_path, kwargs["file_mode"]) as csvfile:
         for index, row in enumerate(rows):
