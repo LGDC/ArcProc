@@ -719,6 +719,61 @@ def update_by_feature_match(
     return states
 
 
+def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
+    """Update attribute values with values from another field.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        source_field_name (str): Name of the field to get values from.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        use_edit_session (bool): Updates are done in an edit session if True. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each update-state.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("use_edit_session", False)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` from `%s.%s`.",
+        dataset_path,
+        field_name,
+        dataset_path,
+        source_field_name,
+    )
+    meta = {"dataset": dataset_metadata(dataset_path)}
+    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    cursor = arcpy.da.UpdateCursor(
+        in_table=dataset_path,
+        field_names=[field_name, source_field_name],
+        where_clause=kwargs["dataset_where_sql"],
+    )
+    states = Counter()
+    with session, cursor:
+        for feature in cursor:
+            value = {"old": feature[0], "new": feature[1]}
+            if same_value(value["old"], value["new"]):
+                states["unchanged"] += 1
+            else:
+                try:
+                    cursor.updateRow([value["new"], value["new"]])
+                    states["altered"] += 1
+                except RuntimeError:
+                    LOG.error("Offending value is `%s`", value["new"])
+                    raise
+
+    log_entity_states("attributes", states, LOG, log_level=level)
+    LOG.log(level, "End: Update.")
+    return states
+
+
 def update_by_function(dataset_path, field_name, function, **kwargs):
     """Update attribute values by passing them to a function.
 
