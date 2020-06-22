@@ -1248,6 +1248,10 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
+        start_after_max_number (bool): Initial number will be one greater than the
+            maximum existing ID number if True. Default is False.
+        initial_number (int): Initial number for a proposed ID, if using a numeric data
+            type. Default is 1. Superseded by start_after_max_number.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
@@ -1256,6 +1260,8 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    kwargs.setdefault("start_after_max_number", False)
+    kwargs.setdefault("initial_number", 1)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", True)
     level = kwargs.get("log_level", logging.INFO)
@@ -1284,10 +1290,15 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                     cursor.updateRow([None])
                 else:
                     used_ids.add(id_value)
-        id_pool = unique_ids(
-            data_type=python_type(meta["field"]["type"]),
-            string_length=meta["field"].get("length"),
-        )
+            id_pool = unique_ids(
+                data_type=python_type(meta["field"]["type"]),
+                string_length=meta["field"].get("length"),
+                initial_number=(
+                    max(used_ids) + 1
+                    if kwargs["start_after_max_number"]
+                    else kwargs["initial_number"]
+                ),
+            )
         # Second run will fill in missing IDs.
         states = Counter()
         with cursor:

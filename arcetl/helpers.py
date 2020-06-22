@@ -231,20 +231,21 @@ def slugify(text, separator="-", force_lowercase=True):
     return slug
 
 
-def unique_ids(data_type=uuid.UUID, string_length=4):
+def unique_ids(data_type=uuid.UUID, string_length=4, initial_number=1):
     """Generate unique IDs.
 
     Args:
         data_type: Type object to create unique IDs as.
         string_length (int): Length to make unique IDs of type string. Ignored if
             data_type is not a string type.
+        initial_number (int): Initial number for a proposed ID, if using a numeric data
+            type. Default is 1.
 
     Yields:
         Unique ID.
     """
     if data_type in [float, int]:
-        # Skip 0 (problematic - some processing functions use 0 for null).
-        unique_id = data_type(1)
+        unique_id = data_type(initial_number)
         while True:
             yield unique_id
 
