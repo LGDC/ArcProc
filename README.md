@@ -1,3 +1,3 @@
-# ArcETL #
+# ArProc
 
-ArcGIS/ArcPy-based ETL framework.
+ArcGIS/ArcPy-based processing framework.
