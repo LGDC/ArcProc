@@ -3,11 +3,11 @@ from copy import copy
 from functools import partial
 import logging
 
-from arcetl.arcobj import dataset_metadata, field_metadata
-from arcetl import attributes
-from arcetl import dataset
-from arcetl.geometry import convex_hull, line_between_centroids
-from arcetl.helpers import contain, same_feature, same_value
+from arcproc.arcobj import dataset_metadata, field_metadata
+from arcproc import attributes
+from arcproc import dataset
+from arcproc.geometry import convex_hull, line_between_centroids
+from arcproc.helpers import contain, same_feature, same_value
 
 
 LOG = logging.getLogger(__name__)

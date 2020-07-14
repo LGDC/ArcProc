@@ -4,7 +4,7 @@ import os
 
 import arcpy
 
-from arcetl.arcobj import ArcExtension, domain_metadata, workspace_metadata
+from arcproc.arcobj import ArcExtension, domain_metadata, workspace_metadata
 
 
 LOG = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ from xsorted import xsorted
 
 import arcpy
 
-from arcetl.arcobj import (
+from arcproc.arcobj import (
     DatasetView,
     Editor,
     TempDatasetCopy,
@@ -19,8 +19,8 @@ from arcetl.arcobj import (
     python_type,
     spatial_reference,
 )
-from arcetl import dataset
-from arcetl.helpers import (
+from arcproc import dataset
+from arcproc.helpers import (
     contain,
     log_entity_states,
     property_value,

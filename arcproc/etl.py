@@ -11,9 +11,9 @@ import logging
 
 import funcsigs
 
-from arcetl import dataset
-from arcetl import features
-from arcetl.helpers import elapsed, log_entity_states, slugify, unique_path
+from arcproc import dataset
+from arcproc import features
+from arcproc.helpers import elapsed, log_entity_states, slugify, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class ArcETL(ContextDecorator):
             extract_where_sql (str): SQL where-clause for extract subselection.
 
         Returns:
-            arcetl.etl.ArcETL: Reference to the instance.
+            arcproc.etl.ArcETL: Reference to the instance.
         """
         LOG.info("Start: Extract `%s`.", dataset_path)
         self.transform_path = unique_path(self.slug + "_")
@@ -100,7 +100,7 @@ class ArcETL(ContextDecorator):
                 WGS84).  Will be ignored if template_path used.
 
         Returns:
-            arcetl.etl.ArcETL: Reference to the instance.
+            arcproc.etl.ArcETL: Reference to the instance.
         """
         LOG.info("Start: Initialize schema.")
         self.transform_path = unique_path(self.slug + "_")
@@ -135,7 +135,7 @@ class ArcETL(ContextDecorator):
                 Default is False.
 
         Returns:
-            arcetl.etl.ArcETL: Reference to the instance.
+            arcproc.etl.ArcETL: Reference to the instance.
         """
         kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load `%s`.", dataset_path)
@@ -176,7 +176,7 @@ class ArcETL(ContextDecorator):
             **kwargs: Arbitrary keyword arguments; passed through to the transformation.
 
         Returns:
-            arcetl.etl.ArcETL: Reference to the instance.
+            arcproc.etl.ArcETL: Reference to the instance.
         """
         # Unless otherwise stated, dataset path is self.transform_path.
         kwargs.setdefault("dataset_path", self.transform_path)
@@ -210,7 +210,7 @@ class ArcETL(ContextDecorator):
                 Default is True.
 
         Returns:
-            arcetl.etl.ArcETL: Reference to the instance.
+            arcproc.etl.ArcETL: Reference to the instance.
         """
         kwargs.setdefault("update_where_sql")
         kwargs.setdefault("delete_missing_features", True)

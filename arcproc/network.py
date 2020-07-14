@@ -3,11 +3,11 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj
-from arcetl.arcobj import ArcExtension
-from arcetl import attributes
-from arcetl import dataset
-from arcetl import workspace
+from arcproc import arcobj
+from arcproc.arcobj import ArcExtension
+from arcproc import attributes
+from arcproc import dataset
+from arcproc import workspace
 
 
 LOG = logging.getLogger(__name__)

@@ -8,16 +8,16 @@ import logging
 
 import arcpy
 
-from arcetl.arcobj import (
+from arcproc.arcobj import (
     DatasetView,
     dataset_metadata,
     spatial_reference,
     spatial_reference_metadata,
 )
-from arcetl import attributes
-from arcetl import dataset
-from arcetl import features
-from arcetl.helpers import contain, unique_name
+from arcproc import attributes
+from arcproc import dataset
+from arcproc import features
+from arcproc.helpers import contain, unique_name
 
 
 LOG = logging.getLogger(__name__)

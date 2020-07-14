@@ -4,7 +4,7 @@ import logging
 
 import arcpy
 
-from arcetl.arcobj import Editor, dataset_metadata
+from arcproc.arcobj import Editor, dataset_metadata
 
 
 LOG = logging.getLogger(__name__)

@@ -5,13 +5,13 @@ import os
 
 import arcpy
 
-from arcetl.arcobj import (
+from arcproc.arcobj import (
     DatasetView,
     dataset_metadata,
     field_metadata,
     spatial_reference,
 )
-from arcetl.helpers import contain
+from arcproc.helpers import contain
 
 
 LOG = logging.getLogger(__name__)

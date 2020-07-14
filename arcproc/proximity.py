@@ -3,10 +3,10 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj
-from arcetl import attributes
-from arcetl import dataset
-from arcetl.helpers import unique_path
+from arcproc import arcobj
+from arcproc import attributes
+from arcproc import dataset
+from arcproc.helpers import unique_path
 
 
 LOG = logging.getLogger(__name__)

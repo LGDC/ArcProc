@@ -6,10 +6,10 @@ import logging
 
 import arcpy
 
-from arcetl import arcobj
-from arcetl import attributes
-from arcetl import dataset
-from arcetl.helpers import (
+from arcproc import arcobj
+from arcproc import attributes
+from arcproc import dataset
+from arcproc.helpers import (
     contain,
     freeze_values,
     log_entity_states,

@@ -10,8 +10,8 @@ import uuid
 
 import arcpy
 
-from arcetl import geometry
-from arcetl.helpers import unique_name, unique_path
+from arcproc import geometry
+from arcproc.helpers import unique_name, unique_path
 
 
 LOG = logging.getLogger(__name__)
