@@ -6,7 +6,3 @@ funcsigs
 more-itertools
 requests
 xsorted
-
-# For dev.
-pre-commit
-pylint
