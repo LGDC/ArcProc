@@ -1,4 +1,4 @@
-"""ETL objects."""
+"""Process manager objects."""
 from collections import Counter
 
 try:
@@ -20,25 +20,27 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 
-class ArcETL(ContextDecorator):
-    """Manages a single Arc-style ETL process.
+class Procedure(ContextDecorator):
+    """Manages a single Arc-style procedure.
 
     Attributes:
-        name (str): Name reference for ETL.
+        name (str): Procedure name.
+        slug (str): Slugified version of procedure name.
+        start_time (datetime.datetime): Date & time procedure started.
         transform_path (str): Path of the current transform dataset.
     """
 
-    def __init__(self, name="Unnamed ETL"):
+    def __init__(self, name="Unnamed"):
         """Initialize instance.
 
         Args:
-            name (str): Name reference for ETL.
+            name (str): Procedure name.
         """
         self.start_time = datetime.datetime.now()
         self.name = name
         self.slug = slugify(name, separator="_")
         self.transform_path = None
-        LOG.info("""Initialized ArcETL instance for "%s".""", self.name)
+        LOG.info("""Starting procedure for "%s".""", self.name)
 
     def __enter__(self):
         return self
@@ -48,13 +50,13 @@ class ArcETL(ContextDecorator):
 
     def close(self):
         """Clean up instance."""
-        LOG.info("""Closing ArcETL instance for "%s".""", self.name)
+        LOG.info("""Ending procedure for "%s".""", self.name)
         # Clear the transform dataset.
         if self.transform_path and dataset.is_valid(self.transform_path):
             dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = None
         elapsed(self.start_time, LOG)
-        LOG.info("Closed.")
+        LOG.info("Ended.")
 
     def extract(self, dataset_path, extract_where_sql=None):
         """Extract features to transform workspace.
@@ -64,7 +66,7 @@ class ArcETL(ContextDecorator):
             extract_where_sql (str): SQL where-clause for extract subselection.
 
         Returns:
-            arcproc.etl.ArcETL: Reference to the instance.
+            arcproc.managers.Procedure: Reference to the instance.
         """
         LOG.info("Start: Extract `%s`.", dataset_path)
         self.transform_path = unique_path(self.slug + "_")
@@ -100,7 +102,7 @@ class ArcETL(ContextDecorator):
                 WGS84).  Will be ignored if template_path used.
 
         Returns:
-            arcproc.etl.ArcETL: Reference to the instance.
+            arcproc.managers.Procedure: Reference to the instance.
         """
         LOG.info("Start: Initialize schema.")
         self.transform_path = unique_path(self.slug + "_")
@@ -135,7 +137,7 @@ class ArcETL(ContextDecorator):
                 Default is False.
 
         Returns:
-            arcproc.etl.ArcETL: Reference to the instance.
+            arcproc.managers.Procedure: Reference to the instance.
         """
         kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load `%s`.", dataset_path)
@@ -176,7 +178,7 @@ class ArcETL(ContextDecorator):
             **kwargs: Arbitrary keyword arguments; passed through to the transformation.
 
         Returns:
-            arcproc.etl.ArcETL: Reference to the instance.
+            arcproc.managers.Procedure: Reference to the instance.
         """
         # Unless otherwise stated, dataset path is self.transform_path.
         kwargs.setdefault("dataset_path", self.transform_path)
@@ -210,7 +212,7 @@ class ArcETL(ContextDecorator):
                 Default is True.
 
         Returns:
-            arcproc.etl.ArcETL: Reference to the instance.
+            arcproc.managers.Procedure: Reference to the instance.
         """
         kwargs.setdefault("update_where_sql")
         kwargs.setdefault("delete_missing_features", True)

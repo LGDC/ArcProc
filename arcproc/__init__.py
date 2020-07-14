@@ -15,7 +15,7 @@ from arcproc import compare
 from arcproc import convert
 from arcproc import dataset
 from arcproc import managers
-from arcproc.managers import ArcETL
+from arcproc.managers import Procedure
 from arcproc import features
 from arcproc import geometry
 from arcproc import geoset
