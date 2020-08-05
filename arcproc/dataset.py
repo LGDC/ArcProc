@@ -422,6 +422,48 @@ def join_field(
     return join_field_name
 
 
+def remove_all_default_field_values(dataset_path, **kwargs):
+    """Remove all default field values in dataset.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of dataset.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Remove all default field values for `%s`.", dataset_path)
+    if os.path.dirname(dataset_path) == "in_memory":
+        raise OSError("Cannot change field default in `in_memory` workspace")
+
+    subtype_codes = [
+        code
+        for code, meta
+        in arcpy.da.ListSubtypes(dataset_path).items()
+        if meta["SubtypeField"]
+    ]
+    field_names = [
+        field["name"]
+        for field in dataset_metadata(dataset_path)["fields"]
+        if field["default_value"] is not None
+    ]
+    for field_name in field_names:
+        LOG.log(level, "Removing default value for `%s`.", field_name)
+        set_default_field_value(
+            dataset_path,
+            field_name,
+            value=None,
+            subtype_codes=subtype_codes,
+            log_level=logging.DEBUG,
+        )
+    LOG.log(level, "End: Remove.")
+    return dataset_path
+
+
 def set_default_field_value(dataset_path, field_name, value=None, **kwargs):
     """Set a default value for field.
 
