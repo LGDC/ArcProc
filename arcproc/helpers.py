@@ -291,7 +291,7 @@ def unique_name(prefix="", suffix="", unique_length=4, allow_initial_digit=True)
     return name
 
 
-def unique_path(prefix="", suffix="", unique_length=4, workspace_path="in_memory"):
+def unique_path(prefix="", suffix="", unique_length=4, workspace_path="memory"):
     """Create unique temporary dataset path.
 
     Args:
@@ -303,5 +303,8 @@ def unique_path(prefix="", suffix="", unique_length=4, workspace_path="in_memory
     Returns:
         str: Path of the created dataset.
     """
+    # Py2.
+    if sys.version_info.major < 3 and workspace_path == "memory":
+        workspace_path = "in_memory"
     name = unique_name(prefix, suffix, unique_length, allow_initial_digit=False)
     return os.path.join(workspace_path, name)
