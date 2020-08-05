@@ -14,6 +14,7 @@ import funcsigs
 from arcproc import dataset
 from arcproc import features
 from arcproc.helpers import elapsed, log_entity_states, slugify, unique_path
+import arcpy
 
 
 LOG = logging.getLogger(__name__)
@@ -76,6 +77,11 @@ class Procedure(ContextDecorator):
             dataset_where_sql=extract_where_sql,
             log_level=logging.DEBUG,
         )
+        # Workaround for BUG-000091314. Only affect Pro-ArcPy, not Desktop.
+        if arcpy.GetInstallInfo()["ProductName"] == "ArcGISPro":
+            dataset.remove_all_default_field_values(
+                dataset_path=self.transform_path, log_level=logging.DEBUG
+            )
         log_entity_states("features", states, LOG)
         LOG.info("End: Extract.")
         return self
@@ -116,6 +122,11 @@ class Procedure(ContextDecorator):
         else:
             dataset.create(
                 dataset_path=self.transform_path, log_level=logging.DEBUG, **kwargs
+            )
+        # Workaround for BUG-000091314. Only affect Pro-ArcPy, not Desktop.
+        if arcpy.GetInstallInfo()["ProductName"] == "ArcGISPro":
+            dataset.remove_all_default_field_values(
+                dataset_path=self.transform_path, log_level=logging.DEBUG
             )
         LOG.info("End: Initialize.")
         return self
