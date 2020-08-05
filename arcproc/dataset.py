@@ -422,6 +422,44 @@ def join_field(
     return join_field_name
 
 
+def set_default_field_value(dataset_path, field_name, value=None, **kwargs):
+    """Set a default value for field.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        value (object): Default value to assign.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        subtype_codes (int): Codes for subtypes.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Name of the field.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Set default value for field `%s.%s` to `%s`.",
+        dataset_path,
+        field_name,
+        value,
+    )
+    if os.path.dirname(dataset_path) == "in_memory":
+        raise OSError("Cannot change field default in `in_memory` workspace")
+
+    arcpy.management.AssignDefaultToField(
+        in_table=dataset_path,
+        field_name=field_name,
+        default_value=value if value is not None else "",
+        subtype_code=list(kwargs.get("subtype_codes", [])),
+        clear_value=value is None,
+    )
+    LOG.log(level, "End: Set.")
+    return field_name
+
+
 def rename_field(dataset_path, field_name, new_field_name, **kwargs):
     """Rename field.
 
