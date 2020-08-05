@@ -517,6 +517,7 @@ def _field_object_metadata(field_object):
     meta["length"] = getattr(meta["object"], "length")
     meta["precision"] = getattr(meta["object"], "precision")
     meta["scale"] = getattr(meta["object"], "scale")
+    meta["default_value"] = getattr(meta["object"], "defaultValue")
     return meta
 
 
