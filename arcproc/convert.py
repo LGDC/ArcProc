@@ -204,7 +204,7 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     features.insert_from_path(
         dataset_path=output_path,
         insert_dataset_path=dataset_path,
-        field_names=meta["dataset"]["user_fields"],
+        field_names=meta["dataset"]["user_field_names"],
         insert_where_sql=kwargs["dataset_where_sql"],
         log_level=logging.DEBUG,
     )
