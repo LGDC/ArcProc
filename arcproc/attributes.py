@@ -1192,6 +1192,9 @@ def update_by_overlay(
         overlay_dataset_path,
         kwargs["overlay_where_sql"],
         field_names=[overlay_field_name],
+        # BUG-YET-TO-BE-FILED: "memory" workspaces cannot use Alter Field.
+        # Fall back to old "in_memory"; remove once bug is cleared.
+        output_path=unique_path("overlay", workspace_path="in_memory")
     )
     with dataset_view, overlay_copy:
         # Avoid field name collisions with neutral name.

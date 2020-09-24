@@ -306,9 +306,5 @@ def unique_path(prefix="", suffix="", unique_length=4, workspace_path="memory"):
     # Py2.
     if sys.version_info.major < 3 and workspace_path == "memory":
         workspace_path = "in_memory"
-    # BUG-YET-TO-BE-FILED: "memory" workspaces cannot use Alter Field.
-    # Fall back to old "in_memory"; remove once bug is cleared.
-    if workspace_path == "memory":
-        workspace_path = "in_memory"
     name = unique_name(prefix, suffix, unique_length, allow_initial_digit=False)
     return os.path.join(workspace_path, name)
