@@ -510,14 +510,19 @@ def _field_object_metadata(field_object):
         dict.
     """
     meta = {"object": field_object}
-    meta["name"] = getattr(meta["object"], "name")
-    meta["alias_name"] = getattr(meta["object"], "aliasName")
-    meta["base_name"] = getattr(meta["object"], "baseName")
-    meta["type"] = getattr(meta["object"], "type").lower()
-    meta["length"] = getattr(meta["object"], "length")
-    meta["precision"] = getattr(meta["object"], "precision")
-    meta["scale"] = getattr(meta["object"], "scale")
-    meta["default_value"] = getattr(meta["object"], "defaultValue")
+    key_attribute_name = {
+        "alias_name": "aliasName",
+        "base_name": "baseName",
+        "default_value": "defaultValue",
+        "is_editable": "editable",
+        "is_nullable": "isNullable",
+        "is_required": "required",
+    }
+    key_attribute_same = ["name", "type", "length", "precision", "scale"]
+    for key in key_attribute_same:
+        key_attribute_name[key] = key
+    for key, attribute_name in key_attribute_name.items():
+        meta[key] = getattr(field_object, attribute_name)
     return meta
 
 
