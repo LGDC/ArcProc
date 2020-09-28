@@ -700,12 +700,12 @@ def update_from_iters(
     }
     if inspect.isgeneratorfunction(update_features):
         update_features = update_features()
-    feats = {"insert": set(), "id_update": dict()}
+    feats = {"insert": [], "id_update": dict()}
     for feat in update_features:
         feat = tuple(freeze_values(*feat))
         _id = tuple(feat[keys["feat"].index(key)] for key in keys["id"])
         if _id not in ids["dataset"]:
-            feats["insert"].add(feat)
+            feats["insert"].append(feat)
         else:
             feats["id_update"][_id] = feat
     if kwargs["delete_missing_features"]:
@@ -740,8 +740,7 @@ def update_from_iters(
     if feats["insert"]:
         cursor = arcpy.da.InsertCursor(dataset_path, field_names=keys["feat"])
         with session, cursor:
-            while feats["insert"]:
-                new_feat = feats["insert"].pop()
+            for new_feat in feats["insert"]:
                 try:
                     cursor.insertRow(new_feat)
                 except RuntimeError:
