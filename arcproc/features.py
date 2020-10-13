@@ -280,17 +280,17 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
+    keys = {"dissolve": tuple(contain(dissolve_field_names))}
     LOG.log(
         level,
         "Start: Dissolve features in `%s` on fields `%s`.",
         dataset_path,
-        dissolve_field_names,
+        keys["dissolve"],
     )
     meta = {
         "dataset": arcobj.dataset_metadata(dataset_path),
         "orig_tolerance": arcpy.env.XYTolerance,
     }
-    keys = {"dissolve": tuple(contain(dissolve_field_names))}
     view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     temp_output_path = unique_path("output")
     with view["dataset"]:
