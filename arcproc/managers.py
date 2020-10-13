@@ -31,16 +31,18 @@ class Procedure(ContextDecorator):
         transform_path (str): Path of the current transform dataset.
     """
 
-    def __init__(self, name="Unnamed", workspace_path="memory"):
+    def __init__(self, name="Unnamed", workspace_path="memory", keep_transforms=False):
         """Initialize instance.
 
         Args:
             name (str): Procedure name.
             workspace_path (str):  Path for the transformation workspace.
+            keep_transforms (bool): Keep the transformation outputs if True.
         """
         self.start_time = datetime.datetime.now()
         self.name = name
         self.slug = slugify(name, separator="_")
+        self.keep_transforms = keep_transforms
         self.transform_path = None
         self.workspace_path = workspace_path
         # ArcGIS Desktop does not implement the "memory" workspace.
@@ -60,8 +62,11 @@ class Procedure(ContextDecorator):
     def close(self):
         """Clean up instance."""
         LOG.info("""Ending procedure for "%s".""", self.name)
-        # Clear the transform dataset.
-        if self.transform_path and dataset.is_valid(self.transform_path):
+        if (
+            not self.keep_transforms
+            and self.transform_path
+            and dataset.is_valid(self.transform_path)
+        ):
             dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = None
         elapsed(self.start_time, LOG)
@@ -207,7 +212,7 @@ class Procedure(ContextDecorator):
         transformation(**kwargs)
         # If there"s a new output, replace old transform.
         if "output_path" in funcsigs.signature(transformation).parameters:
-            if dataset.is_valid(self.transform_path):
+            if not self.keep_transforms and dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = kwargs["output_path"]
         return self
