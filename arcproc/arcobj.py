@@ -271,7 +271,7 @@ class Editor(ContextDecorator):
     """Context manager for editing features.
 
     Attributes:
-        workspace_path (str):  Path for the editing workspace
+        workspace_path (str):  Path for the editing workspace.
     """
 
     def __init__(self, workspace_path, use_edit_session=True):
