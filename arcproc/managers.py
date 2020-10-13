@@ -59,6 +59,14 @@ class Procedure(ContextDecorator):
     def __exit__(self, exception_type, exception_value, traceback):
         self.close()
 
+    @property
+    def available_transform_path(self):
+        """str: A path in the transformation workspace available for use."""
+        path = unique_path(prefix=self.slug + "_", workspace_path=self.workspace_path)
+        while dataset.is_valid(path):
+            path = self.available_transform_path
+        return path
+
     def close(self):
         """Clean up instance."""
         LOG.info("""Ending procedure for "%s".""", self.name)
@@ -83,7 +91,7 @@ class Procedure(ContextDecorator):
             arcproc.managers.Procedure: Reference to the instance.
         """
         LOG.info("Start: Extract `%s`.", dataset_path)
-        self.transform_path = unique_path(self.slug + "_")
+        self.transform_path = self.available_transform_path
         states = dataset.copy(
             dataset_path=dataset_path,
             output_path=self.transform_path,
@@ -124,7 +132,7 @@ class Procedure(ContextDecorator):
             arcproc.managers.Procedure: Reference to the instance.
         """
         LOG.info("Start: Initialize schema.")
-        self.transform_path = unique_path(self.slug + "_")
+        self.transform_path = self.available_transform_path
         if template_path:
             dataset.copy(
                 dataset_path=template_path,
@@ -163,7 +171,6 @@ class Procedure(ContextDecorator):
         Returns:
             arcproc.managers.Procedure: Reference to the instance.
         """
-        kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load `%s`.", dataset_path)
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
@@ -177,8 +184,8 @@ class Procedure(ContextDecorator):
                     dataset_path,
                     insert_dataset_path=self.transform_path,
                     insert_where_sql=load_where_sql,
-                    use_edit_session=kwargs["use_edit_session"],
                     log_level=logging.DEBUG,
+                    **kwargs
                 )
             )
         # Load to a new dataset.
@@ -208,7 +215,7 @@ class Procedure(ContextDecorator):
         kwargs.setdefault("dataset_path", self.transform_path)
         # Add output_path to kwargs if needed.
         if "output_path" in funcsigs.signature(transformation).parameters:
-            kwargs.setdefault("output_path", unique_path(self.slug + "_"))
+            kwargs.setdefault("output_path", self.available_transform_path)
         transformation(**kwargs)
         # If there"s a new output, replace old transform.
         if "output_path" in funcsigs.signature(transformation).parameters:
