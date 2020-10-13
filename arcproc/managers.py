@@ -31,16 +31,24 @@ class Procedure(ContextDecorator):
         transform_path (str): Path of the current transform dataset.
     """
 
-    def __init__(self, name="Unnamed"):
+    def __init__(self, name="Unnamed", workspace_path="memory"):
         """Initialize instance.
 
         Args:
             name (str): Procedure name.
+            workspace_path (str):  Path for the transformation workspace.
         """
         self.start_time = datetime.datetime.now()
         self.name = name
         self.slug = slugify(name, separator="_")
         self.transform_path = None
+        self.workspace_path = workspace_path
+        # ArcGIS Desktop does not implement the "memory" workspace.
+        if (
+            arcpy.GetInstallInfo()["ProductName"] == "Desktop"
+            and self.workspace_path == "memory"
+        ):
+            self.workspace_path = "in_memory"
         LOG.info("""Starting procedure for "%s".""", self.name)
 
     def __enter__(self):
