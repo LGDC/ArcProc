@@ -28,6 +28,62 @@ UPDATE_TYPES = ["deleted", "inserted", "altered", "unchanged"]
 arcpy.SetLogHistory(False)
 
 
+def buffer(dataset_path, distance, dissolve_field_names=None, **kwargs):
+    """Buffer features a given distance & (optionally) dissolve on given fields.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        distance (float): Distance to buffer from feature, in the units of the dataset.
+        dissolve_field_names (iter): Iterable of field names to dissolve on.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the dataset updated.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("use_edit_session", False)
+    level = kwargs.get("log_level", logging.INFO)
+    keys = {"dissolve": tuple(contain(dissolve_field_names))}
+    line = "Start: Buffer features in `{}`".format(dataset_path)
+    if keys["dissolve"]:
+        line += "& dissolve on fields `{}`.".format(keys["dissolve"])
+    else:
+        line += "."
+    LOG.log(level, line)
+    meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
+    view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
+    temp_output_path = unique_path("output")
+    with view["dataset"]:
+        arcpy.analysis.Buffer(
+            in_features=view["dataset"].name,
+            out_feature_class=temp_output_path,
+            buffer_distance_or_field=distance,
+            dissolve_option="list" if keys["dissolve"] else "none",
+            dissolve_field=keys["dissolve"],
+        )
+    session = arcobj.Editor(
+        meta["dataset"]["workspace_path"], kwargs["use_edit_session"]
+    )
+    with session:
+        delete(
+            dataset_path,
+            dataset_where_sql=kwargs["dataset_where_sql"],
+            log_level=logging.DEBUG,
+        )
+        insert_from_path(
+            dataset_path, insert_dataset_path=temp_output_path, log_level=logging.DEBUG
+        )
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    LOG.log(level, "End: Nuffer.")
+    return dataset_path
+
+
 def clip(dataset_path, clip_dataset_path, **kwargs):
     """Clip feature geometry where it overlaps clip-dataset geometry.
 
