@@ -119,14 +119,14 @@ class Procedure(ContextDecorator):
                 schema_only=True,
                 log_level=logging.DEBUG,
             )
+            # Workaround for BUG-000091314. Only affect Pro-ArcPy, not Desktop.
+            if arcpy.GetInstallInfo()["ProductName"] == "ArcGISPro":
+                dataset.remove_all_default_field_values(
+                    dataset_path=self.transform_path, log_level=logging.DEBUG
+                )
         else:
             dataset.create(
                 dataset_path=self.transform_path, log_level=logging.DEBUG, **kwargs
-            )
-        # Workaround for BUG-000091314. Only affect Pro-ArcPy, not Desktop.
-        if arcpy.GetInstallInfo()["ProductName"] == "ArcGISPro":
-            dataset.remove_all_default_field_values(
-                dataset_path=self.transform_path, log_level=logging.DEBUG
             )
         LOG.info("End: Initialize.")
         return self
