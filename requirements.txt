@@ -1,3 +1,4 @@
+arcgis
 # Installed with app.
 #arcpy
 # For Python 2 compatibility.

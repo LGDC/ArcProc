@@ -2,11 +2,59 @@
 import logging
 import re
 
+import arcgis
 import requests
+
+import arcpy
+
+from arcproc.arcobj import spatial_reference
+from arcproc.helpers import contain
 
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
+
+
+def as_dicts(url, field_names=None, **kwargs):
+    """Generate mappings of feature attribute name to value.
+
+    Notes:
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
+
+    Args:
+        url (str): URL for the service endpoint.
+        field_names (iter): Collection of field names. Names will be the keys in the
+            dictionary mapping to their values. If value is None, all attributes fields
+            will be used.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        service_where_sql (str): SQL where-clause for service feature subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+
+    Yields:
+        dict
+    """
+    if field_names is None:
+        field_names = "*"
+    else:
+        field_names = list(contain(field_names))
+    if kwargs.get("spatial_reference_item"):
+        wkid = spatial_reference(kwargs["spatial_reference_item"]).factoryCode
+    else:
+        wkid = None
+    feature_layer = arcgis.features.FeatureLayer(url)
+    feature_set = feature_layer.query(
+        where=kwargs.get("service_where_sql", "1=1"),
+        out_fields=field_names,
+        out_sr=wkid,
+    )
+    for feature in feature_set.features:
+        feature_dict = feature.attributes
+        feature_dict["shape@"] = arcpy.AsShape(feature.geometry, esri_json=True)
+        yield feature_dict
+
 
 
 def generate_token(server_url, username, password, minutes_active=60, **kwargs):
