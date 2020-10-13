@@ -437,9 +437,6 @@ def remove_all_default_field_values(dataset_path, **kwargs):
     """
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Remove all default field values for `%s`.", dataset_path)
-    if os.path.dirname(dataset_path) == "in_memory":
-        raise OSError("Cannot change field default in `in_memory` workspace")
-
     subtype_codes = [
         code
         for code, meta
