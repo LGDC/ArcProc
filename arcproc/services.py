@@ -52,9 +52,10 @@ def as_dicts(url, field_names=None, **kwargs):
     )
     for feature in feature_set.features:
         feature_dict = feature.attributes
+        if "spatialReference" not in feature.geometry:
+            feature.geometry["spatialReference"] = {"wkid": wkid}
         feature_dict["shape@"] = arcpy.AsShape(feature.geometry, esri_json=True)
         yield feature_dict
-
 
 
 def generate_token(server_url, username, password, minutes_active=60, **kwargs):
