@@ -67,6 +67,8 @@ def identity(
         identity_dataset_path,
         kwargs["identity_where_sql"],
         field_names=[identity_field_name],
+        # BUG-000134367 - Cannot rename field later.
+        output_path=unique_path(prefix="temp", workspace_path="in_memory"),
     )
     with view["dataset"], temp_identity:
         # Avoid field name collisions with neutral holding field.
