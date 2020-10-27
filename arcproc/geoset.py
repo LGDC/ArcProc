@@ -88,6 +88,8 @@ def identity(
                 cluster_tolerance=kwargs["tolerance"],
                 relationship=False,
             )
+            # Clean up bad or null geometry created in processing.
+            arcpy.management.RepairGeometry(temp_output_path)
             # Push identity value from temp to update field.
             # Identity puts empty string when identity feature not present; fix to null.
             attributes.update_by_function(
