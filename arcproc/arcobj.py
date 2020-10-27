@@ -568,6 +568,10 @@ def dataset_metadata(dataset_path):
     Returns:
         dict.
     """
+    if not dataset_path or not arcpy.Exists(dataset_path):
+        # Py2: Change to FileNotFoundError.
+        raise IOError("dataset_path `{}` does not exist".format(dataset_path))
+
     return _dataset_object_metadata(arcpy.Describe(dataset_path))
 
 
