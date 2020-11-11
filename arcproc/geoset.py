@@ -1,5 +1,6 @@
 """Set-theoretic geometry operations."""
 import logging
+import sys
 
 import arcpy
 
@@ -88,8 +89,9 @@ def identity(
                 cluster_tolerance=kwargs["tolerance"],
                 relationship=False,
             )
-            # Clean up bad or null geometry created in processing.
-            arcpy.management.RepairGeometry(temp_output_path)
+            # Py2: Clean up bad or null geometry created in processing.
+            if sys.version_info.major < 3:
+                arcpy.management.RepairGeometry(temp_output_path)
             # Push identity value from temp to update field.
             # Identity puts empty string when identity feature not present; fix to null.
             attributes.update_by_function(
@@ -207,8 +209,9 @@ def overlay(
                 out_feature_class=temp_output_path,
                 **join_kwargs
             )
-            # Clean up bad or null geometry created in processing.
-            arcpy.management.RepairGeometry(temp_output_path)
+            # Py2: Clean up bad or null geometry created in processing.
+            if sys.version_info.major < 3:
+                arcpy.management.RepairGeometry(temp_output_path)
             # Push overlay value from temp to update field.
             attributes.update_by_function(
                 temp_output_path,
@@ -301,8 +304,9 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
                 cluster_tolerance=kwargs["tolerance"],
                 gaps=False,
             )
-            # Clean up bad or null geometry created in processing.
-            arcpy.management.RepairGeometry(temp_output_path)
+            # Py2: Clean up bad or null geometry created in processing.
+            if sys.version_info.major < 3:
+                arcpy.management.RepairGeometry(temp_output_path)
             # Push union value from temp to update field.
             # Union puts empty string when union feature not present; fix to null.
             attributes.update_by_function(
