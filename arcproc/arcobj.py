@@ -585,12 +585,11 @@ def domain_metadata(domain_name, workspace_path):
     Returns:
         dict.
     """
-    domain_object = next(
-        domain
-        for domain in arcpy.da.ListDomains(workspace_path)
-        if domain.name.lower() == domain_name.lower()
-    )
-    return _domain_object_metadata(domain_object)
+    for domain in arcpy.da.ListDomains(workspace_path):
+        if domain.name.lower() == domain_name.lower():
+            return _domain_object_metadata(domain)
+
+    raise ValueError("Domain `{}` does not exist on workspace".format(domain_name))
 
 
 def field_metadata(dataset_path, field_name):
