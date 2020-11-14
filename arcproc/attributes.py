@@ -862,9 +862,10 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
         spatial_reference_item: Item from which the spatial reference for the output
-            geometry property will be derived. Default is the update dataset.
-        use_edit_session (bool): Updates are done in an edit session if True. If not
-            not specified or None, the spatial reference of the dataset is used.
+            geometry property will be derived. If not specified or None, the spatial
+            reference of the dataset is used as the default.
+        use_edit_session (bool): Updates are done in an edit session if True. Default is
+            False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
