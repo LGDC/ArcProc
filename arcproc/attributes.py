@@ -1266,7 +1266,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     kwargs.setdefault("start_after_max_number", False)
     kwargs.setdefault("initial_number", 1)
     kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", True)
+    kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -1344,7 +1344,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", True)
+    kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
