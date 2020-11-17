@@ -787,7 +787,15 @@ def update_from_iters(
                 elif _id in feats["id_update"]:
                     new_feat = feats["id_update"].pop(_id)
                     if not same_feature(feat, new_feat):
-                        cursor.updateRow(new_feat)
+                        try:
+                            cursor.updateRow(new_feat)
+                        except RuntimeError:
+                            LOG.error(
+                                "Row failed to update. Offending row: `%r`)",
+                                dict(zip(cursor.fields, new_feat)),
+                            )
+                            raise
+
                         states["altered"] += 1
                     else:
                         states["unchanged"] += 1
