@@ -1247,6 +1247,88 @@ def update_by_overlay(
     return states
 
 
+def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kwargs):
+    """Update attribute values by finding overlay feature value.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        overlay_dataset_path (str): Path of the overlay-dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        overlay_where_sql (str): SQL where-clause for overlay dataset subselection.
+        tolerance (float): Tolerance for coincidence, in units of the dataset.
+        use_edit_session (bool): Updates are done in an edit session if True. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each update-state.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by overlay counts from `%s`.",
+        dataset_path,
+        field_name,
+        overlay_dataset_path,
+    )
+    meta = {
+        "dataset": dataset_metadata(dataset_path),
+        "original_tolerance": arcpy.env.XYTolerance,
+    }
+
+    dataset_view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    overlay_view = DatasetView(
+        overlay_dataset_path, kwargs.get("overlay_where_sql"), field_names=[]
+    )
+    with dataset_view, overlay_view:
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = kwargs["tolerance"]
+        # Create temp output of the overlay.
+        temp_output_path = unique_path("output")
+        arcpy.analysis.SpatialJoin(
+            target_features=dataset_view.name,
+            join_features=overlay_view.name,
+            out_feature_class=temp_output_path,
+            join_operation="join_one_to_one",
+            join_type="keep_common",
+            match_option="intersect",
+        )
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = meta["original_tolerance"]
+    oid_overlay_count = dict(
+        as_iters(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
+    )
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    session = Editor(
+        meta["dataset"]["workspace_path"], kwargs.get("use_edit_session", False)
+    )
+    cursor = arcpy.da.UpdateCursor(
+        in_table=dataset_path,
+        field_names=["oid@", field_name],
+        where_clause=kwargs.get("dataset_where_sql"),
+    )
+    states = Counter()
+    with session, cursor:
+        for feature in cursor:
+            value = {"old": feature[1], "new": oid_overlay_count.get(feature[0], 0)}
+            if same_value(value["old"], value["new"]):
+                states["unchanged"] += 1
+            else:
+                try:
+                    cursor.updateRow([value["new"], value["new"]])
+                    states["altered"] += 1
+                except RuntimeError:
+                    LOG.error("Offending value is `%s`", value["new"])
+                    raise
+    log_entity_states("attributes", states, LOG, log_level=level)
+    LOG.log(level, "End: Update.")
+    return states
+
+
 def update_by_unique_id(dataset_path, field_name, **kwargs):
     """Update attribute values by assigning a unique ID.
 
