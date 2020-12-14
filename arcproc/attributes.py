@@ -726,6 +726,9 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference for the output
+            geometry property will be derived. If not specified or None, the spatial
+            reference of the dataset is used as the default.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
@@ -734,6 +737,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
         collections.Counter: Counts of features for each update-state.
     """
     kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
@@ -750,6 +754,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
         in_table=dataset_path,
         field_names=[field_name, source_field_name],
         where_clause=kwargs["dataset_where_sql"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
     states = Counter()
     with session, cursor:
@@ -787,6 +792,9 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         kwarg_field_names (iter): Field names whose names & values will be the method
             keyword arguments.
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference for the output
+            geometry property will be derived. If not specified or None, the spatial
+            reference of the dataset is used as the default.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
@@ -798,6 +806,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     kwargs.setdefault("arg_field_names", [])
     kwargs.setdefault("kwarg_field_names", [])
     kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
@@ -818,6 +827,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         in_table=dataset_path,
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
+        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )
     states = Counter()
     with session, cursor:
