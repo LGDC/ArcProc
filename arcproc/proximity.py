@@ -15,6 +15,64 @@ LOG = logging.getLogger(__name__)
 arcpy.SetLogHistory(False)
 
 
+def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
+    """Return mapping of feature ID to set of adjacent feature IDs.
+
+    Only works for polygon geometries.
+
+    Args:
+        dataset_path (str): Path of dataset.
+        id_field_names (iter): Ordered collection of fields used to identify a feature.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection. Default is
+            None.
+        exclude_overlap (bool): Exclude features that overlap, but do not have adjacent
+            edges or nodes if True. Default is False.
+        include_corner (bool): Include features that have adjacent corner nodes, but no
+            adjacent edges. Default is False.
+        tolerance (float): Tolerance for coincidence, in units of the dataset.
+
+    Returns:
+        dict
+    """
+    keys = {"id": list(contain(id_field_names))}
+    keys["id"] = [key.lower() for key in keys["id"]]
+    view = {
+        "dataset": arcobj.DatasetView(
+            dataset_path, kwargs.get("dataset_where_sql"), field_names=keys["id"],
+        ),
+    }
+    with view["dataset"]:
+        temp_neighbor_path = unique_path("near")
+        arcpy.analysis.PolygonNeighbors(
+            in_features=view["dataset"].name,
+            out_table=temp_neighbor_path,
+            in_fields=keys["id"],
+            area_overlap=(not kwargs.get("exclude_overlap", False)),
+            both_sides=True,
+            cluster_tolerance=kwargs.get("tolerance"),
+        )
+    neighbors_map = {}
+    for row in attributes.as_dicts(temp_neighbor_path):
+        row = {key.lower(): val for key, val in row.items()}
+        if len(keys["id"]) == 1:
+            source_id = row["src_" + keys["id"][0]]
+            neighbor_id = row["nbr_" + keys["id"][0]]
+        else:
+            source_id = tuple(row["src_" + key] for key in keys["id"])
+            neighbor_id = tuple(row["nbr_" + key] for key in keys["id"])
+        if source_id not in neighbors_map:
+            neighbors_map[source_id] = set()
+        if not kwargs.get("include_corner") and not row["length"] and not row["area"]:
+            continue
+
+        neighbors_map[source_id].add(neighbor_id)
+    dataset.delete(temp_neighbor_path, log_level=logging.DEBUG)
+    return neighbors_map
+
+
 def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwargs):
     """Buffer features a given distance & (optionally) dissolve on given fields.
 
