@@ -6,13 +6,54 @@ import arcpy
 from arcproc import arcobj
 from arcproc import attributes
 from arcproc import dataset
-from arcproc.helpers import unique_path
+from arcproc.helpers import contain, unique_path
 
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 arcpy.SetLogHistory(False)
+
+
+def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwargs):
+    """Buffer features a given distance & (optionally) dissolve on given fields.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output dataset.
+        distance (float): Distance to buffer from feature, in the units of the dataset.
+        dissolve_field_names (iter): Iterable of field names to dissolve on.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the output dataset.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    keys = {"dissolve": tuple(contain(dissolve_field_names))}
+    line = "Start: Buffer features in `{}` into `{}`".format(dataset_path, output_path)
+    if keys["dissolve"]:
+        line += " & dissolve on fields `{}`".format(keys["dissolve"])
+    line += "."
+    LOG.log(level, line)
+    view = {
+        "dataset": arcobj.DatasetView(dataset_path, kwargs.get("dataset_where_sql")),
+    }
+    with view["dataset"]:
+        arcpy.analysis.Buffer(
+            in_features=view["dataset"].name,
+            out_feature_class=output_path,
+            buffer_distance_or_field=distance,
+            dissolve_option="list" if keys["dissolve"] else "none",
+            dissolve_field=keys["dissolve"],
+        )
+    for field_name in ["BUFF_DIST", "ORIG_FID"]:
+        arcpy.management.DeleteField(in_table=output_path, drop_field=field_name)
+    LOG.log(level, "End: Buffer.")
+    return output_path
 
 
 def id_near_info_map(
