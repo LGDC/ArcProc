@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from copy import copy, deepcopy
 from functools import partial
 import logging
+import sys
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
 from xsorted import xsorted
@@ -601,7 +602,8 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
             in_table=dataset_view.name,
             field=field_name,
             expression=expression,
-            expression_type="python_9.3",
+            # Py2.
+            expression_type="python3" if sys.version_info.major < 3 else "python_9.3",
         )
     LOG.log(level, "End: Update.")
     return field_name
