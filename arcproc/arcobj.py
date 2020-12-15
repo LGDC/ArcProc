@@ -722,6 +722,7 @@ def spatial_reference_metadata(item):
     meta["spatial_reference_id"] = getattr(meta["object"], "factoryCode", None)
     meta["angular_unit"] = getattr(meta["object"], "angularUnitName", None)
     meta["linear_unit"] = getattr(meta["object"], "linearUnitName", None)
+    meta["wkt"] = meta["object"].exportToString()
     return meta
 
 
