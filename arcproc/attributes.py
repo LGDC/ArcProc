@@ -943,6 +943,7 @@ def update_by_joined_value(
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        join_where_sql (str): SQL where-clause for join-dataset subselection.
         use_edit_session (bool): Updates are done in an edit session if True. Default is
             False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
@@ -968,7 +969,10 @@ def update_by_joined_value(
     }
     keys["feature"] = keys["dataset_id"] + [field_name]
     join_value = id_values_map(
-        join_dataset_path, id_field_names=keys["join_id"], field_names=join_field_name
+        join_dataset_path,
+        id_field_names=keys["join_id"],
+        field_names=join_field_name,
+        dataset_where_sql=kwargs.get("join_where_sql"),
     )
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
