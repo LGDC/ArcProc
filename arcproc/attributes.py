@@ -510,6 +510,95 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
     return id_attributes
 
 
+def update_by_central_overlay(
+    dataset_path, field_name, overlay_dataset_path, overlay_field_name, **kwargs
+):
+    """Update attribute values by finding the central overlay feature value.
+
+    Note:
+        Since only one value will be selected in the overlay, operations with multiple
+        overlaying features will respect the geoprocessing environment merge rule. This
+        rule generally defaults to the value of the "first" feature.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        overlay_dataset_path (str): Path of the overlay-dataset.
+        overlay_field_name (str): Name of the overlay-field.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        overlay_where_sql (str): SQL where-clause for overlay dataset subselection.
+        replacement_value: Value to replace a present overlay-field value with.
+        tolerance (float): Tolerance for coincidence, in units of the dataset.
+        use_edit_session (bool): Updates are done in an edit session if True. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each update-state.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by central-overlay value in `%s.%s`.",
+        dataset_path,
+        field_name,
+        overlay_dataset_path,
+        overlay_field_name,
+    )
+    meta = {"original_tolerance": arcpy.env.XYTolerance}
+    view = {
+        "dataset": DatasetView(
+            # Do *not* include any fields here (avoids name collisions in temp output).
+            dataset_path,
+            kwargs.get("dataset_where_sql"),
+            field_names=[],
+        ),
+        "overlay": DatasetView(
+            overlay_dataset_path,
+            kwargs.get("overlay_where_sql"),
+            field_names=[overlay_field_name],
+        ),
+    }
+    with view["dataset"], view["overlay"]:
+        temp_output_path = unique_path("output")
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = kwargs["tolerance"]
+        arcpy.analysis.SpatialJoin(
+            target_features=view["dataset"].name,
+            join_features=view["overlay"].name,
+            out_feature_class=temp_output_path,
+            join_operation="JOIN_ONE_TO_ONE",
+            join_type="KEEP_ALL",
+            match_option="HAVE_THEIR_CENTER_IN",
+        )
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = meta["original_tolerance"]
+    if kwargs.get("replacement_value") is not None:
+        update_by_function(
+            temp_output_path,
+            field_name=overlay_field_name,
+            function=lambda x: kwargs["replacement_value"] if x else None,
+            log_level=logging.DEBUG,
+        )
+    states = update_by_joined_value(
+        dataset_path,
+        field_name,
+        join_dataset_path=temp_output_path,
+        join_field_name=overlay_field_name,
+        on_field_pairs=[("OID@", "TARGET_FID")],
+        dataset_where_sql=kwargs.get("dataset_where_sql"),
+        use_edit_session=kwargs.get("use_edit_session", False),
+        log_level=logging.DEBUG,
+    )
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
+    LOG.log(level, "End: Update.")
+    return states
+
+
 def update_by_domain_code(
     dataset_path,
     field_name,
