@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from copy import copy, deepcopy
 from functools import partial
 import logging
+from operator import itemgetter
 import sys
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
@@ -594,6 +595,104 @@ def update_by_central_overlay(
         log_level=logging.DEBUG,
     )
     dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    log_entity_states("attributes", states, LOG, log_level=level)
+    LOG.log(level, "End: Update.")
+    return states
+
+
+def update_by_dominant_overlay(
+    dataset_path, field_name, overlay_dataset_path, overlay_field_name, **kwargs
+):
+    """Update attribute values by finding the dominant overlay feature value.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        field_name (str): Name of the field.
+        overlay_dataset_path (str): Path of the overlay-dataset.
+        overlay_field_name (str): Name of the overlay-field.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        include_missing_overlay_value_area (bool): If True, the collective area where no
+            overlay value exists (i.e. no overlay geometry + overlay of NoneType value)
+            is considered a valid candidate for the dominant overlay. Default is False.
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        overlay_where_sql (str): SQL where-clause for overlay dataset subselection.
+        tolerance (float): Tolerance for coincidence, in units of the dataset.
+        use_edit_session (bool): Updates are done in an edit session if True. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each update-state.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Update attributes in `%s.%s` by dominant overlay value in `%s.%s`.",
+        dataset_path,
+        field_name,
+        overlay_dataset_path,
+        overlay_field_name,
+    )
+    meta = {"original_tolerance": arcpy.env.XYTolerance}
+    view = {
+        "dataset": DatasetView(
+            # Do *not* include any fields here (avoids name collisions in temp output).
+            dataset_path,
+            kwargs.get("dataset_where_sql"),
+            field_names=[],
+        ),
+        "overlay": DatasetView(
+            overlay_dataset_path,
+            kwargs.get("overlay_where_sql"),
+            field_names=[overlay_field_name],
+        ),
+    }
+    with view["dataset"], view["overlay"]:
+        temp_output_path = unique_path("output")
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = kwargs["tolerance"]
+        arcpy.analysis.Identity(
+            in_features=view["dataset"].name,
+            identity_features=view["overlay"].name,
+            out_feature_class=temp_output_path,
+            join_attributes="ALL",
+        )
+        if "tolerance" in kwargs:
+            arcpy.env.XYTolerance = meta["original_tolerance"]
+    meta["output"] = dataset_metadata(temp_output_path)
+    # Identity makes custom FID field names - in_features FID field comes first.
+    fid_keys = [key for key in meta["output"]["field_names"] if key.startswith("FID_")]
+    coverage = {}
+    for oid, overlay_oid, value, area in as_iters(
+        temp_output_path, field_names=fid_keys + [overlay_field_name, "SHAPE@AREA"]
+    ):
+        # Def check for -1 OID (no overlay feature): identity does not set to None.
+        if overlay_oid == -1:
+            value = None
+        if value is None and not kwargs.get(
+            "include_missing_overlay_value_area", False
+        ):
+            continue
+
+        if oid not in coverage:
+            coverage[oid] = defaultdict(float)
+        coverage[oid][value] += area
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    oid_value_map = {
+        oid: max(value_area.items(), key=itemgetter(1))[0]
+        for oid, value_area in coverage.items()
+    }
+    states = update_by_mapping(
+        dataset_path,
+        field_name,
+        mapping=oid_value_map,
+        key_field_names=["OID@"],
+        dataset_where_sql=kwargs.get("dataset_where_sql"),
+        use_edit_session=kwargs.get("use_edit_session", False),
+        log_level=logging.DEBUG,
+    )
     log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
