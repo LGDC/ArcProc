@@ -76,7 +76,7 @@ def identity(
         temp_identity.field_name = dataset.rename_field(
             temp_identity.path,
             identity_field_name,
-            new_field_name=unique_name(identity_field_name),
+            new_field_name=unique_name(identity_field_name, unique_length=1),
             log_level=logging.DEBUG,
         )
         for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
@@ -196,7 +196,7 @@ def overlay(
         temp_overlay.field_name = dataset.rename_field(
             temp_overlay.path,
             overlay_field_name,
-            new_field_name=unique_name(overlay_field_name),
+            new_field_name=unique_name(overlay_field_name, unique_length=1),
             log_level=logging.DEBUG,
         )
         if "tolerance" in kwargs:
@@ -219,7 +219,7 @@ def overlay(
                 function=lambda x: x,
                 field_as_first_arg=False,
                 arg_field_names=[temp_overlay.field_name],
-                # log_level=logging.DEBUG,
+                log_level=logging.DEBUG,
             )
             # Apply replacement value if necessary.
             if kwargs.get("replacement_value") is not None:
@@ -292,7 +292,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
         temp_union.field_name = dataset.rename_field(
             temp_union.path,
             union_field_name,
-            new_field_name=unique_name(union_field_name),
+            new_field_name=unique_name(union_field_name, unique_length=1),
             log_level=logging.DEBUG,
         )
         for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
