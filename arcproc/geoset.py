@@ -190,6 +190,8 @@ def overlay(
         overlay_dataset_path,
         kwargs["overlay_where_sql"],
         field_names=[overlay_field_name],
+        # BUG-000134367 - Cannot rename field later.
+        output_path=unique_path(prefix="temp", workspace_path="in_memory"),
     )
     with view["dataset"], temp_overlay:
         # Avoid field name collisions with neutral field name.
