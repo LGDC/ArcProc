@@ -698,6 +698,8 @@ def spatial_reference(item):
         reference_object = item
     elif isinstance(item, int):
         reference_object = arcpy.SpatialReference(item)
+    elif isinstance(item, (tuple, list)):
+        reference_object = arcpy.SpatialReference(*item)
     elif isinstance(item, arcpy.Geometry):
         reference_object = getattr(item, "spatialReference")
     else:
