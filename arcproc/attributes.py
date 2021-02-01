@@ -314,7 +314,7 @@ def coordinate_node_map(
         raise ValueError("From- and to-ID fields must be of same type.")
 
     keys = {"id": list(contain(id_field_names))}
-    keys["feature"] = ["shape@", from_id_field_name, to_id_field_name] + keys["id"]
+    keys["feature"] = ["SHAPE@", from_id_field_name, to_id_field_name] + keys["id"]
     coordinate_node = {}
     for feature in as_iters(
         dataset_path, keys["feature"], dataset_where_sql=kwargs["dataset_where_sql"]
@@ -1083,7 +1083,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     )
     cursor = arcpy.da.UpdateCursor(
         in_table=dataset_path,
-        field_names=["shape@", field_name],
+        field_names=["SHAPE@", field_name],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
     )

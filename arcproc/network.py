@@ -90,7 +90,7 @@ def closest_facility_route(
             "FacilityID",
             "IncidentID",
             "total_{}".format(cost_attribute),
-            "shape@",
+            "SHAPE@",
         ]
     }
     view = {
@@ -171,7 +171,7 @@ def closest_facility_route(
                 "dataset_id": dataset_oid_id[feat["IncidentID"]],
                 "facility_id": facility_oid_id[feat["FacilityID"]],
                 "cost": feat["total_" + cost_attribute],
-                "geometry": feat["shape@"],
+                "geometry": feat["SHAPE@"],
             }
 
     dataset.delete("closest", log_level=logging.DEBUG)

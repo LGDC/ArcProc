@@ -105,7 +105,7 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
             in_features=view["dataset"].name,
             out_feature_class=output_path,
             buffer_distance_or_field=distance,
-            dissolve_option="list" if keys["dissolve"] else "none",
+            dissolve_option="LIST" if keys["dissolve"] else "NONE",
             dissolve_field=keys["dissolve"],
         )
     for field_name in ["BUFF_DIST", "ORIG_FID"]:

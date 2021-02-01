@@ -441,10 +441,10 @@ def _dataset_object_metadata(dataset_object):
             meta[key + "_field_name"] = None
     meta["field_token"] = {}
     system_field_tokens = {
-        "oid": "oid@",
-        "geom": "shape@",
-        "area": "shape@area",
-        "length": "shape@length",
+        "oid": "OID@",
+        "geom": "SHAPE@",
+        "area": "SHAPE@AREA",
+        "length": "SHAPE@LENGTH",
     }
     for key, token in system_field_tokens.items():
         if meta[key + "_field_name"]:

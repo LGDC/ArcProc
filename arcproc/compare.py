@@ -88,7 +88,7 @@ def _difference(id_map, diff_type, init_value=None, new_value=None, **kwargs):
     diff["init_repr"] = repr(init_value) if diff_type == "attribute" else None
     diff["new_repr"] = repr(new_value) if diff_type == "attribute" else None
     if kwargs.get("represent_geometry", False):
-        diff["shape@"] = convex_hull(
+        diff["SHAPE@"] = convex_hull(
             kwargs.get("init_geometry"), kwargs.get("new_geometry")
         )
     return diff
@@ -110,9 +110,9 @@ def _displacement(id_map, init_geometry, new_geometry):
         for attr in ["length", "area"]:
             diff[tag + "_" + attr] = getattr(geom, attr) if geom else None
     if init_geometry and new_geometry:
-        diff["shape@"] = line_between_centroids(init_geometry, new_geometry)
+        diff["SHAPE@"] = line_between_centroids(init_geometry, new_geometry)
     else:
-        diff["shape@"] = None
+        diff["SHAPE@"] = None
     return diff
 
 
@@ -165,7 +165,7 @@ def differences(
         meta[tag]["where_sql"] = kwargs.get(tag + "_dataset_where_sql")
     # Need to add geometry to cmp-keys if extant in both.
     if all(meta[tag]["is_spatial"] for tag in DATASET_TAGS):
-        keys["cmp"].append("shape@")
+        keys["cmp"].append("SHAPE@")
     id_vals = {
         tag: attributes.id_values(
             dataset_path=meta[tag]["path"],
@@ -180,13 +180,13 @@ def differences(
         )
         for tag in DATASET_TAGS
     }
-    diff = partial(_difference, represent_geometry=("shape@" in keys["cmp"]))
+    diff = partial(_difference, represent_geometry=("SHAPE@" in keys["cmp"]))
     init = {}
     new = {}
     for i, (init["id"], init["vals"]) in enumerate(id_vals["init"], 1):
         for key in ["id", "vals"]:
             init[key] = tuple(contain(init[key]))
-        init["geom"] = init["vals"][-1] if "shape@" in keys["cmp"] else None
+        init["geom"] = init["vals"][-1] if "SHAPE@" in keys["cmp"] else None
         while not new or new["id"] < init["id"]:
             try:
                 (new["id"], new["vals"]) = next(id_vals["new"])
@@ -201,7 +201,7 @@ def differences(
 
             for key in ["id", "vals"]:
                 new[key] = tuple(contain(new[key]))
-            new["geom"] = new["vals"][-1] if "shape@" in keys["cmp"] else None
+            new["geom"] = new["vals"][-1] if "SHAPE@" in keys["cmp"] else None
             if same_feature(init["id"], new["id"]):
                 # IDs match: check if attributes match.
                 for key, init_val, new_val in zip(
@@ -211,7 +211,7 @@ def differences(
                         # Features have different attribute value.
                         yield diff(
                             id_map=dict(zip(keys["id"], init["id"])),
-                            diff_type=("geometry" if key == "shape@" else "attribute"),
+                            diff_type=("geometry" if key == "SHAPE@" else "attribute"),
                             init_value=init_val,
                             new_value=new_val,
                             field_name=key,
@@ -241,7 +241,7 @@ def differences(
     for i, (new["id"], new["vals"]) in enumerate(id_vals["new"], i + 1):
         for key in ["id", "vals"]:
             new[key] = tuple(contain(new[key]))
-        new["geom"] = new["vals"][-1] if "shape@" in keys["cmp"] else None
+        new["geom"] = new["vals"][-1] if "SHAPE@" in keys["cmp"] else None
         yield diff(
             id_map=dict(zip(keys["id"], new["id"])),
             diff_type="added",
@@ -287,7 +287,7 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
         new_dataset_path,
     )
     kwargs.setdefault("log_evaluated_count", 10000)
-    keys = {"id": list(contain(id_field_names)), "cmp": ["shape@"]}
+    keys = {"id": list(contain(id_field_names)), "cmp": ["SHAPE@"]}
     meta = {
         "init": dataset_metadata(init_dataset_path),
         "new": dataset_metadata(new_dataset_path),

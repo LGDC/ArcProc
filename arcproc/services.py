@@ -54,7 +54,7 @@ def as_dicts(url, field_names=None, **kwargs):
         feature_dict = feature.attributes
         if "spatialReference" not in feature.geometry:
             feature.geometry["spatialReference"] = {"wkid": wkid}
-        feature_dict["shape@"] = arcpy.AsShape(feature.geometry, esri_json=True)
+        feature_dict["SHAPE@"] = arcpy.AsShape(feature.geometry, esri_json=True)
         yield feature_dict
 
 

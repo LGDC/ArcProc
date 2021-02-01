@@ -575,6 +575,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
     for _meta in meta.values():
         for key in chain(*_meta["field_token"].items()):
             keys.discard(key)
+            keys.discard(key.lower())
+            keys.discard(key.upper())
     append_kwargs = {
         "inputs": unique_name("view"),
         "target": dataset_path,
