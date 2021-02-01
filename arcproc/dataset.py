@@ -240,23 +240,22 @@ def create(dataset_path, field_metadata_list=None, **kwargs):
     Returns:
         str: Path of the dataset created.
     """
-    kwargs.setdefault("geometry_type")
-    kwargs.setdefault("spatial_reference_item", 4326)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Create dataset `%s`.", dataset_path)
     create_kwargs = {
         "out_path": os.path.dirname(dataset_path),
         "out_name": os.path.basename(dataset_path),
     }
-    if kwargs["geometry_type"]:
-        exec_create = arcpy.management.CreateFeatureclass
-        create_kwargs["geometry_type"] = kwargs["geometry_type"]
-        create_kwargs["spatial_reference"] = spatial_reference(
-            kwargs["spatial_reference_item"]
+    if kwargs.get("geometry_type"):
+        item = kwargs.get("spatial_reference_item", 4326)
+        create_kwargs["spatial_reference"] = spatial_reference(item)
+        if isinstance(item, (tuple, list)):
+            create_kwargs["has_z"] = "ENABLED"
+        arcpy.management.CreateFeatureclass(
+            geometry_type=kwargs["geometry_type"], **create_kwargs
         )
     else:
-        exec_create = arcpy.management.CreateTable
-    exec_create(**create_kwargs)
+        arcpy.management.CreateTable(**create_kwargs)
     if field_metadata_list:
         for field_meta in field_metadata_list:
             add_field(dataset_path, log_level=logging.DEBUG, **field_meta)
@@ -439,8 +438,7 @@ def remove_all_default_field_values(dataset_path, **kwargs):
     LOG.log(level, "Start: Remove all default field values for `%s`.", dataset_path)
     subtype_codes = [
         code
-        for code, meta
-        in arcpy.da.ListSubtypes(dataset_path).items()
+        for code, meta in arcpy.da.ListSubtypes(dataset_path).items()
         if meta["SubtypeField"]
     ]
     field_names = [
