@@ -24,6 +24,7 @@ if sys.version_info.major >= 3:
     basestring = str
     """Defining a basestring type instance for Py3+."""
 
+# Py2.
 if not hasattr(math, "isclose"):
 
     def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
