@@ -84,60 +84,6 @@ def buffer(dataset_path, distance, dissolve_field_names=None, **kwargs):
     return dataset_path
 
 
-def clip(dataset_path, clip_dataset_path, **kwargs):
-    """Clip feature geometry where it overlaps clip-dataset geometry.
-
-    Args:
-        dataset_path (str): Path of the dataset.
-        clip_dataset_path (str): Path of dataset whose features define the
-            clip area.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        clip_where_sql (str): SQL where-clause for clip dataset subselection.
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        use_edit_session (bool): Flag to perform updates in an edit session.
-            Default is False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        str: Path of the dataset updated.
-    """
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("clip_where_sql")
-    kwargs.setdefault("use_edit_session", False)
-    kwargs.setdefault("tolerance")
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(
-        level,
-        "Start: Clip features in `%s` where overlapping `%s`.",
-        dataset_path,
-        clip_dataset_path,
-    )
-    meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
-    view = {
-        "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "clip": arcobj.DatasetView(clip_dataset_path, kwargs["clip_where_sql"]),
-    }
-    temp_output_path = unique_path("output")
-    session = arcobj.Editor(
-        meta["dataset"]["workspace_path"], kwargs["use_edit_session"]
-    )
-    with view["dataset"], view["clip"], session:
-        arcpy.analysis.Clip(
-            in_features=view["dataset"].name,
-            clip_features=view["clip"].name,
-            out_feature_class=temp_output_path,
-            cluster_tolerance=kwargs["tolerance"],
-        )
-        delete(view["dataset"].name, log_level=logging.DEBUG)
-        insert_from_path(dataset_path, temp_output_path, log_level=logging.DEBUG)
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
-    LOG.log(level, "End: Clip.")
-    return dataset_path
-
-
 count = dataset.feature_count  # pylint: disable=invalid-name
 
 
