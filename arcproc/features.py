@@ -84,9 +84,6 @@ def buffer(dataset_path, distance, dissolve_field_names=None, **kwargs):
     return dataset_path
 
 
-count = dataset.feature_count  # pylint: disable=invalid-name
-
-
 def delete(dataset_path, **kwargs):
     """Delete features in the dataset.
 
