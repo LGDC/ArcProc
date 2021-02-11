@@ -1,4 +1,5 @@
 """Analysis result operations."""
+from collections import Counter
 import logging
 
 import arcpy
@@ -6,7 +7,7 @@ import arcpy
 from arcproc import arcobj
 from arcproc import attributes
 from arcproc import dataset
-from arcproc.helpers import contain, unique_path
+from arcproc.helpers import contain, log_entity_states, unique_path
 
 
 LOG = logging.getLogger(__name__)
@@ -112,6 +113,51 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
         arcpy.management.DeleteField(in_table=output_path, drop_field=field_name)
     LOG.log(level, "End: Buffer.")
     return output_path
+
+
+def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
+    """Clip feature geometry where it overlaps clip-dataset geometry.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        clip_dataset_path (str): Path of dataset whose features define the clip area.
+        output_path (str): Path of the output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        clip_where_sql (str): SQL where-clause for clip dataset subselection.
+        tolerance (float): Tolerance for coincidence, in dataset's units.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each clip-state.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Clip features in `%s` where overlapping `%s` into `%s`.",
+        dataset_path,
+        clip_dataset_path,
+        output_path,
+    )
+    view = {
+        "clip": arcobj.DatasetView(clip_dataset_path, kwargs.get("clip_where_sql")),
+        "dataset": arcobj.DatasetView(dataset_path, kwargs.get("dataset_where_sql")),
+    }
+    with view["dataset"], view["clip"]:
+        arcpy.analysis.Clip(
+            in_features=view["dataset"].name,
+            clip_features=view["clip"].name,
+            out_feature_class=output_path,
+            cluster_tolerance=kwargs.get("tolerance"),
+        )
+        states = Counter()
+        states["remaining"] = dataset.feature_count(output_path)
+        states["deleted"] = view["dataset"].count - states["remaining"]
+    log_entity_states("features", states, LOG, log_level=level)
+    LOG.log(level, "End: Clip.")
+    return states
 
 
 def id_near_info_map(
