@@ -80,7 +80,7 @@ def buffer(dataset_path, distance, dissolve_field_names=None, **kwargs):
             dataset_path, insert_dataset_path=temp_output_path, log_level=logging.DEBUG
         )
     dataset.delete(temp_output_path, log_level=logging.DEBUG)
-    LOG.log(level, "End: Nuffer.")
+    LOG.log(level, "End: Buffer.")
     return dataset_path
 
 

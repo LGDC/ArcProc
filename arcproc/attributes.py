@@ -1001,10 +1001,13 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
-        "Start: Update attributes in `%s.%s` by function `%s`.",
+        "Start: Update attributes in `%s.%s` by %s.",
         dataset_path,
         field_name,
-        function,
+        # Partials show all the pre-loaded arg & kwarg values, which is cumbersome.
+        "partial version of function {}".format(function.func)
+        if isinstance(function, partial)
+        else "function `{}`".format(function),
     )
     meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {
@@ -1262,7 +1265,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
 
 
 def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwargs):
-    """Update attribute values by passing them to a function.
+    """Update attribute values by node IDs.
 
     Args:
         dataset_path (str): Path of the dataset.

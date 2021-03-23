@@ -298,7 +298,7 @@ def delete_field(dataset_path, field_name, **kwargs):
         str: Name of the field deleted.
     """
     level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Delete field `%s.%s`.", field_name, dataset_path)
+    LOG.log(level, "Start: Delete field `%s.%s`.", dataset_path, field_name)
     arcpy.management.DeleteField(in_table=dataset_path, drop_field=field_name)
     LOG.log(level, "End: Delete.")
     return field_name
