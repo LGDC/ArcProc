@@ -747,7 +747,7 @@ def update_from_iters(
         update_features = update_features()
     feats = {"insert": [], "id_update": dict()}
     for feat in update_features:
-        feat = tuple(freeze_values(*feat))
+        feat = list(freeze_values(*feat))
         _id = tuple(feat[keys["feat"].index(key)] for key in keys["id"])
         if _id not in ids["dataset"]:
             feats["insert"].append(feat)
