@@ -229,7 +229,7 @@ def densify_curves(dataset_path, **kwargs):
     states = Counter()
     with session, cursor:
         for (geometry,) in cursor:
-            if geometry.hasCurves:
+            if geometry and geometry.hasCurves:
                 new_geometry = geometry.densify(
                     "DISTANCE", distance=1000000000.0, deviation=kwargs.get("tolerance")
                 )
