@@ -48,7 +48,7 @@ class Procedure(ContextDecorator):
         # ArcGIS Desktop does not implement the "memory" workspace.
         if (
             arcpy.GetInstallInfo()["ProductName"] == "Desktop"
-            and self.workspace_path == "memory"
+            and self.workspace_path == "memory"  # noqa: W503
         ):
             self.workspace_path = "in_memory"
         LOG.info("""Starting procedure for "%s".""", self.name)
@@ -72,8 +72,8 @@ class Procedure(ContextDecorator):
         LOG.info("""Ending procedure for "%s".""", self.name)
         if (
             not self.keep_transforms
-            and self.transform_path
-            and dataset.is_valid(self.transform_path)
+            and self.transform_path  # noqa: W503
+            and dataset.is_valid(self.transform_path)  # noqa: W503
         ):
             dataset.delete(self.transform_path, log_level=logging.DEBUG)
             self.transform_path = None
@@ -233,21 +233,12 @@ class Procedure(ContextDecorator):
             field_names (iter): Field names to check & update. Listed fields must be
                 present in both datasets. If field_names is None, all fields will be
                 checked & updated.
-            **kwargs: Arbitrary keyword arguments. See below.
-
-        Keyword Args:
-            update_where_sql (str): SQL where-clause for update-dataset subselection.
-            delete_missing_features (bool): Update should delete features not present in
-                update_features if True; keep them if False. Default is True.
-            use_edit_session (bool): Updates are done in an edit session if True.
-                Default is True.
+            **kwargs: Arbitrary keyword arguments. Refer to those listed for
+                arcproc.features.update_from_path.
 
         Returns:
             arcproc.managers.Procedure: Reference to the instance.
         """
-        kwargs.setdefault("update_where_sql")
-        kwargs.setdefault("delete_missing_features", True)
-        kwargs.setdefault("use_edit_session", True)
         LOG.info("Start: Update `%s`.", dataset_path)
         states = features.update_from_path(
             dataset_path,

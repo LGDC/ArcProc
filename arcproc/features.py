@@ -672,14 +672,12 @@ def update_from_dicts(
         delete_missing_features (bool): True if update should delete features missing
             from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            True.
+            False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
-    kwargs.setdefault("delete_missing_features", True)
-    kwargs.setdefault("use_edit_session", True)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Update features in `%s` from dictionaries.", dataset_path)
     keys = {"id": list(contain(id_field_names)), "attr": list(contain(field_names))}
@@ -692,8 +690,8 @@ def update_from_dicts(
         update_features=iters,
         id_field_names=keys["id"],
         field_names=keys["row"],
-        delete_missing_features=kwargs["delete_missing_features"],
-        use_edit_session=kwargs["use_edit_session"],
+        delete_missing_features=kwargs.get("delete_missing_features", True),
+        use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
     log_entity_states("features", states, LOG, log_level=level)
@@ -722,14 +720,12 @@ def update_from_iters(
         delete_missing_features (bool): True if update should delete features missing
             from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            True.
+            False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
-    kwargs.setdefault("delete_missing_features", True)
-    kwargs.setdefault("use_edit_session", True)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Update features in `%s` from iterables.", dataset_path)
     meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
@@ -753,13 +749,13 @@ def update_from_iters(
             feats["insert"].append(feat)
         else:
             feats["id_update"][_id] = feat
-    if kwargs["delete_missing_features"]:
+    if kwargs.get("delete_missing_features", True):
         ids["delete"] = {_id for _id in ids["dataset"] if _id not in feats["id_update"]}
     else:
         ids["delete"] = set()
     states = Counter()
     session = arcobj.Editor(
-        meta["dataset"]["workspace_path"], kwargs["use_edit_session"]
+        meta["dataset"]["workspace_path"], kwargs.get("use_edit_session", False)
     )
     if ids["delete"] or feats["id_update"]:
         cursor = arcpy.da.UpdateCursor(dataset_path, field_names=keys["feat"])
@@ -833,7 +829,7 @@ def update_from_path(
         delete_missing_features (bool): True if update should delete features missing
             from update_features, False otherwise. Default is True.
         use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            True.
+            False.
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
@@ -844,8 +840,6 @@ def update_from_path(
         if not kwargs[key]:
             kwargs[key] = "1=1"
     kwargs.setdefault("subset_where_sqls", ["1=1"])
-    kwargs.setdefault("delete_missing_features", True)
-    kwargs.setdefault("use_edit_session", True)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -893,8 +887,8 @@ def update_from_path(
                     update_features=iters,
                     id_field_names=keys["id"],
                     field_names=keys["row"],
-                    delete_missing_features=kwargs["delete_missing_features"],
-                    use_edit_session=kwargs["use_edit_session"],
+                    delete_missing_features=kwargs.get("delete_missing_features", True),
+                    use_edit_session=kwargs.get("use_edit_session", False),
                     log_level=logging.DEBUG,
                 )
             )
