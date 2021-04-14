@@ -37,15 +37,12 @@ Usage: `RATIO[to_measure][from_measure]`
 arcpy.SetLogHistory(False)
 
 
-def compactness_ratio(geometry=None, **kwargs):
+def compactness_ratio(area, perimeter):
     """Return compactness ratio (4pi * area / perimeter ** 2) result.
 
-    If geometry is None or one of the area & perimeter keyword arguments are undefined/
-    None, will return None.
-
     Args:
-        geometry (arcpy.Geometry): Geometry to evaluate.
-        **kwargs: Arbitrary keyword arguments. See below.
+        area (float): Area of geometry to evaluate.
+        perimeter (float): Perimeter of geometry to evaluate.
 
     Keyword Args:
         area (float): Area of geometry to evaluate. Only used if `geometry=None`.
@@ -55,13 +52,28 @@ def compactness_ratio(geometry=None, **kwargs):
     Returns:
         float: Ratio of compactness.
     """
-    if geometry:
-        dim = {"area": geometry.area, "perimeter": geometry.length}
-    elif kwargs.get("area") and kwargs.get("perimeter"):
-        dim = {"area": kwargs["area"], "perimeter": kwargs["perimeter"]}
-    else:
-        dim = {}
-    return (4 * pi * dim["area"]) / (dim["perimeter"] ** 2) if dim else None
+    if not area or not perimeter:
+        return None
+
+    return (4.0 * pi * float(area)) / (float(perimeter) ** 2.0)
+
+
+def compactness_ratio_by_geometry(geometry):
+    """Return compactness ratio (4pi * area / perimeter ** 2) result using geometry.
+
+    If geometry is None or one of the area & perimeter keyword arguments are undefined/
+    None, will return None.
+
+    Args:
+        geometry (arcpy.Geometry): Geometry to evaluate.
+
+    Returns:
+        float: Ratio of compactness.
+    """
+    if not geometry or not geometry.area or not geometry.length:
+        return None
+
+    return compactness_ratio(geometry.area, geometry.length)
 
 
 def convex_hull(*geometries):
