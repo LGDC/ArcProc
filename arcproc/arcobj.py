@@ -572,7 +572,11 @@ def dataset_metadata(dataset_path):
         # Py2: Change to FileNotFoundError.
         raise IOError("dataset_path `{}` does not exist".format(dataset_path))
 
-    return _dataset_object_metadata(arcpy.Describe(dataset_path))
+    try:
+        description = arcpy.Describe(dataset_path, "Table")
+    except OSError:
+        description = arcpy.Describe(dataset_path, "TableView")
+    return _dataset_object_metadata(description)
 
 
 def domain_metadata(domain_name, workspace_path):
