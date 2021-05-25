@@ -1,7 +1,9 @@
 """Tracking operations."""
-from collections import Counter
+from collections import Counter, defaultdict
 import datetime
+from itertools import chain
 import logging
+from operator import itemgetter
 
 import arcpy
 
@@ -13,6 +15,72 @@ from arcproc.helpers import log_entity_states, same_value
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
+
+
+def consolidate_rows(dataset_path, field_name, id_field_name, **kwargs):
+    """Consolidate tracking dataset rows where the value did not actually change.
+
+    Useful for quick-loaded point-in-time values, or for processing hand-altered rows.
+
+    Args:
+        dataset_path (str): Path of tracking dataset.
+        field_name (str): Name of tracked field.
+        id_field_name (str): Name of ID field.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        date_initiated_field_name (str): Name of tracking-row-inititated date field.
+            Default is "date_initiated".
+        date_expired_field_name (str): Name of tracking-row-expired date field. Default
+            is "date_expired".
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each update-state.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Consolidate tracking rows in `%s`.", dataset_path)
+    for key in ["date_initiated", "date_expired"]:
+        if not kwargs.get(key + "_field_name"):
+            kwargs[key + "_field_name"] = key
+    field_names = [
+        id_field_name,
+        kwargs["date_initiated_field_name"],
+        kwargs["date_expired_field_name"],
+        field_name,
+    ]
+    id_rows = defaultdict(list)
+    for row in attributes.as_dicts(dataset_path, field_names):
+        id_rows[row[id_field_name]].append(row)
+    for id_ in list(id_rows):
+        rows = sorted(id_rows[id_], key=itemgetter(kwargs["date_initiated_field_name"]))
+        for i, row in enumerate(rows):
+            if i == 0 or row[kwargs["date_initiated_field_name"]] is None:
+                continue
+
+            previous_row = rows[i - 1]
+            if same_value(row[field_name], previous_row[field_name]):
+                # Move previous row date initiated to current row & clear from previous.
+                row[kwargs["date_initiated_field_name"]] = previous_row[
+                    kwargs["date_initiated_field_name"]
+                ]
+                previous_row[kwargs["date_initiated_field_name"]] = None
+        id_rows[id_] = [
+            row for row in rows if row[kwargs["date_initiated_field_name"]] is not None
+        ]
+    states = features.update_from_dicts(
+        dataset_path,
+        update_features=chain(*id_rows.values()),
+        id_field_names=field_names[:2],
+        field_names=field_names,
+        use_edit_session=kwargs.get("use_edit_session", False),
+        log_level=logging.DEBUG,
+    )
+    log_entity_states("tracking rows", states, LOG, log_level=level)
+    LOG.log(level, "End: Consolidate.")
+    return states
 
 
 def update_rows(dataset_path, field_name, id_field_name, cmp_dataset_path, **kwargs):
