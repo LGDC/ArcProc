@@ -127,17 +127,21 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     current_where_sql = "{} IS NULL".format(keys["date"][1])
     meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
     id_value = {}
-    id_value["current"] = attributes.id_values_map(
-        dataset_path,
-        id_field_names=keys["id"],
-        field_names=[field_name],
-        dataset_where_clause=current_where_sql,
-    )
-    id_value["cmp"] = attributes.id_values_map(
-        cmp_dataset_path,
-        id_field_names=keys["cmp_id"],
-        field_names=[kwargs.get("cmp_field_name", field_name)],
-    )
+    id_value["current"] = {
+        row[:-1]: row[-1]
+        for row in attributes.as_iters(
+            dataset_path,
+            field_names=keys["id"] + [field_name],
+            dataset_where_sql=current_where_sql,
+        )
+    }
+    id_value["cmp"] = {
+        row[:-1]: row[-1]
+        for row in attributes.as_iters(
+            cmp_dataset_path,
+            field_names=keys["cmp_id"] + [kwargs.get("cmp_field_name", field_name)],
+        )
+    }
     ids = {
         "changing": set(),
         "expiring": {id_ for id_ in id_value["current"] if id_ not in id_value["cmp"]},
@@ -164,7 +168,7 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
         for row in cursor:
             id_ = tuple(row[: len(keys["id"])])
             if id_ in ids["changing"] or id_ in ids["expiring"]:
-                cursor.updateRow((id_, row[-2], kwargs["cmp_date"]))
+                cursor.updateRow(id_ + (row[-2], kwargs["cmp_date"]))
                 states["altered"] += 1
             else:
                 states["unchanged"] += 1
