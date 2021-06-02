@@ -61,7 +61,14 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
                 continue
 
             previous_row = rows[i - 1]
-            if same_value(row[field_name], previous_row[field_name]):
+            previous_value, value = (previous_row[field_name], row[field_name])
+            previous_date_expired, date_initiated = (
+                previous_row[keys["date"][1]],
+                row[keys["date"][0]],
+            )
+            if same_value(value, previous_value) and same_value(
+                date_initiated, previous_date_expired
+            ):
                 # Move previous row date initiated to current row & clear from previous.
                 row[keys["date"][0]] = previous_row[keys["date"][0]]
                 previous_row[keys["date"][0]] = None
@@ -69,7 +76,8 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
     states = features.update_from_dicts(
         dataset_path,
         update_features=chain(*id_rows.values()),
-        id_field_names=keys["id"],
+        # In tracking dataset, ID is ID + date_initiated.
+        id_field_names=keys["id"] + keys["date"][:1],
         field_names=keys["row"],
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
