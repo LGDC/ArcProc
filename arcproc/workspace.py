@@ -190,24 +190,8 @@ def dataset_names(workspace_path, **kwargs):
     kwargs.setdefault("include_tables", True)
     kwargs.setdefault("only_top_level", False)
     kwargs.setdefault("name_validator", lambda n: True)
-    dataset_types = {
-        "feature_classes": ["FeatureClass"],
-        "rasters": ["RasterCatalog", "RasterDataset"],
-        "tables": ["Table"],
-    }
-    include_data_types = []
-    for _type in dataset_types:
-        if kwargs["include_" + _type]:
-            include_data_types.extend(dataset_types[_type])
-    for root_path, _, names in arcpy.da.Walk(
-        workspace_path, datatype=include_data_types
-    ):
-        if kwargs["only_top_level"] and root_path != workspace_path:
-            continue
-
-        for name in names:
-            if kwargs["name_validator"](name):
-                yield name
+    for dataset_path in dataset_paths(workspace_path, **kwargs):
+        yield os.path.basename(dataset_path)
 
 
 def dataset_paths(workspace_path, **kwargs):
@@ -235,8 +219,24 @@ def dataset_paths(workspace_path, **kwargs):
     kwargs.setdefault("include_tables", True)
     kwargs.setdefault("only_top_level", False)
     kwargs.setdefault("name_validator", lambda n: True)
-    for name in dataset_names(workspace_path, **kwargs):
-        yield os.path.join(workspace_path, name)
+    dataset_types = {
+        "feature_classes": ["FeatureClass"],
+        "rasters": ["RasterCatalog", "RasterDataset"],
+        "tables": ["Table"],
+    }
+    include_data_types = []
+    for _type in dataset_types:
+        if kwargs["include_" + _type]:
+            include_data_types.extend(dataset_types[_type])
+    for root_path, _, _dataset_names in arcpy.da.Walk(
+        workspace_path, datatype=include_data_types
+    ):
+        if kwargs["only_top_level"] and root_path != workspace_path:
+            continue
+
+        for dataset_name in _dataset_names:
+            if kwargs["name_validator"](dataset_name):
+                yield os.path.join(root_path, dataset_name)
 
 
 domain_metadata = domain_metadata  # pylint: disable=invalid-name
