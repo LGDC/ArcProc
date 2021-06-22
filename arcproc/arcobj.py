@@ -552,6 +552,12 @@ def _workspace_object_metadata(workspace_object):
     meta["is_enterprise_database"] = "SdeWorkspace" in meta["factory_prog_id"]
     meta["is_personal_geodatabase"] = "AccessWorkspace" in meta["factory_prog_id"]
     meta["is_in_memory"] = "InMemoryWorkspace" in meta["factory_prog_id"]
+    meta["is_memory"] = "ColumnaDBWorkspace" in meta["factory_prog_id"]
+    meta["can_copy"] = any(
+        meta[f"is_{key}"]
+        for key in ["folder", "file_geodatabase", "personal_geodatabase"]
+    )
+    meta["can_move"] = meta["can_copy"]
     meta["domains"] = [
         _domain_object_metadata(domain) for domain in arcpy.da.ListDomains(meta["path"])
     ]
