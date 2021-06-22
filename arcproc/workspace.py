@@ -88,6 +88,34 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
     return workspace_path
 
 
+def copy(workspace_path, output_path, **kwargs):
+    """Copy workspace to another location.
+
+    Args:
+        workspace_path (str): Path of the workspace.
+        output_path (str): Path of output workspace.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Output path of copied workspace.
+
+    Raises:
+        ValueError: If dataset type not supported.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Copy workspace `%s` to `%s`.", workspace_path, output_path)
+    meta = {"dataset": workspace_metadata(workspace_path)}
+    if not meta["dataset"]["can_copy"]:
+        raise ValueError("`{}` unsupported dataset type.".format(workspace_path))
+
+    arcpy.management.Copy(workspace_path, output_path)
+    LOG.log(level, "End: Copy.")
+    return output_path
+
+
 def create_file_geodatabase(
     geodatabase_path, xml_workspace_path=None, include_xml_data=False, **kwargs
 ):
