@@ -121,7 +121,7 @@ class Procedure(ContextDecorator):
         Keyword Args:
             field_metadata_list (iter): Field metadata mappings. Will be ignored if
                 template_path used.
-            geometry_type (str): NGeometry type. Valid types are: point, multipoint,
+            geometry_type (str): Geometry type. Valid types are: point, multipoint,
                 polygon, polyline. If unstated or another value, dataset will be
                 nonspatial. Will be ignored if template_path used.
             spatial_reference_item: Item from which the spatial reference of the output
