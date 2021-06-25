@@ -1,10 +1,13 @@
 """Conversion operations."""
+from collections import Counter
+
 try:
     from collections.abc import Sequence
 except ImportError:
     from collections import Sequence
 import csv
 import logging
+import os
 
 import arcpy
 
@@ -17,7 +20,7 @@ from arcproc.arcobj import (
 from arcproc import attributes
 from arcproc import dataset
 from arcproc import features
-from arcproc.helpers import contain, unique_name
+from arcproc.helpers import contain, log_entity_states, unique_name
 
 
 LOG = logging.getLogger(__name__)
@@ -67,6 +70,55 @@ def planarize(dataset_path, output_path, **kwargs):
             attributes=True,
         )
     LOG.log(level, "End: Planarize.")
+    return output_path
+
+
+def points_to_multipoints(dataset_path, output_path, **kwargs):
+    """Convert geometry from points to multipoints.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the converted dataset.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Convert points in `%s` to multipoints in `%s`.",
+        dataset_path,
+        output_path,
+    )
+    meta = {"dataset": dataset_metadata(dataset_path)}
+    sref = spatial_reference(dataset_path)
+    arcpy.management.CreateFeatureclass(
+        out_path=os.path.dirname(output_path),
+        out_name=os.path.basename(output_path),
+        geometry_type="MULTIPOINT",
+        template=dataset_path,
+        spatial_reference=sref,
+    )
+    multipoint_cursor = arcpy.da.InsertCursor(
+        output_path, field_names=meta["dataset"]["user_field_names"] + ["SHAPE@"]
+    )
+    point_cursor = arcpy.da.SearchCursor(
+        dataset_path,
+        field_names=meta["dataset"]["user_field_names"] + ["SHAPE@"],
+        where_clause=kwargs.get("dataset_where_sql"),
+    )
+    with multipoint_cursor, point_cursor:
+        for feature in point_cursor:
+            geometry = arcpy.Multipoint(feature[-1].firstPoint)
+            multipoint_cursor.insertRow(feature[:-1] + (geometry,))
+    states = Counter(converted=dataset.feature_count(dataset_path))
+    log_entity_states("features", states, LOG, log_level=level)
+    LOG.log(level, "End: Convert.")
     return output_path
 
 
