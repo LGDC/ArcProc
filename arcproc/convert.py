@@ -122,6 +122,39 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
     return output_path
 
 
+def points_to_thiessen_polygons(dataset_path, output_path, **kwargs):
+    """Convert geometry from points to multipoints.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the converted dataset.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Convert points in `%s` to Thiessen polygons in `%s`.",
+        dataset_path,
+        output_path,
+    )
+    view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    with view:
+        arcpy.analysis.CreateThiessenPolygons(
+            in_features=view.name, out_feature_class=output_path, fields_to_copy="ALL"
+        )
+    states = Counter(converted=dataset.feature_count(output_path))
+    log_entity_states("features", states, LOG, log_level=level)
+    LOG.log(level, "End: Convert.")
+    return output_path
+
+
 def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
     """Convert geometry from polygons to lines.
 
