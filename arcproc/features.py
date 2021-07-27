@@ -4,6 +4,8 @@ import inspect
 from itertools import chain
 import logging
 
+import pint
+
 import arcpy
 
 from arcproc import arcobj
@@ -22,6 +24,8 @@ from arcproc.helpers import (
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+UNIT = pint.UnitRegistry()
+"""pint.registry.UnitRegistry: Registry for units & conversions."""
 UPDATE_TYPES = ["deleted", "inserted", "altered", "unchanged"]
 """list of str: Types of feature updates commonly associated wtth update counters."""
 
@@ -195,6 +199,57 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
     states["unchanged"] = dataset.feature_count(dataset_path)
     log_entity_states("features", states, LOG, log_level=level)
     LOG.log(level, "End: Delete.")
+    return states
+
+
+def densify(dataset_path, distance, only_curve_features=False, **kwargs):
+    """Add vertices at a given distance along feature geometry segments.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        distance (float): Interval to add vertices, in the units of the dataset.
+        only_curve_features (bool): Only densfiy curve features if True.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        use_edit_session (bool): Flag to perform updates in an edit session. Default is
+            False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        collections.Counter: Counts of features for each replace-state.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Densify feature geometry in `%s`.", dataset_path)
+    meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
+    if meta["dataset"]["spatial_reference"].linearUnitName != "Meter":
+        distance_unit = getattr(
+            UNIT, meta["dataset"]["spatial_reference"].linearUnitName.lower()
+        )
+        distance = (distance * distance_unit).to(UNIT.meter) / UNIT.meter
+    cursor = arcpy.da.UpdateCursor(
+        in_table=dataset_path,
+        field_names=["SHAPE@"],
+        where_clause=kwargs.get("dataset_where_sql"),
+    )
+    session = arcobj.Editor(
+        meta["dataset"]["workspace_path"], kwargs.get("use_edit_session", False)
+    )
+    states = Counter()
+    with session, cursor:
+        for (geometry,) in cursor:
+            if geometry:
+                if only_curve_features and not geometry.hasCurves:
+                    continue
+
+                new_geometry = geometry.densify(method="GEODESIC", distance=distance)
+                cursor.updateRow((new_geometry,))
+                states["densified"] += 1
+            else:
+                states["unchanged"] += 1
+    log_entity_states("features", states, LOG, log_level=level)
+    LOG.log(level, "End: Densify.")
     return states
 
 
