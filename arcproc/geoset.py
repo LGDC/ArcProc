@@ -73,10 +73,13 @@ def identity(
     )
     with view["dataset"], temp_identity:
         # Avoid field name collisions with neutral holding field.
-        temp_identity.field_name = dataset.rename_field(
+        temp_field_name = unique_name(identity_field_name, unique_length=1)
+        if len(temp_field_name) > 31:
+            temp_field_name = temp_field_name[len(temp_field_name) - 31 :]
+        dataset.rename_field(
             temp_identity.path,
             identity_field_name,
-            new_field_name=unique_name(identity_field_name, unique_length=1),
+            new_field_name=temp_field_name,
             log_level=logging.DEBUG,
         )
         for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
@@ -99,7 +102,7 @@ def identity(
                 field_name,
                 function=lambda x: None if x == "" else x,
                 field_as_first_arg=False,
-                arg_field_names=[temp_identity.field_name],
+                arg_field_names=[temp_field_name],
                 log_level=logging.DEBUG,
             )
             # Apply replacement value if necessary.
