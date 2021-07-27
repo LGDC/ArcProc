@@ -186,6 +186,7 @@ def copy(dataset_path, output_path, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
+        field_names (iter): Collection of field names to include in output.
         schema_only (bool): Copy only the schema--omitting data--if True. Default is
             False.
         overwrite (bool): Overwrite the output dataset if it exists, if True. Default is
@@ -199,6 +200,7 @@ def copy(dataset_path, output_path, **kwargs):
         ValueError: If dataset type not supported.
     """
     kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("field_names")
     kwargs.setdefault("schema_only", False)
     kwargs.setdefault("overwrite", False)
     if kwargs["schema_only"]:
@@ -206,7 +208,11 @@ def copy(dataset_path, output_path, **kwargs):
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
     meta = {"dataset": dataset_metadata(dataset_path)}
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(
+        dataset_path,
+        field_names=kwargs["field_names"],
+        dataset_where_sql=kwargs["dataset_where_sql"],
+    )
     with view:
         if meta["dataset"]["is_spatial"]:
             exec_copy = arcpy.management.CopyFeatures

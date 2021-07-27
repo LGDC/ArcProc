@@ -80,12 +80,15 @@ class Procedure(ContextDecorator):
         elapsed(self.start_time, LOG)
         LOG.info("Ended.")
 
-    def extract(self, dataset_path, extract_where_sql=None):
+    def extract(self, dataset_path, extract_where_sql=None, **kwargs):
         """Extract features to transform workspace.
 
         Args:
             dataset_path (str): Path of the dataset to extract.
             extract_where_sql (str): SQL where-clause for extract subselection.
+
+        Keyword Args:
+            field_names (iter): Collection of field names to include in output.
 
         Returns:
             arcproc.managers.Procedure: Reference to the instance.
@@ -96,6 +99,7 @@ class Procedure(ContextDecorator):
             dataset_path=dataset_path,
             output_path=self.transform_path,
             dataset_where_sql=extract_where_sql,
+            field_names=kwargs.get("field_names"),
             log_level=logging.DEBUG,
         )
         # Workaround for BUG-000091314. Only affect Pro-ArcPy, not Desktop.
