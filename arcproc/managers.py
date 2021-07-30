@@ -88,7 +88,9 @@ class Procedure(ContextDecorator):
             extract_where_sql (str): SQL where-clause for extract subselection.
 
         Keyword Args:
-            field_names (iter): Collection of field names to include in output.
+            field_names (iter): Collection of field names to include in extracted
+                dataset. If field_names not specified or None, all fields will be
+                included.
 
         Returns:
             arcproc.managers.Procedure: Reference to the instance.

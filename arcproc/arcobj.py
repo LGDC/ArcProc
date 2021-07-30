@@ -130,16 +130,17 @@ class DatasetView(ContextDecorator):
         Keyword Args:
             view_name (str): Name of view. Default is None (auto-generate name).
             field_names (iter): Collection of field names to include in view. If
-                field_names not specified, all fields will be included.
+                field_names not specified or None, all fields will be included.
             force_nonspatial (bool): Flag that forces a nonspatial view. Default is
                 False.
         """
         self.name = kwargs.get("view_name", unique_name("view"))
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
-        self.field_names = list(
-            kwargs.get("field_names", self.dataset_meta["field_names"])
-        )
+        if kwargs.get("field_names") is None:
+            self.field_names = self.dataset_meta["field_names"]
+        else:
+            self.field_names = list(kwargs["field_names"])
         self.is_spatial = all(
             [self.dataset_meta["is_spatial"], not kwargs.get("force_nonspatial", False)]
         )

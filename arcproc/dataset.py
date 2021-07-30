@@ -186,7 +186,8 @@ def copy(dataset_path, output_path, **kwargs):
 
     Keyword Args:
         dataset_where_sql (str): SQL where-clause for dataset subselection.
-        field_names (iter): Collection of field names to include in output.
+        field_names (iter): Collection of field names to include in output. If
+            field_names not specified or None, all fields will be included.
         schema_only (bool): Copy only the schema--omitting data--if True. Default is
             False.
         overwrite (bool): Overwrite the output dataset if it exists, if True. Default is
