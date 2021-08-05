@@ -29,6 +29,43 @@ LOG = logging.getLogger(__name__)
 arcpy.SetLogHistory(False)
 
 
+def lines_to_vertex_points(dataset_path, output_path, endpoints_only=False, **kwargs):
+    """Convert geometry from lines to points at every vertex.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output dataset.
+        endpoints_only (bool): Flag to indicate whether the output points should be at
+            the endpoints of the line only, and not at every vertex.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the converted dataset.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Convert lines in `%s` to vertex points in `%s`.",
+        dataset_path,
+        output_path,
+    )
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    with view:
+        arcpy.management.FeatureVerticesToPoints(
+            in_features=view.name,
+            out_feature_class=output_path,
+            point_location="ALL" if not endpoints_only else "BOTH_ENDS",
+        )
+    dataset.delete_field(output_path, "ORIG_FID", log_level=logging.DEBUG)
+    LOG.log(level, "End: Convert.")
+    return output_path
+
+
 def planarize(dataset_path, output_path, **kwargs):
     """Planarize feature geometry into lines.
 
@@ -337,6 +374,40 @@ def rows_to_csvfile(rows, output_path, field_names, header=False, **kwargs):
 
             writer.writerow(row)
     LOG.log(level, "End: Write.")
+    return output_path
+
+
+def split_lines_at_vertices(dataset_path, output_path, **kwargs):
+    """Split lines into smaller lines between vertices.
+
+    The original datasets can be lines or polygons. Polygons will be split along their
+    rings.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        output_path (str): Path of the output dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the converted dataset.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    # kwargs.setdefault("tolerance")
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Split line geometry in `%s` into lines between vertices in `%s`.",
+        dataset_path,
+        output_path,
+    )
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    with view:
+        arcpy.management.SplitLine(in_features=view.name, out_feature_class=output_path)
+    LOG.log(level, "End: Split.")
     return output_path
 
 
