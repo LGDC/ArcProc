@@ -3,11 +3,16 @@ import logging
 
 import arcpy
 
-from arcproc import arcobj
-from arcproc.arcobj import ArcExtension, dataset_metadata
+from arcproc.arcobj import (
+    ArcExtension,
+    DatasetView,
+    dataset_metadata,
+    field_metadata,
+    linear_unit_string,
+    spatial_reference_metadata,
+)
 from arcproc import attributes
 from arcproc import dataset
-from arcproc import workspace
 
 
 LOG = logging.getLogger(__name__)
@@ -29,7 +34,24 @@ TYPE_ID_FUNCTION_MAP = {
 arcpy.SetLogHistory(False)
 
 
-build = workspace.build_network  # pylint: disable=invalid-name
+def build_network(network_path, **kwargs):
+    """Build network dataset.
+
+    Args:
+        network_path (str): Path of the network dataset.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Returns:
+        str: Path of the network dataset.
+    """
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(level, "Start: Build network `%s`.", network_path)
+    arcpy.nax.BuildNetwork(in_network_dataset=network_path)
+    LOG.log(level, "End: Build.")
+    return network_path
 
 
 def closest_facility_route(
@@ -83,8 +105,8 @@ def closest_facility_route(
     )
     meta = {
         "id_field": {
-            "dataset": arcobj.field_metadata(dataset_path, id_field_name),
-            "facility": arcobj.field_metadata(facility_path, facility_id_field_name),
+            "dataset": field_metadata(dataset_path, id_field_name),
+            "facility": field_metadata(facility_path, facility_id_field_name),
         }
     }
     keys = {
@@ -96,8 +118,8 @@ def closest_facility_route(
         ]
     }
     view = {
-        "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "facility": arcobj.DatasetView(facility_path, kwargs["facility_where_sql"]),
+        "dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"]),
+        "facility": DatasetView(facility_path, kwargs["facility_where_sql"]),
     }
     arcpy.na.MakeClosestFacilityLayer(
         in_network_dataset=network_path,
@@ -180,6 +202,7 @@ def closest_facility_route(
     LOG.log(level, "End: Generate.")
 
 
+@ArcExtension("Network")
 def closest_facility_route_new(
     dataset_path,
     id_field_name,
@@ -229,7 +252,7 @@ def closest_facility_route_new(
     analysis = arcpy.nax.ClosestFacility(network_path)
     analysis.defaultImpedanceCutoff = kwargs["max_cost"]
     distance_units = UNIT_PLURAL[
-        arcobj.spatial_reference_metadata(dataset_path)["linear_unit"]
+        spatial_reference_metadata(dataset_path)["linear_unit"]
     ]
     analysis.distanceUnits = getattr(arcpy.nax.DistanceUnits, distance_units)
     analysis.ignoreInvalidLocations = True
@@ -238,7 +261,7 @@ def closest_facility_route_new(
     analysis.travelMode = arcpy.nax.GetTravelModes(network_path)[travel_mode]
     # Load facilities.
     input_type = arcpy.nax.ClosestFacilityInputDataType.Facilities
-    field_meta = arcobj.field_metadata(
+    field_meta = field_metadata(
         facility_path,
         dataset_metadata(facility_path)["oid_field_name"]
         if facility_id_field_name.upper() == "OID@"
@@ -266,7 +289,7 @@ def closest_facility_route_new(
             cursor.insertRow(row)
     # Load dataset locations.
     input_type = arcpy.nax.ClosestFacilityInputDataType.Incidents
-    field_meta = arcobj.field_metadata(
+    field_meta = field_metadata(
         dataset_path,
         dataset_metadata(dataset_path)["oid_field_name"]
         if id_field_name.upper() == "OID@"
@@ -293,8 +316,7 @@ def closest_facility_route_new(
         for row in rows:
             cursor.insertRow(row)
     # Solve & generate.
-    with ArcExtension("Network"):
-        result = analysis.solve()
+    result = analysis.solve()
     if not result.solveSucceeded:
         for message in result.solverMessages(arcpy.nax.MessageSeverity.All):
             LOG.error(message)
@@ -371,10 +393,10 @@ def generate_service_areas(
     LOG.log(level, "Start: Generate service areas for `%s`.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs["trim_value"] is not None:
-        trim_value = arcobj.linear_unit_string(kwargs["trim_value"], dataset_path)
+        trim_value = linear_unit_string(kwargs["trim_value"], dataset_path)
     else:
         trim_value = None
-    view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
+    view = {"dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     arcpy.na.MakeServiceAreaLayer(
         in_network_dataset=network_path,
         out_network_analysis_layer="service_area",
@@ -414,9 +436,7 @@ def generate_service_areas(
     dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
-        meta = {
-            "id_field": arcobj.field_metadata(dataset_path, kwargs["id_field_name"])
-        }
+        meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
         dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
             output_path,
@@ -481,10 +501,10 @@ def generate_service_rings(
     LOG.log(level, "Start: Generate service rings for `%s`.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs["trim_value"] is not None:
-        trim_value = arcobj.linear_unit_string(kwargs["trim_value"], dataset_path)
+        trim_value = linear_unit_string(kwargs["trim_value"], dataset_path)
     else:
         trim_value = None
-    view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
+    view = {"dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     arcpy.na.MakeServiceAreaLayer(
         in_network_dataset=network_path,
         out_network_analysis_layer="service_area",
@@ -526,9 +546,7 @@ def generate_service_rings(
     dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
-        meta = {
-            "id_field": arcobj.field_metadata(dataset_path, kwargs["id_field_name"])
-        }
+        meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
         dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
             output_path,

@@ -4,7 +4,7 @@ import os
 
 import arcpy
 
-from arcproc.arcobj import ArcExtension, domain_metadata, workspace_metadata
+from arcproc.arcobj import domain_metadata, workspace_metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -31,28 +31,6 @@ def build_locator(locator_path, **kwargs):
     arcpy.geocoding.RebuildAddressLocator(locator_path)
     LOG.log(level, "End: Build.")
     return locator_path
-
-
-@ArcExtension("Network")
-def build_network(network_path, **kwargs):
-    """Build network dataset.
-
-    Args:
-        network_path (str): Path of the network dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        str: Path of the built network dataset.
-
-    """
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Build network `%s`.", network_path)
-    arcpy.na.BuildNetwork(in_network_dataset=network_path)
-    LOG.log(level, "End: Build.")
-    return network_path
 
 
 def compress(workspace_path, disconnect_users=False, **kwargs):
