@@ -4,7 +4,7 @@ import logging
 import arcpy
 
 from arcproc import arcobj
-from arcproc.arcobj import ArcExtension
+from arcproc.arcobj import ArcExtension, dataset_metadata
 from arcproc import attributes
 from arcproc import dataset
 from arcproc import workspace
@@ -13,6 +13,8 @@ from arcproc import workspace
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+UNIT_PLURAL = {"Foot": "Feet", "Meter": "Meters"}
+"""Mapping of singular unit to plural. Only need common ones from spatial references."""
 TYPE_ID_FUNCTION_MAP = {
     "short": (lambda x: int(x.split(" : ")[0]) if x else None),
     "long": (lambda x: int(x.split(" : ")[0]) if x else None),
@@ -37,7 +39,7 @@ def closest_facility_route(
     facility_id_field_name,
     network_path,
     cost_attribute,
-    **kwargs
+    **kwargs,
 ):
     """Generate route info dictionaries for closest facility to each location feature.
 
@@ -178,6 +180,154 @@ def closest_facility_route(
     LOG.log(level, "End: Generate.")
 
 
+def closest_facility_route_new(
+    dataset_path,
+    id_field_name,
+    facility_path,
+    facility_id_field_name,
+    network_path,
+    travel_mode,
+    **kwargs,
+):
+    """Generate route info dictionaries for closest facility to each location feature.
+
+    Args:
+        dataset_path (str): Path of the dataset.
+        id_field_name (str): Name of the dataset ID field.
+        facility_path (str): Path of the facilities dataset.
+        facility_id_field_name (str): Name of the facility ID field.
+        network_path (str): Path of the network dataset.
+        travel_mode (str): Name of the network travel mode to use.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        facility_where_sql (str): SQL where-clause for facility subselection.
+        max_cost (float): Maximum travel cost the search will attempt, in the units of
+            the cost attribute.
+        travel_from_facility (bool): Flag to indicate performing the analysis
+            travelling from (True) or to (False) the facility. Default is False.
+        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+
+    Yields:
+        dict: Analysis result details of feature.
+            Dictionary keys: "dataset_id", "facility_id", "cost", "geometry",
+            "cost" value (float) will match units of the travel mode impedance.
+            "geometry" (arcpy.Geometry) will match spatial reference to the dataset.
+    """
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("facility_where_sql")
+    kwargs.setdefault("max_cost")
+    kwargs.setdefault("travel_from_facility", False)
+    level = kwargs.get("log_level", logging.INFO)
+    LOG.log(
+        level,
+        "Start: Generate closest facility in `%s` to locations in `%s`.",
+        facility_path,
+        dataset_path,
+    )
+    analysis = arcpy.nax.ClosestFacility(network_path)
+    analysis.defaultImpedanceCutoff = kwargs["max_cost"]
+    distance_units = UNIT_PLURAL[
+        arcobj.spatial_reference_metadata(dataset_path)["linear_unit"]
+    ]
+    analysis.distanceUnits = getattr(arcpy.nax.DistanceUnits, distance_units)
+    analysis.ignoreInvalidLocations = True
+    if kwargs["travel_from_facility"]:
+        analysis.travelDirection = arcpy.nax.TravelDirection.FromFacility
+    analysis.travelMode = arcpy.nax.GetTravelModes(network_path)[travel_mode]
+    # Load facilities.
+    input_type = arcpy.nax.ClosestFacilityInputDataType.Facilities
+    field_meta = arcobj.field_metadata(
+        facility_path,
+        dataset_metadata(facility_path)["oid_field_name"]
+        if facility_id_field_name.upper() == "OID@"
+        else facility_id_field_name,
+    )
+    field_description = [
+        "source_id",
+        field_meta["type"],
+        "#",
+        field_meta["length"],
+        "#",
+        "#",
+    ]
+    if field_description[1] == "OID":
+        field_description[1] = "LONG"
+    analysis.addFields(input_type, [field_description])
+    cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
+    rows = attributes.as_iters(
+        facility_path,
+        field_names=[facility_id_field_name, "SHAPE@"],
+        dataset_where_sql=kwargs["facility_where_sql"],
+    )
+    with cursor:
+        for row in rows:
+            cursor.insertRow(row)
+    # Load dataset locations.
+    input_type = arcpy.nax.ClosestFacilityInputDataType.Incidents
+    field_meta = arcobj.field_metadata(
+        dataset_path,
+        dataset_metadata(dataset_path)["oid_field_name"]
+        if id_field_name.upper() == "OID@"
+        else id_field_name,
+    )
+    field_description = [
+        "source_id",
+        field_meta["type"],
+        "#",
+        field_meta["length"],
+        "#",
+        "#",
+    ]
+    if field_description[1] == "OID":
+        field_description[1] = "LONG"
+    analysis.addFields(input_type, [field_description])
+    cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
+    rows = attributes.as_iters(
+        dataset_path,
+        field_names=[id_field_name, "SHAPE@"],
+        dataset_where_sql=kwargs["dataset_where_sql"],
+    )
+    with cursor:
+        for row in rows:
+            cursor.insertRow(row)
+    # Solve & generate.
+    with ArcExtension("Network"):
+        result = analysis.solve()
+    if not result.solveSucceeded:
+        for message in result.solverMessages(arcpy.nax.MessageSeverity.All):
+            LOG.error(message)
+        raise RuntimeError("Closest facility analysis failed")
+
+    oid_id = {
+        sublayer: dict(
+            result.searchCursor(
+                output_type=getattr(arcpy.nax.ClosestFacilityOutputDataType, sublayer),
+                field_names=[id_key, "source_id"],
+            )
+        )
+        for sublayer, id_key in [
+            ("Facilities", "FacilityOID"),
+            ("Incidents", "IncidentOID"),
+        ]
+    }
+    keys = ["FacilityOID", "IncidentOID", f"Total_{distance_units}", "SHAPE@"]
+    cursor = result.searchCursor(
+        output_type=arcpy.nax.ClosestFacilityOutputDataType.Routes, field_names=keys
+    )
+    with cursor:
+        for row in cursor:
+            route = dict(zip(keys, row))
+            yield {
+                "dataset_id": oid_id["Incidents"][route["IncidentOID"]],
+                "facility_id": oid_id["Facilities"][route["FacilityOID"]],
+                "cost": route[f"Total_{distance_units}"],
+                "geometry": route["SHAPE@"],
+            }
+    LOG.log(level, "End: Generate.")
+
+
 @ArcExtension("Network")
 def generate_service_areas(
     dataset_path, output_path, network_path, cost_attribute, max_distance, **kwargs
@@ -288,7 +438,7 @@ def generate_service_rings(
     cost_attribute,
     ring_width,
     max_distance,
-    **kwargs
+    **kwargs,
 ):
     """Create facility service ring features using a network dataset.
 
