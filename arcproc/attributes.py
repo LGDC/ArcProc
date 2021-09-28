@@ -275,6 +275,24 @@ def as_values(dataset_path, field_names, **kwargs):
                 yield value
 
 
+def as_value_count(dataset_path, field_names, **kwargs):
+    """Return counter of attribute values.
+
+    Args:
+        dataset_path (proctools.meta.Dataset): Path to dataset.
+        field_name (str): Name of field.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+
+    Returns:
+        collections.Counter
+    """
+    return Counter(as_values(dataset_path, field_names, **kwargs))
+
+
 def coordinate_node_map(
     dataset_path,
     from_id_field_name,
