@@ -124,6 +124,20 @@ def coordinate_distance(*coordinates):
     return distance
 
 
+def geometry_axis_bound(geometry, axis, bound):
+    """Return value of axis-bound for given geometry.
+
+    Args:
+        geometry (arcpy.Geometry, None): Geometry to evaluate.
+    Returns:
+        float
+    """
+    if not geometry:
+        return None
+
+    return getattr(geometry.extent, axis.upper() + bound.title())
+
+
 def line_between_centroids(*geometries):
     """Return line geometry connecting given geometry centroids.
 
