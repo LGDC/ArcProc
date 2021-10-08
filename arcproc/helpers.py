@@ -229,6 +229,8 @@ def slugify(text, separator="-", force_lowercase=True):
         slug = slug.replace(char, separator)
     while separator * 2 in slug:
         slug = slug.replace(separator * 2, separator)
+    while slug[-1] == separator:
+        slug = slug[:-1]
     return slug
 
 
