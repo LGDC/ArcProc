@@ -78,7 +78,8 @@ def identity(
         if len(temp_field_name) > 31:
             temp_field_name = temp_field_name[len(temp_field_name) - 31 :]
         dataset.rename_field(
-            temp_identity.path,
+            # Shim: Convert to str.
+            str(temp_identity.path),
             identity_field_name,
             new_field_name=temp_field_name,
             log_level=logging.DEBUG,
@@ -88,7 +89,8 @@ def identity(
             temp_output_path = str(unique_path("output"))
             arcpy.analysis.Identity(
                 in_features=view["chunk"].name,
-                identity_features=temp_identity.path,
+                # ArcPy2.8.0: Convert to str.
+                identity_features=str(temp_identity.path),
                 out_feature_class=temp_output_path,
                 join_attributes="all",
                 cluster_tolerance=kwargs["tolerance"],
@@ -202,7 +204,8 @@ def overlay(
     with view["dataset"], temp_overlay:
         # Avoid field name collisions with neutral field name.
         temp_overlay.field_name = dataset.rename_field(
-            temp_overlay.path,
+            # Shim: Convert to str.
+            str(temp_overlay.path),
             overlay_field_name,
             new_field_name=unique_name(overlay_field_name, unique_length=1),
             log_level=logging.DEBUG,
@@ -214,7 +217,8 @@ def overlay(
             temp_output_path = str(unique_path("output"))
             arcpy.analysis.SpatialJoin(
                 target_features=view["chunk"].name,
-                join_features=temp_overlay.path,
+                # ArcPy2.8.0: Convert to str.
+                join_features=str(temp_overlay.path),
                 out_feature_class=temp_output_path,
                 **join_kwargs
             )
@@ -299,7 +303,8 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
     with view["dataset"], temp_union:
         # Avoid field name collisions with neutral field name.
         temp_union.field_name = dataset.rename_field(
-            temp_union.path,
+            # Shim: Convert to str.
+            str(temp_union.path),
             union_field_name,
             new_field_name=unique_name(union_field_name, unique_length=1),
             log_level=logging.DEBUG,
@@ -308,7 +313,8 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
             # Shim: Convert to str.
             temp_output_path = str(unique_path("output"))
             arcpy.analysis.Union(
-                in_features=[view["chunk"].name, temp_union.path],
+                # ArcPy2.8.0: Convert to str.
+                in_features=[view["chunk"].name, str(temp_union.path)],
                 out_feature_class=temp_output_path,
                 join_attributes="all",
                 cluster_tolerance=kwargs["tolerance"],

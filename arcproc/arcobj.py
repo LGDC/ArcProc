@@ -6,6 +6,7 @@ except ImportError:
     from contextlib2 import ContextDecorator
 import datetime
 import logging
+from pathlib import Path
 import uuid
 
 import arcpy
@@ -113,7 +114,7 @@ class DatasetView(ContextDecorator):
 
     Attributes:
         name (str): Name of view.
-        dataset_path (str): Path of dataset.
+        dataset_path (pathlib.Path): Path of dataset.
         dataset_meta (dict): Metadata dictionary for dataset.
         field_names (list): Collection of field names to include in view.
         is_spatial (bool): True if view is spatial, False if not.
@@ -123,7 +124,7 @@ class DatasetView(ContextDecorator):
         """Initialize instance.
 
         Args:
-            dataset_path (str): Path of dataset.
+            dataset_path (pathlib.Path, str): Path of dataset.
             dataset_where_sql (str): SQL where-clause for dataset subselection.
             **kwargs: Arbitrary keyword arguments. See below.
 
@@ -134,6 +135,7 @@ class DatasetView(ContextDecorator):
             force_nonspatial (bool): Flag that forces a nonspatial view. Default is
                 False.
         """
+        dataset_path = Path(dataset_path)
         self.name = kwargs.get("view_name", unique_name("view"))
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
@@ -186,7 +188,7 @@ class DatasetView(ContextDecorator):
         if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name,
-                selection_type="new_selection",
+                selection_type="NEW_SELECTION",
                 where_clause=value,
             )
         self._where_sql = value
@@ -195,7 +197,7 @@ class DatasetView(ContextDecorator):
     def where_sql(self):
         if self.exists:
             arcpy.management.SelectLayerByAttribute(
-                in_layer_or_view=self.name, selection_type="clear_selection"
+                in_layer_or_view=self.name, selection_type="CLEAR_SELECTION"
             )
         self._where_sql = None
 
@@ -211,16 +213,17 @@ class DatasetView(ContextDecorator):
         Yields:
             DatasetView.
         """
-        # ArcPy where clauses cannot use `between`.
+        # ArcPy where clauses cannot use `BETWEEN`.
         where_sql_template = (
-            "{oid_field_name} >= {from_oid} and {oid_field_name} <= {to_oid}"
+            "{oid_field_name} >= {from_oid} AND {oid_field_name} <= {to_oid}"
         )
         if self.where_sql:
-            where_sql_template += " and ({})".format(self.where_sql)
+            where_sql_template += f" AND ({self.where_sql})"
         # Get iterable of all object IDs in dataset.
+        # ArcPy2.8.0: Convert to str.
         cursor = arcpy.da.SearchCursor(
-            in_table=self.dataset_path,
-            field_names=["oid@"],
+            in_table=str(self.dataset_path),
+            field_names=["OID@"],
             where_clause=self.where_sql,
         )
         with cursor:
@@ -245,16 +248,16 @@ class DatasetView(ContextDecorator):
             bool: True if view created, False otherwise.
         """
         if self.is_spatial:
-            _create = arcpy.management.MakeFeatureLayer
+            func = arcpy.management.MakeFeatureLayer
         else:
-            _create = arcpy.management.MakeTableView
-        _create(
-            self.dataset_path,
-            self.name,
-            where_clause=self.where_sql,
-            workspace=self.dataset_meta["workspace_path"],
-            field_info=self.field_info,
-        )
+            func = arcpy.management.MakeTableView
+        kwargs = {
+            "where_clause": self.where_sql,
+            "workspace": self.dataset_meta["workspace_path"],
+            "field_info": self.field_info,
+        }
+        # ArcPy2.8.0: Convert to str.
+        func(str(self.dataset_path), self.name, **kwargs)
         return self.exists
 
     def discard(self):
@@ -272,17 +275,18 @@ class Editor(ContextDecorator):
     """Context manager for editing features.
 
     Attributes:
-        workspace_path (str):  Path for the editing workspace.
+        workspace_path (pathlib.Path): Path for the editing workspace.
     """
 
     def __init__(self, workspace_path, use_edit_session=True):
         """Initialize instance.
 
         Args:
-            workspace_path (str): Path for the editing workspace.
+            workspace_path (pathlib.Path, str): Path for the editing workspace.
             use_edit_session (bool): True if edits are to be made in an edit session,
                 False otherwise.
         """
+        workspace_path = Path(workspace_path)
         self._editor = arcpy.da.Editor(workspace_path) if use_edit_session else None
         self.workspace_path = workspace_path
 
@@ -331,8 +335,8 @@ class TempDatasetCopy(ContextDecorator):
     """Context manager for a temporary copy of a dataset.
 
     Attributes:
-        path (str): Path of the dataset copy.
-        dataset_path (str): Path of the original dataset.
+        path (pathlib.Path): Path of the dataset copy.
+        dataset_path (pathlib.Path): Path of the original dataset.
         dataset_meta (dict): Metadata dictionary for the original dataset.
         field_names (list): Field names to include in copy.
         is_spatial (bool): Flag indicating if the view is spatial.
@@ -347,20 +351,20 @@ class TempDatasetCopy(ContextDecorator):
             `dataset_where_sql="0=1"`
 
         Args:
-            dataset_path (str): Path of dataset to copy.
+            dataset_path (pathlib.Path, str): Path of dataset to copy.
             dataset_where_sql (str): SQL where-clause for dataset subselection.
             **kwargs: Arbitrary keyword arguments. See below.
 
         Keyword Args:
-            output_path (str): Path of the dataset to create.  Default is None (auto-
-                generate path)
+            output_path (pathlib.Path, str): Path of the dataset to create. Default is
+                None (auto-generate path)
             field_names (iter): Field names to include in copy. If field_names not
                 specified, all fields will be included.
             force_nonspatial (bool): True to force a nonspatial copy, False otherwise.
                 Default is False.
         """
-        # Shim: Convert to str.
-        self.path = kwargs.get("output_path", str(unique_path("temp")))
+        dataset_path = Path(dataset_path)
+        self.path = Path(kwargs.get("output_path", unique_path("temp")))
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.field_names = list(
@@ -390,9 +394,9 @@ class TempDatasetCopy(ContextDecorator):
             bool: True if copy created, False otherwise.
         """
         if self.is_spatial:
-            _create = arcpy.management.CopyFeatures
+            func = arcpy.management.CopyFeatures
         else:
-            _create = arcpy.management.CopyRows
+            func = arcpy.management.CopyRows
         view = DatasetView(
             self.dataset_path,
             dataset_where_sql=self.where_sql,
@@ -400,7 +404,8 @@ class TempDatasetCopy(ContextDecorator):
             force_nonspatial=(not self.is_spatial),
         )
         with view:
-            _create(view.name, self.path)
+            # ArcPy2.8.0: Convert to str.
+            func(view.name, str(self.path))
         return self.exists
 
     def discard(self):
@@ -410,7 +415,8 @@ class TempDatasetCopy(ContextDecorator):
             bool: True if copy discarded, False otherwise.
         """
         if self.exists:
-            arcpy.management.Delete(self.path)
+            # ArcPy2.8.0: Convert to str.
+            arcpy.management.Delete(str(self.path))
         return not self.exists
 
 
@@ -571,20 +577,22 @@ def dataset_metadata(dataset_path):
     """Return mapping of dataset metadata key to value.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
 
     Returns:
-        dict.
+        dict
     """
-    if not dataset_path or not arcpy.Exists(dataset_path):
-        # Py2: Change to FileNotFoundError.
-        raise IOError("dataset_path `{}` does not exist".format(dataset_path))
+    dataset_path = Path(dataset_path)
+    if not arcpy.Exists(dataset_path):
+        raise FileNotFoundError(f"dataset_path `{dataset_path}` does not exist")
 
     try:
-        description = arcpy.Describe(dataset_path, "Table")
+        # ArcPy2.8.0: Convert to str.
+        dataset_object = arcpy.Describe(str(dataset_path), "Table")
     except OSError:
-        description = arcpy.Describe(dataset_path, "TableView")
-    return _dataset_object_metadata(description)
+        # ArcPy2.8.0: Convert to str.
+        dataset_object = arcpy.Describe(str(dataset_path), "TableView")
+    return _dataset_object_metadata(dataset_object)
 
 
 def domain_metadata(domain_name, workspace_path):
@@ -592,16 +600,17 @@ def domain_metadata(domain_name, workspace_path):
 
     Args:
         domain_name (str): Name of domain.
-        workspace_path (str): Path of workspace domain is in.
+        workspace_path (pathlib.Path, str): Path of workspace domain is in.
 
     Returns:
-        dict.
+        dict
     """
-    for domain in arcpy.da.ListDomains(workspace_path):
-        if domain.name.lower() == domain_name.lower():
-            return _domain_object_metadata(domain)
+    workspace_path = Path(workspace_path)
+    for domain_object in arcpy.da.ListDomains(workspace_path):
+        if domain_object.name.lower() == domain_name.lower():
+            return _domain_object_metadata(domain_object)
 
-    raise ValueError("Domain `{}` does not exist on workspace".format(domain_name))
+    raise ValueError(f"Domain `{domain_name}` does not exist on workspace")
 
 
 def field_metadata(dataset_path, field_name):
@@ -611,19 +620,18 @@ def field_metadata(dataset_path, field_name):
         Field name is case-insensitive.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
 
     Returns:
-        dict: Metadata for field.
+        dict
 
     """
+    dataset_path = Path(dataset_path)
     try:
         field_object = arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
     except IndexError:
-        raise AttributeError(
-            "Field {} not present on {}".format(field_name, dataset_path)
-        )
+        raise AttributeError(f"Field {field_name} not present on {dataset_path}")
 
     return _field_object_metadata(field_object)
 
@@ -696,7 +704,7 @@ def spatial_reference(item):
 
     Args:
         item (int): Spatial reference ID.
-             (str): Path of reference dataset/file.
+             (pathlib.Path, str): Path of reference dataset/file.
              (arcpy.Geometry): Reference geometry object.
              (arcpy.SpatialReference): Spatial reference object.
 
@@ -716,7 +724,10 @@ def spatial_reference(item):
         reference_object = getattr(item, "spatialReference")
     else:
         reference_object = arcpy.SpatialReference(
-            getattr(getattr(arcpy.Describe(item), "spatialReference"), "factoryCode")
+            # ArcPy2.8.0: Convert Path to str.
+            getattr(
+                getattr(arcpy.Describe(str(item)), "spatialReference"), "factoryCode"
+            )
         )
     return reference_object
 
@@ -744,11 +755,12 @@ def workspace_metadata(workspace_path):
     """Return mapping of workspace metadata key to value.
 
     Args:
-        workspace_path (str): Path of workspace.
+        workspace_path (pathlib.Path, str): Path of workspace.
 
     Returns:
         dict.
     """
-    workspace_object = arcpy.Describe(workspace_path)
-    meta = _workspace_object_metadata(workspace_object)
-    return meta
+    workspace_path = Path(workspace_path)
+    # ArcPy 2.8.0: Convert to str.
+    workspace_object = arcpy.Describe(str(workspace_path))
+    return _workspace_object_metadata(workspace_object)

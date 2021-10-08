@@ -1424,7 +1424,8 @@ def update_by_overlay(
     with dataset_view, overlay_copy:
         # Avoid field name collisions with neutral name.
         overlay_copy.field_name = dataset.rename_field(
-            overlay_copy.path,
+            # Shim: Convert to str.
+            str(overlay_copy.path),
             overlay_field_name,
             new_field_name=unique_name(overlay_field_name),
             log_level=logging.DEBUG,
@@ -1436,7 +1437,8 @@ def update_by_overlay(
         temp_output_path = str(unique_path("output"))
         arcpy.analysis.SpatialJoin(
             target_features=dataset_view.name,
-            join_features=overlay_copy.path,
+            # ArcPy2.8.0: Convert to str.
+            join_features=str(overlay_copy.path),
             out_feature_class=temp_output_path,
             **join_kwargs
         )
