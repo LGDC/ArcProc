@@ -46,7 +46,8 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
         ),
     }
     with view["dataset"]:
-        temp_neighbor_path = unique_path("near")
+        # Shim: Convert to str.
+        temp_neighbor_path = str(unique_path("near"))
         arcpy.analysis.PolygonNeighbors(
             in_features=view["dataset"].name,
             out_table=temp_neighbor_path,
@@ -200,7 +201,8 @@ def id_near_info_map(
         "near": arcobj.DatasetView(near_dataset_path, kwargs["near_where_sql"]),
     }
     with view["dataset"], view["near"]:
-        temp_near_path = unique_path("near")
+        # Shim: Convert to str.
+        temp_near_path = str(unique_path("near"))
         arcpy.analysis.GenerateNearTable(
             in_features=view["dataset"].name,
             near_features=view["near"].name,

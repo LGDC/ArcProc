@@ -29,6 +29,7 @@ UNIT = pint.UnitRegistry()
 UPDATE_TYPES = ["deleted", "inserted", "altered", "unchanged"]
 """list of str: Types of feature updates commonly associated wtth update counters."""
 
+
 arcpy.SetLogHistory(False)
 
 
@@ -62,7 +63,8 @@ def buffer(dataset_path, distance, dissolve_field_names=None, **kwargs):
     LOG.log(level, line)
     meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
     view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
-    temp_output_path = unique_path("output")
+    # Shim: Convert to str.
+    temp_output_path = str(unique_path("output"))
     with view["dataset"]:
         arcpy.analysis.Buffer(
             in_features=view["dataset"].name,
@@ -286,7 +288,9 @@ def densify_curves(dataset_path, **kwargs):
         for (geometry,) in cursor:
             if geometry and geometry.hasCurves:
                 new_geometry = geometry.densify(
-                    "DISTANCE", distance=1000000000.0, deviation=kwargs.get("tolerance")
+                    method="DISTANCE",
+                    distance=1000000000.0,
+                    deviation=kwargs.get("tolerance"),
                 )
                 cursor.updateRow((new_geometry,))
                 states["densified"] += 1
@@ -334,7 +338,8 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
         "orig_tolerance": arcpy.env.XYTolerance,
     }
     view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
-    temp_output_path = unique_path("output")
+    # Shim: Convert to str.
+    temp_output_path = str(unique_path("output"))
     with view["dataset"]:
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
@@ -407,7 +412,8 @@ def eliminate_interior_rings(
         condition = "percent"
     meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
     view = {"dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])}
-    temp_output_path = unique_path("output")
+    # Shim: Convert to str.
+    temp_output_path = str(unique_path("output"))
     with view["dataset"]:
         arcpy.management.EliminatePolygonPart(
             in_features=view["dataset"].name,
@@ -469,7 +475,8 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
         "erase": arcobj.DatasetView(erase_dataset_path, kwargs["erase_where_sql"]),
     }
-    temp_output_path = unique_path("output")
+    # Shim: Convert to str.
+    temp_output_path = str(unique_path("output"))
     with view["dataset"], view["erase"]:
         arcpy.analysis.Erase(
             in_features=view["dataset"].name,

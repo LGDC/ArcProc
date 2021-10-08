@@ -1,6 +1,6 @@
 """Workspace operations."""
 import logging
-import os
+from pathlib import Path
 
 import arcpy
 
@@ -17,27 +17,29 @@ def build_locator(locator_path, **kwargs):
     """Build locator.
 
     Args:
-        locator_path (str): Path of the locator.
+        locator_path (pathlib.Path, str): Path of the locator.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the built locator.
+        pathlib.Path: Path of the built locator.
     """
     level = kwargs.get("log_level", logging.INFO)
+    locator_path = Path(locator_path)
     LOG.log(level, "Start: Build locator `%s`.", locator_path)
-    arcpy.geocoding.RebuildAddressLocator(locator_path)
+    # ArcPy 2.8.0: Convert to str.
+    arcpy.geocoding.RebuildAddressLocator(in_address_locator=str(locator_path))
     LOG.log(level, "End: Build.")
     return locator_path
 
 
 def compress(workspace_path, disconnect_users=False, **kwargs):
-    """Compress workspace (usually geodatabase).
+    """Compress versioned geodatabase.
 
     Args:
-        geodatabase_path (str): Path of the workspace.
+        workspace_path (pathlib.Path, str): Path of the workspace.
         disconnect_users (bool): Flag to disconnect users before compressing.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -45,21 +47,25 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of compressed workspace.
+        pathlib.Path: Path of compressed workspace.
 
     Raises:
         ValueError: If `workspace_path` doesn't reference a compressable geodatabase.
     """
     level = kwargs.get("log_level", logging.INFO)
+    workspace_path = Path(workspace_path)
     LOG.log(level, "Start: Compress workspace `%s`.", workspace_path)
-    meta = {"workspace": workspace_metadata(workspace_path)}
+    # Shim: Convert to str.
+    meta = {"workspace": workspace_metadata(str(workspace_path))}
     if not meta["workspace"]["is_enterprise_database"]:
-        raise ValueError("Compressing `{}` unsupported.".format(workspace_path))
+        raise ValueError(f"Compressing `{workspace_path}` unsupported.")
 
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=False)
-        arcpy.DisconnectUser(sde_workspace=workspace_path, users="all")
-    arcpy.management.Compress(workspace_path)
+        # ArcPy2.8.0: Convert to str.
+        arcpy.DisconnectUser(sde_workspace=str(workspace_path), users="ALL")
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Compress(in_workspace=str(workspace_path))
     if disconnect_users:
         arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=True)
     LOG.log(level, "End: Compress.")
@@ -70,26 +76,30 @@ def copy(workspace_path, output_path, **kwargs):
     """Copy workspace to another location.
 
     Args:
-        workspace_path (str): Path of the workspace.
-        output_path (str): Path of output workspace.
+        workspace_path (pathlib.Path, str): Path of the workspace.
+        output_path (pathlib.Path, str): Path of output workspace.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Output path of copied workspace.
+        pathlib.Path: Output path of copied workspace.
 
     Raises:
         ValueError: If dataset type not supported.
     """
     level = kwargs.get("log_level", logging.INFO)
+    output_path = Path(output_path)
+    workspace_path = Path(workspace_path)
     LOG.log(level, "Start: Copy workspace `%s` to `%s`.", workspace_path, output_path)
-    meta = {"dataset": workspace_metadata(workspace_path)}
+    # Shim: Convert to str.
+    meta = {"dataset": workspace_metadata(str(workspace_path))}
     if not meta["dataset"]["can_copy"]:
-        raise ValueError("`{}` unsupported dataset type.".format(workspace_path))
+        raise ValueError(f"`{workspace_path}` unsupported dataset type.")
 
-    arcpy.management.Copy(workspace_path, output_path)
+    # ArcPy2.8.0: Convert to str x2.
+    arcpy.management.Copy(in_data=str(workspace_path), out_data=str(output_path))
     LOG.log(level, "End: Copy.")
     return output_path
 
@@ -100,9 +110,9 @@ def create_file_geodatabase(
     """Create new file geodatabase.
 
     Args:
-        geodatabase_path (str): Path of the geodatabase.
-        xml_workspace_path (str): Path of the XML workspace document to initialize the
-            geodatabase with.
+        geodatabase_path (pathlib.Path, str): Path of the geodatabase.
+        xml_workspace_path (pathlib.Path, str, None): Path of the XML workspace document
+            to initialize the geodatabase with.
         include_xml_data (bool): Flag to include data stored in the XML workspace
             document, if it has any.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -111,25 +121,31 @@ def create_file_geodatabase(
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of created file geodatabase.
+        pathlib.Path: Path of created file geodatabase.
     """
+    geodatabase_path = Path(geodatabase_path)
+    if xml_workspace_path:
+        xml_workspace_path = Path(xml_workspace_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Create file geodatabase `%s`.", geodatabase_path)
-    if os.path.exists(geodatabase_path):
+    if geodatabase_path.exists():
         LOG.warning("Geodatabase already exists.")
         return geodatabase_path
 
     arcpy.management.CreateFileGDB(
-        out_folder_path=os.path.dirname(geodatabase_path),
-        out_name=os.path.basename(geodatabase_path),
-        out_version="current",
+        # ArcPy2.8.0: Convert to str.
+        out_folder_path=str(geodatabase_path.parent),
+        out_name=geodatabase_path.name,
+        out_version="CURRENT",
     )
     if xml_workspace_path:
         arcpy.management.ImportXMLWorkspaceDocument(
-            target_geodatabase=geodatabase_path,
-            in_file=xml_workspace_path,
-            import_type=("data" if include_xml_data else "schema_only"),
-            config_keyword="defaults",
+            # ArcPy2.8.0: Convert to str.
+            target_geodatabase=str(geodatabase_path),
+            # ArcPy2.8.0: Convert to str.
+            in_file=str(xml_workspace_path),
+            import_type=("DATA" if include_xml_data else "SCHEMA_ONLY"),
+            config_keyword="DEFAULTS",
         )
     LOG.log(level, "End: Create.")
     return geodatabase_path
@@ -141,8 +157,8 @@ def create_geodatabase_xml_backup(
     """Create backup of geodatabase as XML workspace document.
 
     Args:
-        geodatabase_path (str): Path of the geodatabase.
-        output_path (str): Path of the XML workspace document to create.
+        geodatabase_path (pathlib.Path, str): Path of the geodatabase.
+        output_path (pathlib.Path, str): Path of the XML workspace document to create.
         include_data (bool): Flag to include data in the output.
         include_metadata (bool): Flag to include metadata in the output.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -151,9 +167,11 @@ def create_geodatabase_xml_backup(
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of created XML workspace document.
+        pathlib.Path: Path of created XML workspace document.
     """
+    geodatabase_path = Path(geodatabase_path)
     level = kwargs.get("log_level", logging.INFO)
+    output_path = Path(output_path)
     LOG.log(
         level,
         "Start: Create XML backup of geodatabase `%s` at `%s`.",
@@ -161,10 +179,12 @@ def create_geodatabase_xml_backup(
         output_path,
     )
     arcpy.management.ExportXMLWorkspaceDocument(
-        in_data=geodatabase_path,
-        out_file=output_path,
-        export_type=("data" if include_data else "schema_only"),
-        storage_type="binary",
+        # ArcPy2.8.0: Conver to str.
+        in_data=str(geodatabase_path),
+        # ArcPy2.8.0: Conver to str.
+        out_file=str(output_path),
+        export_type=("DATA" if include_data else "SCHEMA_ONLY"),
+        storage_type="BINARY",
         export_metadata=include_metadata,
     )
     LOG.log(level, "End: Create.")
@@ -175,7 +195,7 @@ def dataset_names(workspace_path, **kwargs):
     """Generate names of datasets in workspace.
 
     Args:
-        workspace_path (str): Path of the workspace.
+        workspace_path (pathlib.Path, str): Path of the workspace.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -191,20 +211,21 @@ def dataset_names(workspace_path, **kwargs):
     Yields:
         str: Name of the next dataset in the workspace.
     """
+    workspace_path = Path(workspace_path)
     kwargs.setdefault("include_feature_classes", True)
     kwargs.setdefault("include_rasters", True)
     kwargs.setdefault("include_tables", True)
     kwargs.setdefault("only_top_level", False)
     kwargs.setdefault("name_validator", lambda n: True)
     for dataset_path in dataset_paths(workspace_path, **kwargs):
-        yield os.path.basename(dataset_path)
+        yield dataset_path.name
 
 
 def dataset_paths(workspace_path, **kwargs):
     """Generate paths of datasets in workspace.
 
     Args:
-        workspace_path (str): Path of the workspace.
+        workspace_path (pathlib.Path, str): Path of the workspace.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -218,8 +239,9 @@ def dataset_paths(workspace_path, **kwargs):
             is all names considered valid.
 
     Yields:
-        str: Path of the next dataset in the workspace.
+        pathlib.Path: Path of the next dataset in the workspace.
     """
+    workspace_path = Path(workspace_path)
     kwargs.setdefault("include_feature_classes", True)
     kwargs.setdefault("include_rasters", True)
     kwargs.setdefault("include_tables", True)
@@ -235,14 +257,15 @@ def dataset_paths(workspace_path, **kwargs):
         if kwargs["include_" + _type]:
             include_data_types.extend(dataset_types[_type])
     for root_path, _, _dataset_names in arcpy.da.Walk(
-        workspace_path, datatype=include_data_types
+        top=workspace_path, datatype=include_data_types
     ):
+        root_path = Path(root_path)
         if kwargs["only_top_level"] and root_path != workspace_path:
             continue
 
         for dataset_name in _dataset_names:
             if kwargs["name_validator"](dataset_name):
-                yield os.path.join(root_path, dataset_name)
+                yield root_path / dataset_name
 
 
 domain_metadata = domain_metadata  # pylint: disable=invalid-name
@@ -255,7 +278,7 @@ def execute_sql(statement, database_path, **kwargs):
 
     Args:
         statement (str): SQL statement to execute.
-        database_path (str): Path of the database to execute statement in.
+        database_path (pathlib.Path, str): Path of the database to execute statement in.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -271,6 +294,7 @@ def execute_sql(statement, database_path, **kwargs):
     Raises:
         AttributeError: If statement SQL syntax is incorrect.
     """
+    database_path = Path(database_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Execute SQL statement.")
     conn = arcpy.ArcSDESQLExecute(server=database_path)
@@ -288,18 +312,17 @@ def execute_sql(statement, database_path, **kwargs):
 
 
 def is_valid(workspace_path):
-    """Indicate whether workspace exists/is valid.
+    """Indicate whether workspace exists and is valid.
 
     Args:
-        workspace_path (str): Path of the workspace to verify.
+        workspace_path (pathlib.Path, str): Path of the workspace to validate.
 
     Returns:
         bool: True if workspace is valid, False otherwise.
     """
-    return all(
-        [
-            workspace_path is not None,
-            arcpy.Exists(workspace_path),
-            workspace_metadata(workspace_path)["data_type"] == "Workspace",
-        ]
-    )
+    workspace_path = Path(workspace_path)
+    valid = False
+    if arcpy.Exists(workspace_path):
+        # Shim: Convert to str.
+        valid = workspace_metadata(str(workspace_path))["data_type"] == "Workspace"
+    return valid

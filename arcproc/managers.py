@@ -62,7 +62,10 @@ class Procedure(ContextDecorator):
     @property
     def available_transform_path(self):
         """str: A path in the transformation workspace available for use."""
-        path = unique_path(prefix=self.slug + "_", workspace_path=self.workspace_path)
+        # Shim: Convert to str.
+        path = str(
+            unique_path(prefix=self.slug + "_", workspace_path=self.workspace_path)
+        )
         while dataset.is_valid(path):
             path = self.available_transform_path
         return path

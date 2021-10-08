@@ -582,7 +582,8 @@ def update_by_central_overlay(
         ),
     }
     with view["dataset"], view["overlay"]:
-        temp_output_path = unique_path("output")
+        # Shim: Convert to str.
+        temp_output_path = str(unique_path("output"))
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         arcpy.analysis.SpatialJoin(
@@ -668,7 +669,8 @@ def update_by_dominant_overlay(
         ),
     }
     with view["dataset"], view["overlay"]:
-        temp_output_path = unique_path("output")
+        # Shim: Convert to str.
+        temp_output_path = str(unique_path("output"))
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         arcpy.analysis.Identity(
@@ -1416,7 +1418,8 @@ def update_by_overlay(
         field_names=[overlay_field_name],
         # BUG-000134367: "memory" workspaces cannot use Alter Field.
         # Fall back to old "in_memory"; remove once bug is cleared.
-        output_path=unique_path("overlay", workspace_path="in_memory"),
+        # Shim: Convert to str.
+        output_path=str(unique_path("overlay", workspace_path="in_memory")),
     )
     with dataset_view, overlay_copy:
         # Avoid field name collisions with neutral name.
@@ -1429,7 +1432,8 @@ def update_by_overlay(
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         # Create temp output of the overlay.
-        temp_output_path = unique_path("output")
+        # Shim: Convert to str.
+        temp_output_path = str(unique_path("output"))
         arcpy.analysis.SpatialJoin(
             target_features=dataset_view.name,
             join_features=overlay_copy.path,
@@ -1503,7 +1507,8 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         # Create temp output of the overlay.
-        temp_output_path = unique_path("output")
+        # Shim: Convert to str.
+        temp_output_path = str(unique_path("output"))
         arcpy.analysis.SpatialJoin(
             target_features=dataset_view.name,
             join_features=overlay_view.name,

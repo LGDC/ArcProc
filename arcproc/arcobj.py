@@ -359,7 +359,8 @@ class TempDatasetCopy(ContextDecorator):
             force_nonspatial (bool): True to force a nonspatial copy, False otherwise.
                 Default is False.
         """
-        self.path = kwargs.get("output_path", unique_path("temp"))
+        # Shim: Convert to str.
+        self.path = kwargs.get("output_path", str(unique_path("temp")))
         self.dataset_path = dataset_path
         self.dataset_meta = dataset_metadata(dataset_path)
         self.field_names = list(

@@ -8,8 +8,8 @@ import datetime
 import inspect
 import logging
 import math
-import os
 import random
+from pathlib import Path
 import string
 import sys
 import uuid
@@ -292,20 +292,19 @@ def unique_name(prefix="", suffix="", unique_length=4, allow_initial_digit=True)
     return name
 
 
-def unique_path(prefix="", suffix="", unique_length=4, workspace_path="memory"):
+def unique_path(prefix="", suffix="", unique_length=4, workspace_path=None):
     """Create unique temporary dataset path.
 
     Args:
         prefix (str): String to insert before the unique part of the name.
         suffix (str): String to append after the unique part of the name.
         unique_length (int): Number of unique characters to generate.
-        workspace_path (str): Path of workspace to create the dataset in.
+        workspace_path (pathlib.Path, str, None): Path of workspace to create the
+            dataset in.
 
     Returns:
         str: Path of the created dataset.
     """
-    # Py2.
-    if sys.version_info.major < 3 and workspace_path == "memory":
-        workspace_path = "in_memory"
+    workspace_path = Path(workspace_path) if workspace_path else Path("memory")
     name = unique_name(prefix, suffix, unique_length, allow_initial_digit=False)
-    return os.path.join(workspace_path, name)
+    return workspace_path.joinpath(name)

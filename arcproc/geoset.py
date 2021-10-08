@@ -69,7 +69,8 @@ def identity(
         kwargs["identity_where_sql"],
         field_names=[identity_field_name],
         # BUG-000134367 - Cannot rename field later.
-        output_path=unique_path(prefix="temp", workspace_path="in_memory"),
+        # Shim: Convert to str.
+        output_path=str(unique_path(prefix="temp", workspace_path="in_memory")),
     )
     with view["dataset"], temp_identity:
         # Avoid field name collisions with neutral holding field.
@@ -83,7 +84,8 @@ def identity(
             log_level=logging.DEBUG,
         )
         for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
-            temp_output_path = unique_path("output")
+            # Shim: Convert to str.
+            temp_output_path = str(unique_path("output"))
             arcpy.analysis.Identity(
                 in_features=view["chunk"].name,
                 identity_features=temp_identity.path,
@@ -194,7 +196,8 @@ def overlay(
         kwargs["overlay_where_sql"],
         field_names=[overlay_field_name],
         # BUG-000134367 - Cannot rename field later.
-        output_path=unique_path(prefix="temp", workspace_path="in_memory"),
+        # Shim: Convert to str.
+        output_path=str(unique_path(prefix="temp", workspace_path="in_memory")),
     )
     with view["dataset"], temp_overlay:
         # Avoid field name collisions with neutral field name.
@@ -207,7 +210,8 @@ def overlay(
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
-            temp_output_path = unique_path("output")
+            # Shim: Convert to str.
+            temp_output_path = str(unique_path("output"))
             arcpy.analysis.SpatialJoin(
                 target_features=view["chunk"].name,
                 join_features=temp_overlay.path,
@@ -301,7 +305,8 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
             log_level=logging.DEBUG,
         )
         for view["chunk"] in view["dataset"].as_chunks(kwargs["chunk_size"]):
-            temp_output_path = unique_path("output")
+            # Shim: Convert to str.
+            temp_output_path = str(unique_path("output"))
             arcpy.analysis.Union(
                 in_features=[view["chunk"].name, temp_union.path],
                 out_feature_class=temp_output_path,
