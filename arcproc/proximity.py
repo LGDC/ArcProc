@@ -1,6 +1,7 @@
-"""Analysis result operations."""
+"""Proximity-related operations."""
 from collections import Counter
 import logging
+from pathlib import Path
 
 import arcpy
 
@@ -22,7 +23,7 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
     Only works for polygon geometries.
 
     Args:
-        dataset_path (str): Path of dataset.
+        dataset_path (pathlib.Path, str): Path of dataset.
         id_field_names (iter): Ordered collection of fields used to identify a feature.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -38,6 +39,7 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
     Returns:
         dict
     """
+    dataset_path = Path(dataset_path)
     keys = {"id": list(contain(id_field_names))}
     keys["id"] = [key.lower() for key in keys["id"]]
     view = {
@@ -46,18 +48,19 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
         ),
     }
     with view["dataset"]:
-        # Shim: Convert to str.
-        temp_neighbor_path = str(unique_path("near"))
+        temp_neighbor_path = unique_path("near")
         arcpy.analysis.PolygonNeighbors(
             in_features=view["dataset"].name,
-            out_table=temp_neighbor_path,
+            # ArcPy2.8.0: Convert to str.
+            out_table=str(temp_neighbor_path),
             in_fields=keys["id"],
             area_overlap=(not kwargs.get("exclude_overlap", False)),
             both_sides=True,
             cluster_tolerance=kwargs.get("tolerance"),
         )
     neighbors_map = {}
-    for row in attributes.as_dicts(temp_neighbor_path):
+    # Shim: Convert to str.
+    for row in attributes.as_dicts(str(temp_neighbor_path)):
         row = {key.lower(): val for key, val in row.items()}
         if len(keys["id"]) == 1:
             source_id = row["src_" + keys["id"][0]]
@@ -71,7 +74,8 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
             continue
 
         neighbors_map[source_id].add(neighbor_id)
-    dataset.delete(temp_neighbor_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.delete(str(temp_neighbor_path), log_level=logging.DEBUG)
     return neighbors_map
 
 
@@ -79,8 +83,8 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
     """Buffer features a given distance & (optionally) dissolve on given fields.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         distance (float): Distance to buffer from feature, in the units of the dataset.
         dissolve_field_names (iter): Iterable of field names to dissolve on.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -90,11 +94,13 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the output dataset.
+        pathlib.Path: Path of the output dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     level = kwargs.get("log_level", logging.INFO)
     keys = {"dissolve": tuple(contain(dissolve_field_names))}
-    line = "Start: Buffer features in `{}` into `{}`".format(dataset_path, output_path)
+    line = f"Start: Buffer features in `{dataset_path}` into `{output_path}`"
     if keys["dissolve"]:
         line += " & dissolve on fields `{}`".format(keys["dissolve"])
     line += "."
@@ -105,13 +111,15 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
     with view["dataset"]:
         arcpy.analysis.Buffer(
             in_features=view["dataset"].name,
-            out_feature_class=output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(output_path),
             buffer_distance_or_field=distance,
             dissolve_option="LIST" if keys["dissolve"] else "NONE",
             dissolve_field=keys["dissolve"],
         )
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
-        arcpy.management.DeleteField(in_table=output_path, drop_field=field_name)
+        # ArcPy2.8.0: Convert to str.
+        arcpy.management.DeleteField(in_table=str(output_path), drop_field=field_name)
     LOG.log(level, "End: Buffer.")
     return output_path
 
@@ -120,9 +128,10 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
     """Clip feature geometry where it overlaps clip-dataset geometry.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        clip_dataset_path (str): Path of dataset whose features define the clip area.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        clip_dataset_path (pathlib.Path, str): Path of dataset whose features define the
+            clip area.
+        output_path (pathlib.Path, str): Path of the output dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -134,6 +143,9 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
     Returns:
         collections.Counter: Counts of features for each clip-state.
     """
+    dataset_path = Path(dataset_path)
+    clip_dataset_path = Path(clip_dataset_path)
+    output_path = Path(output_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -150,11 +162,13 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
         arcpy.analysis.Clip(
             in_features=view["dataset"].name,
             clip_features=view["clip"].name,
-            out_feature_class=output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(output_path),
             cluster_tolerance=kwargs.get("tolerance"),
         )
         states = Counter()
-        states["remaining"] = dataset.feature_count(output_path)
+        # Shim: Convert to str.
+        states["remaining"] = dataset.feature_count(str(output_path))
         states["deleted"] = view["dataset"].count - states["remaining"]
     log_entity_states("features", states, LOG, log_level=level)
     LOG.log(level, "End: Clip.")
@@ -167,14 +181,14 @@ def id_near_info_map(
     near_dataset_path,
     near_id_field_name,
     max_near_distance=None,
-    **kwargs
+    **kwargs,
 ):
     """Return mapping dictionary of feature IDs/near-feature info.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         dataset_id_field_name (str): Name of ID field.
-        near_dataset_path (str): Path of the near-dataset.
+        near_dataset_path (pathlib.Path, str): Path of the near-dataset.
         near_id_field_name (str): Name of the near ID field.
         max_near_distance (float): Maximum distance to search for near-features, in
             units of the dataset's spatial reference.
@@ -193,6 +207,8 @@ def id_near_info_map(
             spatial reference.
             "angle" value (float) is in decimal degrees.
     """
+    dataset_path = Path(dataset_path)
+    near_dataset_path = Path(near_dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("near_where_sql")
     kwargs.setdefault("near_rank", 1)
@@ -201,12 +217,12 @@ def id_near_info_map(
         "near": arcobj.DatasetView(near_dataset_path, kwargs["near_where_sql"]),
     }
     with view["dataset"], view["near"]:
-        # Shim: Convert to str.
-        temp_near_path = str(unique_path("near"))
+        temp_near_path = unique_path("near")
         arcpy.analysis.GenerateNearTable(
             in_features=view["dataset"].name,
             near_features=view["near"].name,
-            out_table=temp_near_path,
+            # ArcPy2.8.0: Convert to str.
+            out_table=str(temp_near_path),
             search_radius=max_near_distance,
             location=True,
             angle=True,
@@ -229,7 +245,8 @@ def id_near_info_map(
         "near_rank",
     ]
     near_info_map = {}
-    for near_info in attributes.as_dicts(temp_near_path, field_names):
+    # Shim: Convert to str.
+    for near_info in attributes.as_dicts(str(temp_near_path), field_names):
         if near_info["near_rank"] == kwargs["near_rank"]:
             _id = oid_id_map[near_info["in_fid"]]
             near_info_map[_id] = {
@@ -241,5 +258,6 @@ def id_near_info_map(
                 "near_x": near_info["near_x"],
                 "near_y": near_info["near_y"],
             }
-    dataset.delete(temp_near_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.delete(str(temp_near_path), log_level=logging.DEBUG)
     return near_info_map
