@@ -1,5 +1,6 @@
 """Network analysis operations."""
 import logging
+from pathlib import Path
 
 import arcpy
 
@@ -38,18 +39,20 @@ def build_network(network_path, **kwargs):
     """Build network dataset.
 
     Args:
-        network_path (str): Path of the network dataset.
+        network_path (pathlib.Path, str): Path of the network dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the network dataset.
+        pathlib.Path: Path of the network dataset.
     """
+    network_path = Path(network_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Build network `%s`.", network_path)
-    arcpy.nax.BuildNetwork(in_network_dataset=network_path)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.nax.BuildNetwork(in_network_dataset=str(network_path))
     LOG.log(level, "End: Build.")
     return network_path
 
@@ -66,11 +69,11 @@ def closest_facility_route(
     """Generate route info dictionaries for closest facility to each location feature.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         id_field_name (str): Name of the dataset ID field.
-        facility_path (str): Path of the facilities dataset.
+        facility_path (pathlib.Path, str): Path of the facilities dataset.
         facility_id_field_name (str): Name of the facility ID field.
-        network_path (str): Path of the network dataset.
+        network_path (pathlib.Path, str): Path of the network dataset.
         cost_attribute (str): Name of the network cost attribute to use.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -91,6 +94,9 @@ def closest_facility_route(
             "cost" value (float) will match units of the cost_attribute.
             "geometry" (arcpy.Geometry) will match spatial reference to the dataset.
     """
+    dataset_path = Path(dataset_path)
+    facility_path = Path(facility_path)
+    network_path = Path(network_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("facility_where_sql")
     kwargs.setdefault("max_cost")
@@ -122,6 +128,7 @@ def closest_facility_route(
         "facility": DatasetView(facility_path, kwargs["facility_where_sql"]),
     }
     arcpy.na.MakeClosestFacilityLayer(
+        # ArcPy2.8.0: Convert to str.
         in_network_dataset=network_path,
         out_network_analysis_layer="closest",
         impedance_attribute=cost_attribute,
@@ -215,11 +222,11 @@ def closest_facility_route_new(
     """Generate route info dictionaries for closest facility to each location feature.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         id_field_name (str): Name of the dataset ID field.
-        facility_path (str): Path of the facilities dataset.
+        facility_path (pathlib.Path, str): Path of the facilities dataset.
         facility_id_field_name (str): Name of the facility ID field.
-        network_path (str): Path of the network dataset.
+        network_path (pathlib.Path, str): Path of the network dataset.
         travel_mode (str): Name of the network travel mode to use.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -238,6 +245,9 @@ def closest_facility_route_new(
             "cost" value (float) will match units of the travel mode impedance.
             "geometry" (arcpy.Geometry) will match spatial reference to the dataset.
     """
+    dataset_path = Path(dataset_path)
+    facility_path = Path(facility_path)
+    network_path = Path(network_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("facility_where_sql")
     kwargs.setdefault("max_cost")
@@ -258,6 +268,7 @@ def closest_facility_route_new(
     analysis.ignoreInvalidLocations = True
     if kwargs["travel_from_facility"]:
         analysis.travelDirection = arcpy.nax.TravelDirection.FromFacility
+    # ArcPy2.8.0: Convert to str.
     analysis.travelMode = arcpy.nax.GetTravelModes(network_path)[travel_mode]
     # Load facilities.
     input_type = arcpy.nax.ClosestFacilityInputDataType.Facilities
@@ -280,6 +291,7 @@ def closest_facility_route_new(
     analysis.addFields(input_type, [field_description])
     cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
     rows = attributes.as_iters(
+        # Shim: Convert to str.
         facility_path,
         field_names=[facility_id_field_name, "SHAPE@"],
         dataset_where_sql=kwargs["facility_where_sql"],
@@ -308,7 +320,8 @@ def closest_facility_route_new(
     analysis.addFields(input_type, [field_description])
     cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
     rows = attributes.as_iters(
-        dataset_path,
+        # Shim: Convert to str.
+        str(dataset_path),
         field_names=[id_field_name, "SHAPE@"],
         dataset_where_sql=kwargs["dataset_where_sql"],
     )
@@ -357,9 +370,9 @@ def generate_service_areas(
     """Create network service area features.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output service areas dataset.
-        network_path (str): Path of the network dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output service areas dataset.
+        network_path (pathlib.Path, str): Path of the network dataset.
         cost_attribute (str): Name of the network cost attribute to use.
         max_distance (float): Distance in travel from the facility the outer ring will
             extend to, in the units of the dataset.
@@ -380,8 +393,11 @@ def generate_service_areas(
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the output service areas dataset.
+        pathlib.Path: Path of the output service areas dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    network_path = Path(network_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("id_field_name")
     kwargs.setdefault("restriction_attributes")
@@ -398,7 +414,8 @@ def generate_service_areas(
         trim_value = None
     view = {"dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     arcpy.na.MakeServiceAreaLayer(
-        in_network_dataset=network_path,
+        # ArcPy2.8.0: Convert to str.
+        in_network_dataset=str(network_path),
         out_network_analysis_layer="service_area",
         impedance_attribute=cost_attribute,
         travel_from_to=(
@@ -433,13 +450,16 @@ def generate_service_areas(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.copy("service_area/Polygons", str(output_path), log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
         meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
-        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
+        # Shim: Convert to str.
+        dataset.add_field(str(output_path), log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
-            output_path,
+            # Shim: Convert to str.
+            str(output_path),
             field_name=meta["id_field"]["name"],
             function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
             field_as_first_arg=False,
@@ -463,9 +483,9 @@ def generate_service_rings(
     """Create facility service ring features using a network dataset.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output service rings dataset.
-        network_path (str): Path of the network dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output service rings dataset.
+        network_path (pathlib.Path, str): Path of the network dataset.
         cost_attribute (str): Name of the network cost attribute to use.
         ring_width (float): Distance a service ring represents in travel, in the
             units of the dataset.
@@ -488,8 +508,11 @@ def generate_service_rings(
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the output service rings dataset.
+        pathlib.Path: Path of the output service rings dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    network_path = Path(network_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("id_field_name")
     kwargs.setdefault("restriction_attributes")
@@ -506,7 +529,8 @@ def generate_service_rings(
         trim_value = None
     view = {"dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"])}
     arcpy.na.MakeServiceAreaLayer(
-        in_network_dataset=network_path,
+        # ArcPy2.8.0: Convert to str.
+        in_network_dataset=str(network_path),
         out_network_analysis_layer="service_area",
         impedance_attribute=cost_attribute,
         travel_from_to=(
@@ -522,7 +546,7 @@ def generate_service_rings(
         nesting_type="rings",
         UTurn_policy="allow_dead_ends_and_intersections_only",
         restriction_attribute_name=kwargs["restriction_attributes"],
-        polygon_trim=(True if trim_value else False),
+        polygon_trim=(True if trim_value is not None else False),
         poly_trim_value=trim_value,
         hierarchy="no_hierarchy",
     )
@@ -543,13 +567,16 @@ def generate_service_rings(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.copy("service_area/Polygons", str(output_path), log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
         meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
-        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
+        # Shim: Convert to str.
+        dataset.add_field(str(output_path), log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
-            output_path,
+            # Shim: Convert to str.
+            str(output_path),
             meta["id_field"]["name"],
             function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
             field_as_first_arg=False,
