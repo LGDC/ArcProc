@@ -257,7 +257,7 @@ def dataset_paths(workspace_path, **kwargs):
         if kwargs["include_" + _type]:
             include_data_types.extend(dataset_types[_type])
     for root_path, _, _dataset_names in arcpy.da.Walk(
-        top=workspace_path, datatype=include_data_types
+        workspace_path, datatype=include_data_types
     ):
         root_path = Path(root_path)
         if kwargs["only_top_level"] and root_path != workspace_path:
