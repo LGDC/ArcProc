@@ -4,7 +4,7 @@ from copy import copy, deepcopy
 from functools import partial
 import logging
 from operator import itemgetter
-import sys
+from pathlib import Path
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
 from xsorted import xsorted
@@ -37,6 +37,9 @@ from arcproc.helpers import (
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+arcpy.SetLogHistory(False)
+
+
 EXEC_TYPES = [BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, partial]
 """list: Executable object types. Useful for determining if an object can execute."""
 GEOMETRY_PROPERTY_TRANSFORM = {
@@ -61,10 +64,8 @@ GEOMETRY_PROPERTY_TRANSFORM = {
 }
 """dict: Mapping of geometry property tag to cascade of geometry object properties."""
 
-arcpy.SetLogHistory(False)
 
-
-class FeatureMatcher(object):
+class FeatureMatcher:
     """Tracks features that share ID values.
 
     Attributes:
@@ -77,7 +78,7 @@ class FeatureMatcher(object):
         """Initialize instance.
 
         Args:
-            dataset_path (str): Path of the dataset.
+            dataset_path (pathlib.Path, str): Path of the dataset.
             id_field_names (iter): Field names used to identify a feature.
             dataset_where_sql (str): SQL where-clause for dataset subselection. Default
                 is None.
@@ -172,7 +173,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_names (iter): Collection of field names. Names will be the keys in the
             dictionary mapping to their values. If value is None, all attributes fields
             will be used.
@@ -184,8 +185,9 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
             geometry will be derived.
 
     Yields:
-        dict.
+        dict
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     if field_names is None:
@@ -193,7 +195,8 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     else:
         keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -210,7 +213,7 @@ def as_iters(dataset_path, field_names, **kwargs):
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_names (iter): Collection of field names. The order of the names in the
             collection will determine where its value will fall in the generated item.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -222,14 +225,16 @@ def as_iters(dataset_path, field_names, **kwargs):
         iter_type: Iterable type to yield. Default is tuple.
 
     Yields:
-        iter.
+        iter
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("iter_type", tuple)
     keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -248,7 +253,7 @@ def as_values(dataset_path, field_names, **kwargs):
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_names (iter): Collection of field names.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -258,13 +263,15 @@ def as_values(dataset_path, field_names, **kwargs):
             geometry will be derived.
 
     Yields:
-        object.
+        object
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -279,7 +286,7 @@ def as_value_count(dataset_path, field_names, **kwargs):
     """Return counter of attribute values.
 
     Args:
-        dataset_path (proctools.meta.Dataset): Path to dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of field.
 
     Keyword Args:
@@ -290,6 +297,7 @@ def as_value_count(dataset_path, field_names, **kwargs):
     Returns:
         collections.Counter
     """
+    dataset_path = Path(dataset_path)
     return Counter(as_values(dataset_path, field_names, **kwargs))
 
 
@@ -308,7 +316,7 @@ def coordinate_node_map(
             {(x, y): {"node_id": <id>, "ids": {"from": set(), "to": set()}}}
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         from_id_field_name (str): Name of the from-ID field.
         to_id_field_name (str): Name of the to-ID field.
         id_field_names (iter, str): Name(s) of the ID field(s).
@@ -320,8 +328,9 @@ def coordinate_node_map(
             is False.
 
     Returns:
-        dict.
+        dict
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("update_nodes", False)
     meta = {
@@ -384,7 +393,7 @@ def id_node_map(
         Default output format: `{feature_id: {"from": from_node_id, "to": to_node_id}}`
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         from_id_field_name (str): Name of from-ID field.
         to_id_field_name (str): Name of to-ID field.
         id_field_names (iter, str): Name(s) of the ID field(s).
@@ -401,6 +410,7 @@ def id_node_map(
         dict: Mapping of feature IDs to node-end ID dictionaries.
             `{feature_id: {"from": from_node_id, "to": to_node_id}}`
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("field_names_as_keys", False)
     kwargs.setdefault("update_nodes", False)
@@ -444,7 +454,7 @@ def id_values(dataset_path, id_field_names, field_names, **kwargs):
         returned as itself, rather than in a value-tuple.
 
     Args:
-        dataset_path (str): Path of dataset.
+        dataset_path (pathlib.Path, str): Path of dataset.
         id_field_names (iter): Ordered collection of fields used to identify a feature.
         field_names (iter): Ordered collection of fields to attribute to feature.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -462,6 +472,7 @@ def id_values(dataset_path, id_field_names, field_names, **kwargs):
     Yields:
         tuple
     """
+    dataset_path = Path(dataset_path)
     keys = {"id": list(contain(id_field_names)), "val": list(contain(field_names))}
     pivot = len(keys["id"])
     feats = as_iters(
@@ -487,7 +498,7 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         id_field_names (iter, str): Name(s) of the ID field(s).
         field_names (iter, str): Name(s) of the field(s).
         **kwargs: Arbitrary keyword arguments. See below.
@@ -498,8 +509,9 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
             geometry will be derived.
 
     Returns:
-        dict.
+        dict
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     keys = {
@@ -507,7 +519,8 @@ def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
         "attribute": list(contain(field_names)),
     }
     cursor = arcpy.da.SearchCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["id"] + keys["attribute"],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -540,9 +553,9 @@ def update_by_central_overlay(
         rule generally defaults to the value of the "first" feature.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
-        overlay_dataset_path (str): Path of the overlay-dataset.
+        overlay_dataset_path (pathlib.Path, str): Path of the overlay-dataset.
         overlay_field_name (str): Name of the overlay-field.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -558,6 +571,8 @@ def update_by_central_overlay(
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
+    overlay_dataset_path = Path(overlay_dataset_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -570,9 +585,9 @@ def update_by_central_overlay(
     meta = {"original_tolerance": arcpy.env.XYTolerance}
     view = {
         "dataset": DatasetView(
-            # Do *not* include any fields here (avoids name collisions in temp output).
             dataset_path,
             kwargs.get("dataset_where_sql"),
+            # Do *not* include any fields here (avoids name collisions in temp output).
             field_names=[],
         ),
         "overlay": DatasetView(
@@ -582,14 +597,14 @@ def update_by_central_overlay(
         ),
     }
     with view["dataset"], view["overlay"]:
-        # Shim: Convert to str.
-        temp_output_path = str(unique_path("output"))
+        temp_output_path = unique_path("output")
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         arcpy.analysis.SpatialJoin(
             target_features=view["dataset"].name,
             join_features=view["overlay"].name,
-            out_feature_class=temp_output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(temp_output_path),
             join_operation="JOIN_ONE_TO_ONE",
             join_type="KEEP_ALL",
             match_option="HAVE_THEIR_CENTER_IN",
@@ -613,7 +628,8 @@ def update_by_central_overlay(
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
     log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
@@ -625,9 +641,9 @@ def update_by_dominant_overlay(
     """Update attribute values by finding the dominant overlay feature value.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
-        overlay_dataset_path (str): Path of the overlay-dataset.
+        overlay_dataset_path (pathlib.Path, str): Path of the overlay-dataset.
         overlay_field_name (str): Name of the overlay-field.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -645,6 +661,8 @@ def update_by_dominant_overlay(
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
+    overlay_dataset_path = Path(overlay_dataset_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -657,9 +675,9 @@ def update_by_dominant_overlay(
     meta = {"original_tolerance": arcpy.env.XYTolerance}
     view = {
         "dataset": DatasetView(
-            # Do *not* include any fields here (avoids name collisions in temp output).
             dataset_path,
             kwargs.get("dataset_where_sql"),
+            # Do *not* include any fields here (avoids name collisions in temp output).
             field_names=[],
         ),
         "overlay": DatasetView(
@@ -669,14 +687,14 @@ def update_by_dominant_overlay(
         ),
     }
     with view["dataset"], view["overlay"]:
-        # Shim: Convert to str.
-        temp_output_path = str(unique_path("output"))
+        temp_output_path = unique_path("output")
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         arcpy.analysis.Identity(
             in_features=view["dataset"].name,
             identity_features=view["overlay"].name,
-            out_feature_class=temp_output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(temp_output_path),
             join_attributes="ALL",
         )
         if "tolerance" in kwargs:
@@ -699,7 +717,8 @@ def update_by_dominant_overlay(
         if oid not in coverage:
             coverage[oid] = defaultdict(float)
         coverage[oid][value] += area
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
     oid_value_map = {
         oid: max(value_area.items(), key=itemgetter(1))[0]
         for oid, value_area in coverage.items()
@@ -729,7 +748,7 @@ def update_by_domain_code(
     """Update attribute values using a coded-values domain.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         code_field_name (str): Name of the field with related domain code.
         domain_name (str): Name of the domain.
@@ -745,6 +764,7 @@ def update_by_domain_code(
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
@@ -778,7 +798,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     Wraps arcpy.management.CalculateField.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         expression (str): Python string expression to evaluate values from.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -792,6 +812,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
     Returns:
         str: Name of the field updated.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
@@ -810,8 +831,7 @@ def update_by_expression(dataset_path, field_name, expression, **kwargs):
             in_table=dataset_view.name,
             field=field_name,
             expression=expression,
-            # Py2.
-            expression_type="python3" if sys.version_info.major < 3 else "python_9.3",
+            expression_type="PYTHON3",
         )
     LOG.log(level, "End: Update.")
     return field_name
@@ -831,7 +851,7 @@ def update_by_feature_match(
         "sort_order": Apply the position of the feature sorted with matches.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         id_field_names (iter): Field names used to identify a feature.
         update_type (str): Code indicating what values to apply to matched features.
@@ -850,6 +870,7 @@ def update_by_feature_match(
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
@@ -885,7 +906,8 @@ def update_by_feature_match(
     matcher = FeatureMatcher(dataset_path, keys["id"], kwargs["dataset_where_sql"])
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
         sql_clause=(
@@ -929,7 +951,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
     """Update attribute values with values from another field.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         source_field_name (str): Name of the field to get values from.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -946,6 +968,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("use_edit_session", False)
@@ -961,7 +984,8 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
     meta = {"dataset": dataset_metadata(dataset_path)}
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=[field_name, source_field_name],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -989,7 +1013,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     """Update attribute values by passing them to a function.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         function (types.FunctionType): Function to get values from.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -1012,6 +1036,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("field_as_first_arg", True)
     kwargs.setdefault("arg_field_names", [])
     kwargs.setdefault("kwarg_field_names", [])
@@ -1037,7 +1062,8 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
     keys["feature"] = keys["args"] + keys["kwargs"] + [field_name]
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -1072,7 +1098,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     """Update attribute values by cascading through geometry properties.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         geometry_properties (iter): Geometry property names in object-access order to
             retrieve the update value.
@@ -1090,6 +1116,7 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     kwargs.setdefault("use_edit_session", False)
@@ -1105,7 +1132,8 @@ def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
         dataset_metadata(dataset_path)["workspace_path"], kwargs["use_edit_session"]
     )
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=["SHAPE@", field_name],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
@@ -1145,9 +1173,9 @@ def update_by_joined_value(
     """Update attribute values by referencing a joinable field.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
-        join_dataset_path (str): Path of the join-dataset.
+        join_dataset_path (pathlib.Path, str): Path of the join-dataset.
         join_field_name (str): Name of the join-field.
         on_field_pairs (iter): Field name pairs used to to determine join.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -1162,6 +1190,8 @@ def update_by_joined_value(
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
+    join_dataset_path = Path(join_dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
@@ -1187,7 +1217,8 @@ def update_by_joined_value(
     )
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
@@ -1222,7 +1253,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     Note: Mapping key must be a tuple if an iterable.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         mapping: Mapping to get values from.
         key_field_names (iter): Fields names whose values will comprise the mapping key.
@@ -1239,6 +1270,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("default_value")
     kwargs.setdefault("use_edit_session", False)
@@ -1257,7 +1289,8 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         mapping = mapping()
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
@@ -1288,7 +1321,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
     """Update attribute values by node IDs.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         from_id_field_name (str): Name of the from-ID field.
         to_id_field_name (str): Name of the to-ID field.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -1302,6 +1335,7 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
@@ -1319,7 +1353,8 @@ def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwa
     )
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
     )
@@ -1363,9 +1398,9 @@ def update_by_overlay(
         the geoprocessing environment merge rule for the update field.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
-        overlay_dataset_path (str): Path of the overlay-dataset.
+        overlay_dataset_path (pathlib.Path, str): Path of the overlay-dataset.
         overlay_field_name (str): Name of the overlay-field.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -1385,6 +1420,8 @@ def update_by_overlay(
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
+    overlay_dataset_path = Path(overlay_dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("overlay_central_coincident", False)
     kwargs.setdefault("overlay_most_coincident", False)
@@ -1418,8 +1455,7 @@ def update_by_overlay(
         field_names=[overlay_field_name],
         # BUG-000134367: "memory" workspaces cannot use Alter Field.
         # Fall back to old "in_memory"; remove once bug is cleared.
-        # Shim: Convert to str.
-        output_path=str(unique_path("overlay", workspace_path="in_memory")),
+        output_path=unique_path("overlay", workspace_path="in_memory"),
     )
     with dataset_view, overlay_copy:
         # Avoid field name collisions with neutral name.
@@ -1433,13 +1469,13 @@ def update_by_overlay(
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         # Create temp output of the overlay.
-        # Shim: Convert to str.
-        temp_output_path = str(unique_path("output"))
+        temp_output_path = unique_path("output")
         arcpy.analysis.SpatialJoin(
             target_features=dataset_view.name,
             # ArcPy2.8.0: Convert to str.
             join_features=str(overlay_copy.path),
-            out_feature_class=temp_output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(temp_output_path),
             **join_kwargs
         )
         if "tolerance" in kwargs:
@@ -1462,7 +1498,8 @@ def update_by_overlay(
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
     )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
     log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
@@ -1472,9 +1509,9 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
     """Update attribute values by finding overlay feature value.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
-        overlay_dataset_path (str): Path of the overlay-dataset.
+        overlay_dataset_path (pathlib.Path, str): Path of the overlay-dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -1488,6 +1525,8 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
+    overlay_dataset_path = Path(overlay_dataset_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -1509,12 +1548,12 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         # Create temp output of the overlay.
-        # Shim: Convert to str.
-        temp_output_path = str(unique_path("output"))
+        temp_output_path = unique_path("output")
         arcpy.analysis.SpatialJoin(
             target_features=dataset_view.name,
             join_features=overlay_view.name,
-            out_feature_class=temp_output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(temp_output_path),
             join_operation="join_one_to_one",
             join_type="keep_common",
             match_option="intersect",
@@ -1524,12 +1563,14 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
     oid_overlay_count = dict(
         as_iters(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
     )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # Shim: Convert to str.
+    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
     session = Editor(
         meta["dataset"]["workspace_path"], kwargs.get("use_edit_session", False)
     )
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=["oid@", field_name],
         where_clause=kwargs.get("dataset_where_sql"),
     )
@@ -1557,7 +1598,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     Existing IDs are preserved, if unique.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -1574,6 +1615,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("start_after_max_number", False)
     kwargs.setdefault("initial_number", 1)
     kwargs.setdefault("dataset_where_sql")
@@ -1591,7 +1633,8 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     }
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=[field_name],
         where_clause=kwargs["dataset_where_sql"],
     )
@@ -1640,7 +1683,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     """Update attribute values by assigning a given value.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         field_name (str): Name of the field.
         value (object): Static value to assign.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -1654,6 +1697,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
@@ -1666,7 +1710,8 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
     meta = {"dataset": dataset_metadata(dataset_path)}
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
-        in_table=dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=[field_name],
         where_clause=kwargs["dataset_where_sql"],
     )

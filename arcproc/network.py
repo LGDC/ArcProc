@@ -291,7 +291,6 @@ def closest_facility_route_new(
     analysis.addFields(input_type, [field_description])
     cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
     rows = attributes.as_iters(
-        # Shim: Convert to str.
         facility_path,
         field_names=[facility_id_field_name, "SHAPE@"],
         dataset_where_sql=kwargs["facility_where_sql"],
@@ -320,8 +319,7 @@ def closest_facility_route_new(
     analysis.addFields(input_type, [field_description])
     cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
     rows = attributes.as_iters(
-        # Shim: Convert to str.
-        str(dataset_path),
+        dataset_path,
         field_names=[id_field_name, "SHAPE@"],
         dataset_where_sql=kwargs["dataset_where_sql"],
     )
@@ -458,8 +456,7 @@ def generate_service_areas(
         # Shim: Convert to str.
         dataset.add_field(str(output_path), log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
-            # Shim: Convert to str.
-            str(output_path),
+            output_path,
             field_name=meta["id_field"]["name"],
             function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
             field_as_first_arg=False,
@@ -575,8 +572,7 @@ def generate_service_rings(
         # Shim: Convert to str.
         dataset.add_field(str(output_path), log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
-            # Shim: Convert to str.
-            str(output_path),
+            output_path,
             meta["id_field"]["name"],
             function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
             field_as_first_arg=False,

@@ -59,8 +59,7 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
             cluster_tolerance=kwargs.get("tolerance"),
         )
     neighbors_map = {}
-    # Shim: Convert to str.
-    for row in attributes.as_dicts(str(temp_neighbor_path)):
+    for row in attributes.as_dicts(temp_neighbor_path):
         row = {key.lower(): val for key, val in row.items()}
         if len(keys["id"]) == 1:
             source_id = row["src_" + keys["id"][0]]
@@ -245,8 +244,7 @@ def id_near_info_map(
         "near_rank",
     ]
     near_info_map = {}
-    # Shim: Convert to str.
-    for near_info in attributes.as_dicts(str(temp_near_path), field_names):
+    for near_info in attributes.as_dicts(temp_near_path, field_names):
         if near_info["near_rank"] == kwargs["near_rank"]:
             _id = oid_id_map[near_info["in_fid"]]
             near_info_map[_id] = {
