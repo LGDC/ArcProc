@@ -1638,9 +1638,10 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         field_names=[field_name],
         where_clause=kwargs["dataset_where_sql"],
     )
+    # First run will clear duplicate IDs & gather used IDs.
+    used_ids = set()
+    # BUG-UNFILED: Use separate edit sessions (not a fan of this intermediate state).
     with session:
-        used_ids = set()
-        # First run will clear duplicate IDs & gather used IDs.
         with cursor:
             for [id_value] in cursor:
                 if id_value in used_ids:
@@ -1656,7 +1657,8 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                     else kwargs["initial_number"]
                 ),
             )
-        # Second run will fill in missing IDs.
+    # Second run will fill in missing IDs.
+    with session:
         states = Counter()
         with cursor:
             for [id_value] in cursor:
