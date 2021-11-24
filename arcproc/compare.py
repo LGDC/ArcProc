@@ -2,6 +2,7 @@
 from copy import copy
 from functools import partial
 import logging
+from pathlib import Path
 
 from arcproc.arcobj import dataset_metadata, field_metadata
 from arcproc import attributes
@@ -122,8 +123,8 @@ def differences(
     """Generate tuples of differences between given dataset features.
 
     Args:
-        init_dataset_path (str): Path of initial dataset.
-        new_dataset_path (str): Path of new dataset.
+        init_dataset_path (pathlib.Path, str): Path of initial dataset.
+        new_dataset_path (pathlib.Path, str): Path of new dataset.
         id_field_names (iter): Ordered collection of fields used to identify a feature.
         cmp_field_names (iter): Ordered collection of fields to compare attributes
             between datasets for differences.
@@ -145,38 +146,39 @@ def differences(
     Yields:
         tuple
     """
+    init_dataset_path = Path(init_dataset_path)
+    new_dataset_path = Path(new_dataset_path)
+    kwargs.setdefault("log_evaluated_count", 10000)
+    kwargs.setdefault("spatial_reference_item", init_dataset_path)
+    kwargs.setdefault("use_external_sort", False)
     level = kwargs.get("log_level", logging.INFO)
+    where_sql = {tag: kwargs.get(tag + "_dataset_where_sql") for tag in DATASET_TAGS}
     LOG.log(
         level,
         "Start: Evaluate differences from `%s` to `%s`.",
         init_dataset_path,
         new_dataset_path,
     )
-    kwargs.setdefault("log_evaluated_count", 10000)
     keys = {
         "id": list(contain(id_field_names)),
         "cmp": list(contain(cmp_field_names)) if cmp_field_names else [],
     }
-    meta = {
+    dataset_meta = {
         "init": dataset_metadata(init_dataset_path),
         "new": dataset_metadata(new_dataset_path),
     }
-    for tag in DATASET_TAGS:
-        meta[tag]["where_sql"] = kwargs.get(tag + "_dataset_where_sql")
     # Need to add geometry to cmp-keys if extant in both.
-    if all(meta[tag]["is_spatial"] for tag in DATASET_TAGS):
+    if all(dataset_meta[tag]["is_spatial"] for tag in DATASET_TAGS):
         keys["cmp"].append("SHAPE@")
     id_vals = {
         tag: attributes.id_values(
-            dataset_path=meta[tag]["path"],
+            dataset_path=dataset_meta[tag]["path"],
             id_field_names=keys["id"],
             field_names=keys["cmp"],
             sort_by_id=True,
-            use_external_sort=kwargs.get("use_external_sort", False),
-            dataset_where_sql=meta[tag]["where_sql"],
-            spatial_reference_item=kwargs.get(
-                "spatial_reference_item", meta["init"]["spatial_reference"]
-            ),
+            use_external_sort=kwargs["use_external_sort"],
+            dataset_where_sql=where_sql[tag],
+            spatial_reference_item=kwargs["spatial_reference_item"],
         )
         for tag in DATASET_TAGS
     }
@@ -258,8 +260,8 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
     """Generate tuples of displacement line features between given dataset features.
 
     Args:
-        init_dataset_path (str): Path of initial dataset.
-        new_dataset_path (str): Path of new dataset.
+        init_dataset_path (pathlib.Path, str): Path of initial dataset.
+        new_dataset_path (pathlib.Path, str): Path of new dataset.
         id_field_names (iter): Field names used to identify a feature.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -279,32 +281,33 @@ def displacements(init_dataset_path, new_dataset_path, id_field_names, **kwargs)
     Yields:
         tuple
     """
+    init_dataset_path = Path(init_dataset_path)
+    new_dataset_path = Path(new_dataset_path)
+    kwargs.setdefault("log_evaluated_count", 10000)
+    kwargs.setdefault("spatial_reference_item", init_dataset_path)
+    kwargs.setdefault("use_external_sort", False)
     level = kwargs.get("log_level", logging.INFO)
+    where_sql = {tag: kwargs.get(tag + "_dataset_where_sql") for tag in DATASET_TAGS}
     LOG.log(
         level,
         "Start: Evaluate displacements from `%s` to `%s`.",
         init_dataset_path,
         new_dataset_path,
     )
-    kwargs.setdefault("log_evaluated_count", 10000)
     keys = {"id": list(contain(id_field_names)), "cmp": ["SHAPE@"]}
-    meta = {
+    dataset_meta = {
         "init": dataset_metadata(init_dataset_path),
         "new": dataset_metadata(new_dataset_path),
     }
-    for tag in DATASET_TAGS:
-        meta[tag]["where_sql"] = kwargs.get(tag + "_dataset_where_sql")
     id_vals = {
         tag: attributes.id_values(
-            dataset_path=meta[tag]["path"],
+            dataset_path=dataset_meta[tag]["path"],
             id_field_names=keys["id"],
             field_names=keys["cmp"],
             sort_by_id=True,
-            use_external_sort=kwargs.get("use_external_sort", False),
-            dataset_where_sql=meta[tag]["where_sql"],
-            spatial_reference_item=kwargs.get(
-                "spatial_reference_item", meta["init"]["spatial_reference"]
-            ),
+            use_external_sort=kwargs["use_external_sort"],
+            dataset_where_sql=where_sql[tag],
+            spatial_reference_item=kwargs["spatial_reference_item"],
         )
         for tag in DATASET_TAGS
     }
@@ -344,11 +347,11 @@ def create_output_dataset(
     """Create output comparison dataset.
 
     Args:
-        dataset_path (str): Path where to initialize dataset.
+        dataset_path (pathlib.Path, str): Path where to initialize dataset.
         output_type (str): Tag indicating type of output comparison dataset (see
             OUTPUT_TAGS).
-        cmp_dataset_path (str): Path of a comprison dataset. Used for ID field metadata
-            & spatial reference.
+        cmp_dataset_path (pathlib.Path, str): Path of a comprison dataset. Used for ID
+            field metadata & spatial reference.
         id_field_names (iter): Ordered collection of fields used to identify a feature.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -358,8 +361,10 @@ def create_output_dataset(
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns
-        str: Path of dataset.
+        pathlib.Path: Path of dataset.
     """
+    dataset_path = Path(dataset_path)
+    cmp_dataset_path = Path(cmp_dataset_path)
     kwargs.setdefault("spatial_reference_item", cmp_dataset_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Initialize comparison dataset at `%s`.", dataset_path)

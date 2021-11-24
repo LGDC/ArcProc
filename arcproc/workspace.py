@@ -55,9 +55,8 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
     level = kwargs.get("log_level", logging.INFO)
     workspace_path = Path(workspace_path)
     LOG.log(level, "Start: Compress workspace `%s`.", workspace_path)
-    # Shim: Convert to str.
-    meta = {"workspace": workspace_metadata(str(workspace_path))}
-    if not meta["workspace"]["is_enterprise_database"]:
+    workspace_meta = workspace_metadata(workspace_path)
+    if not workspace_meta["is_enterprise_database"]:
         raise ValueError(f"Compressing `{workspace_path}` unsupported.")
 
     if disconnect_users:
@@ -93,9 +92,8 @@ def copy(workspace_path, output_path, **kwargs):
     output_path = Path(output_path)
     workspace_path = Path(workspace_path)
     LOG.log(level, "Start: Copy workspace `%s` to `%s`.", workspace_path, output_path)
-    # Shim: Convert to str.
-    meta = {"dataset": workspace_metadata(str(workspace_path))}
-    if not meta["dataset"]["can_copy"]:
+    workspace_meta = workspace_metadata(workspace_path)
+    if not workspace_meta["can_copy"]:
         raise ValueError(f"`{workspace_path}` unsupported dataset type.")
 
     # ArcPy2.8.0: Convert to str x2.
@@ -312,17 +310,18 @@ def execute_sql(statement, database_path, **kwargs):
 
 
 def is_valid(workspace_path):
-    """Indicate whether workspace exists and is valid.
+    """Indicate whether workspace is extant & valid.
 
     Args:
-        workspace_path (pathlib.Path, str): Path of the workspace to validate.
+        workspace_path (pathlib.Path, str): Path of the workspace.
 
     Returns:
-        bool: True if workspace is valid, False otherwise.
+        bool
     """
     workspace_path = Path(workspace_path)
-    valid = False
-    if arcpy.Exists(workspace_path):
-        # Shim: Convert to str.
-        valid = workspace_metadata(str(workspace_path))["data_type"] == "Workspace"
+    exists = workspace_path and arcpy.Exists(dataset=workspace_path)
+    if exists:
+        valid = workspace_metadata(workspace_path)["data_type"] == "Workspace"
+    else:
+        valid = False
     return valid

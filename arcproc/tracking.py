@@ -4,6 +4,7 @@ import datetime
 from itertools import chain
 import logging
 from operator import itemgetter
+from pathlib import Path
 
 import arcpy
 
@@ -16,6 +17,8 @@ from arcproc.helpers import contain, log_entity_states, same_value
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+arcpy.SetLogHistory(False)
+
 
 def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
     """Consolidate tracking dataset rows where the value did not actually change.
@@ -23,7 +26,7 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
     Useful for quick-loaded point-in-time values, or for processing hand-altered rows.
 
     Args:
-        dataset_path (str): Path of tracking dataset.
+        dataset_path (pathlib.Path, str): Path of tracking dataset.
         field_name (str): Name of tracked field.
         id_field_names (iter): Field names used to identify a feature.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -40,6 +43,7 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Consolidate tracking rows in `%s`.", dataset_path)
     keys = {
@@ -91,10 +95,10 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     """Add field value changes to tracking dataset from comparison dataset.
 
     Args:
-        dataset_path (str): Path of tracking dataset.
+        dataset_path (pathlib.Path, str): Path of tracking dataset.
         field_name (str): Name of tracked field.
         id_field_names (iter): Field names used to identify a feature.
-        cmp_dataset_path (str): Path of comparison dataset.
+        cmp_dataset_path (pathlib.Path, str): Path of comparison dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -115,6 +119,8 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
+    dataset_path = Path(dataset_path)
+    cmp_dataset_path = Path(cmp_dataset_path)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -133,7 +139,7 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
         ],
     }
     current_where_sql = "{} IS NULL".format(keys["date"][1])
-    meta = {"dataset": arcobj.dataset_metadata(dataset_path)}
+    dataset_meta = arcobj.dataset_metadata(dataset_path)
     id_value = {}
     id_value["current"] = {
         row[:-1]: row[-1]
@@ -165,10 +171,11 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     # Could replace cursor with features.update_from_iters if that function adds a
     # dataset_where_sql keyword argument.
     session = arcobj.Editor(
-        meta["dataset"]["workspace_path"], kwargs.get("use_edit_session", False)
+        dataset_meta["workspace_path"], kwargs.get("use_edit_session", False)
     )
     cursor = arcpy.da.UpdateCursor(
-        dataset_path,
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
         field_names=keys["id"] + [field_name, keys["date"][1]],
         where_clause=current_where_sql,
     )

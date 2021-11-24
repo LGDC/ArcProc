@@ -42,15 +42,13 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
     dataset_path = Path(dataset_path)
     keys = {"id": list(contain(id_field_names))}
     keys["id"] = [key.lower() for key in keys["id"]]
-    view = {
-        "dataset": arcobj.DatasetView(
-            dataset_path, kwargs.get("dataset_where_sql"), field_names=keys["id"],
-        ),
-    }
-    with view["dataset"]:
+    view = arcobj.DatasetView(
+        dataset_path, kwargs.get("dataset_where_sql"), field_names=keys["id"]
+    )
+    with view:
         temp_neighbor_path = unique_path("near")
         arcpy.analysis.PolygonNeighbors(
-            in_features=view["dataset"].name,
+            in_features=view.name,
             # ArcPy2.8.0: Convert to str.
             out_table=str(temp_neighbor_path),
             in_fields=keys["id"],
@@ -73,8 +71,7 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
             continue
 
         neighbors_map[source_id].add(neighbor_id)
-    # Shim: Convert to str.
-    dataset.delete(str(temp_neighbor_path), log_level=logging.DEBUG)
+    dataset.delete(temp_neighbor_path, log_level=logging.DEBUG)
     return neighbors_map
 
 
@@ -104,12 +101,10 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
         line += " & dissolve on fields `{}`".format(keys["dissolve"])
     line += "."
     LOG.log(level, line)
-    view = {
-        "dataset": arcobj.DatasetView(dataset_path, kwargs.get("dataset_where_sql")),
-    }
-    with view["dataset"]:
+    view = arcobj.DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    with view:
         arcpy.analysis.Buffer(
-            in_features=view["dataset"].name,
+            in_features=view.name,
             # ArcPy2.8.0: Convert to str.
             out_feature_class=str(output_path),
             buffer_distance_or_field=distance,
@@ -166,8 +161,7 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
             cluster_tolerance=kwargs.get("tolerance"),
         )
         states = Counter()
-        # Shim: Convert to str.
-        states["remaining"] = dataset.feature_count(str(output_path))
+        states["remaining"] = dataset.feature_count(output_path)
         states["deleted"] = view["dataset"].count - states["remaining"]
     log_entity_states("features", states, LOG, log_level=level)
     LOG.log(level, "End: Clip.")
@@ -229,10 +223,10 @@ def id_near_info_map(
             closest_count=kwargs["near_rank"],
         )
         oid_id_map = attributes.id_values_map(
-            view["dataset"].name, "oid@", dataset_id_field_name
+            view["dataset"].name, "OID@", dataset_id_field_name
         )
         near_oid_id_map = attributes.id_values_map(
-            view["near"].name, "oid@", near_id_field_name
+            view["near"].name, "OID@", near_id_field_name
         )
     field_names = [
         "in_fid",
@@ -256,6 +250,5 @@ def id_near_info_map(
                 "near_x": near_info["near_x"],
                 "near_y": near_info["near_y"],
             }
-    # Shim: Convert to str.
-    dataset.delete(str(temp_near_path), log_level=logging.DEBUG)
+    dataset.delete(temp_near_path, log_level=logging.DEBUG)
     return near_info_map

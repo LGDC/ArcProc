@@ -1,6 +1,7 @@
 """Combination operations."""
 import datetime
 import logging
+from pathlib import Path
 
 import arcpy
 
@@ -23,7 +24,7 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             in the adjustment.
 
     Args:
-        dataset_path (str): Path of the dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -41,12 +42,12 @@ def adjust_for_shapefile(dataset_path, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the adjusted dataset.
+        pathlib.Path: Path of the adjusted dataset.
     """
+    dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Adjust features for shapefile output in `%s`.", dataset_path)
     replacement_value = {
         "date": kwargs.setdefault("date_null_replacement", datetime.date.min),
         "double": kwargs.setdefault("numeric_null_replacement", 0.0),
@@ -57,10 +58,11 @@ def adjust_for_shapefile(dataset_path, **kwargs):
         # Shapefile loader handles non-user fields seperately.
         # "geometry", "oid",
     }
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    LOG.log(level, "Start: Adjust features for shapefile output in `%s`.", dataset_path)
+    dataset_meta = dataset_metadata(dataset_path)
+    session = Editor(dataset_meta["workspace_path"], kwargs["use_edit_session"])
     with session:
-        for field in meta["dataset"]["user_fields"]:
+        for field in dataset_meta["user_fields"]:
             if field["type"].lower() not in replacement_value:
                 LOG.log(
                     level,
@@ -72,7 +74,8 @@ def adjust_for_shapefile(dataset_path, **kwargs):
             else:
                 LOG.log(level, "Adjusting values in `%s`.", field["name"])
             cursor = arcpy.da.UpdateCursor(
-                in_table=dataset_path,
+                # ArcPy2.8.0: Convert to str.
+                in_table=str(dataset_path),
                 field_names=[field["name"]],
                 where_clause=kwargs["dataset_where_sql"],
             )

@@ -410,7 +410,7 @@ def generate_service_areas(
         trim_value = linear_unit_string(kwargs["trim_value"], dataset_path)
     else:
         trim_value = None
-    view = {"dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"])}
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     arcpy.na.MakeServiceAreaLayer(
         # ArcPy2.8.0: Convert to str.
         in_network_dataset=str(network_path),
@@ -431,11 +431,11 @@ def generate_service_areas(
         poly_trim_value=trim_value,
         hierarchy="no_hierarchy",
     )
-    with view["dataset"]:
+    with view:
         arcpy.na.AddLocations(
             in_network_analysis_layer="service_area",
             sub_layer="Facilities",
-            in_table=view["dataset"].name,
+            in_table=view.name,
             field_mappings="Name {} #".format(kwargs["id_field_name"]),
             search_tolerance=max_distance,
             match_type="match_to_closest",
@@ -448,13 +448,11 @@ def generate_service_areas(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    # Shim: Convert to str.
-    dataset.copy("service_area/Polygons", str(output_path), log_level=logging.DEBUG)
+    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
         meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
-        # Shim: Convert to str.
-        dataset.add_field(str(output_path), log_level=logging.DEBUG, **meta["id_field"])
+        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
             output_path,
             field_name=meta["id_field"]["name"],
@@ -524,7 +522,7 @@ def generate_service_rings(
         trim_value = linear_unit_string(kwargs["trim_value"], dataset_path)
     else:
         trim_value = None
-    view = {"dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"])}
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     arcpy.na.MakeServiceAreaLayer(
         # ArcPy2.8.0: Convert to str.
         in_network_dataset=str(network_path),
@@ -547,11 +545,11 @@ def generate_service_rings(
         poly_trim_value=trim_value,
         hierarchy="no_hierarchy",
     )
-    with view["dataset"]:
+    with view:
         arcpy.na.AddLocations(
             in_network_analysis_layer="service_area",
             sub_layer="Facilities",
-            in_table=view["dataset"].name,
+            in_table=view.name,
             field_mappings="Name {} #".format(kwargs["id_field_name"]),
             search_tolerance=max_distance,
             match_type="match_to_closest",
@@ -564,13 +562,11 @@ def generate_service_rings(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    # Shim: Convert to str.
-    dataset.copy("service_area/Polygons", str(output_path), log_level=logging.DEBUG)
+    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
         meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
-        # Shim: Convert to str.
-        dataset.add_field(str(output_path), log_level=logging.DEBUG, **meta["id_field"])
+        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
         attributes.update_by_function(
             output_path,
             meta["id_field"]["name"],

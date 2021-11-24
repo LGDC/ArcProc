@@ -114,7 +114,7 @@ class DatasetView(ContextDecorator):
 
     Attributes:
         name (str): Name of view.
-        dataset_path (pathlib.Path): Path of dataset.
+        dataset_path (pathlib.Path, str): Path of dataset.
         dataset_meta (dict): Metadata dictionary for dataset.
         field_names (list): Collection of field names to include in view.
         is_spatial (bool): True if view is spatial, False if not.
@@ -253,7 +253,8 @@ class DatasetView(ContextDecorator):
             func = arcpy.management.MakeTableView
         kwargs = {
             "where_clause": self.where_sql,
-            "workspace": self.dataset_meta["workspace_path"],
+            # ArcPy2.8.0: Convert to str.
+            "workspace": str(self.dataset_meta["workspace_path"]),
             "field_info": self.field_info,
         }
         # ArcPy2.8.0: Convert to str.
@@ -275,7 +276,7 @@ class Editor(ContextDecorator):
     """Context manager for editing features.
 
     Attributes:
-        workspace_path (pathlib.Path): Path for the editing workspace.
+        workspace_path (pathlib.Path, str): Path for the editing workspace.
     """
 
     def __init__(self, workspace_path, use_edit_session=True):
@@ -431,9 +432,9 @@ def _dataset_object_metadata(dataset_object):
     """
     meta = {"object": dataset_object}
     meta["name"] = getattr(meta["object"], "name", None)
-    meta["path"] = getattr(meta["object"], "catalogPath")
+    meta["path"] = Path(getattr(meta["object"], "catalogPath"))
     meta["data_type"] = getattr(meta["object"], "dataType")
-    meta["workspace_path"] = getattr(meta["object"], "path")
+    meta["workspace_path"] = Path(getattr(meta["object"], "path"))
     # Do not use getattr here! Tables sometimes don"t have OIDs.
     meta["is_table"] = hasattr(meta["object"], "hasOID")
     meta["is_versioned"] = getattr(meta["object"], "isVersioned", False)
@@ -546,7 +547,7 @@ def _workspace_object_metadata(workspace_object):
     meta = {"object": workspace_object}
     meta["factory_prog_id"] = getattr(meta["object"], "workspaceFactoryProgID", "")
     meta["name"] = getattr(meta["object"], "name")
-    meta["path"] = getattr(meta["object"], "catalogPath")
+    meta["path"] = Path(getattr(meta["object"], "catalogPath"))
     meta["data_type"] = getattr(meta["object"], "dataType")
     meta["is_geodatabase"] = any(
         [
@@ -737,8 +738,9 @@ def spatial_reference_metadata(item):
 
     Args:
         item (int): Spatial reference ID.
-             (str): Path of reference dataset/file.
+             (pathlib.Path, str): Path of reference dataset/file.
              (arcpy.Geometry): Reference geometry object.
+             (arcpy.SpatialReference): Spatial reference object.
 
     Returns:
         dict.

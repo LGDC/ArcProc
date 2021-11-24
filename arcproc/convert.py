@@ -1,22 +1,14 @@
 """Conversion operations."""
 from collections import Counter
 
-try:
-    from collections.abc import Sequence
-except ImportError:
-    from collections import Sequence
+from collections.abc import Sequence
 import csv
 import logging
-import os
+from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import (
-    DatasetView,
-    dataset_metadata,
-    spatial_reference,
-    spatial_reference_metadata,
-)
+from arcproc.arcobj import DatasetView, dataset_metadata, spatial_reference
 from arcproc import attributes
 from arcproc import dataset
 from arcproc import features
@@ -33,8 +25,8 @@ def lines_to_vertex_points(dataset_path, output_path, endpoints_only=False, **kw
     """Convert geometry from lines to points at every vertex.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         endpoints_only (bool): Flag to indicate whether the output points should be at
             the endpoints of the line only, and not at every vertex.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -44,8 +36,10 @@ def lines_to_vertex_points(dataset_path, output_path, endpoints_only=False, **kw
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
@@ -58,7 +52,8 @@ def lines_to_vertex_points(dataset_path, output_path, endpoints_only=False, **kw
     with view:
         arcpy.management.FeatureVerticesToPoints(
             in_features=view.name,
-            out_feature_class=output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(output_path),
             point_location="ALL" if not endpoints_only else "BOTH_ENDS",
         )
     dataset.delete_field(output_path, "ORIG_FID", log_level=logging.DEBUG)
@@ -77,8 +72,8 @@ def planarize(dataset_path, output_path, **kwargs):
         useful to break line geometry features that cross.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -87,8 +82,10 @@ def planarize(dataset_path, output_path, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("tolerance")
     level = kwargs.get("log_level", logging.INFO)
@@ -102,7 +99,8 @@ def planarize(dataset_path, output_path, **kwargs):
     with view:
         arcpy.management.FeatureToLine(
             in_features=view.name,
-            out_feature_class=output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(output_path),
             cluster_tolerance=kwargs["tolerance"],
             attributes=True,
         )
@@ -114,8 +112,8 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
     """Convert geometry from points to multipoints.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -123,8 +121,11 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    kwargs.setdefault("dataset_where_sql")
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -132,28 +133,33 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
         dataset_path,
         output_path,
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    sref = spatial_reference(dataset_path)
     arcpy.management.CreateFeatureclass(
-        out_path=os.path.dirname(output_path),
-        out_name=os.path.basename(output_path),
+        # ArcPy2.8.0: Convert to str.
+        out_path=str(output_path.parent),
+        out_name=output_path.name,
         geometry_type="MULTIPOINT",
-        template=dataset_path,
-        spatial_reference=sref,
+        # ArcPy2.8.0: Convert to str.
+        template=str(dataset_path),
+        spatial_reference=spatial_reference(dataset_path),
     )
+    field_names = dataset_metadata(dataset_path)["user_field_names"] + ["SHAPE@"]
     multipoint_cursor = arcpy.da.InsertCursor(
-        output_path, field_names=meta["dataset"]["user_field_names"] + ["SHAPE@"]
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(output_path),
+        field_names=field_names,
     )
     point_cursor = arcpy.da.SearchCursor(
-        dataset_path,
-        field_names=meta["dataset"]["user_field_names"] + ["SHAPE@"],
-        where_clause=kwargs.get("dataset_where_sql"),
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
+        field_names=field_names,
+        where_clause=kwargs["dataset_where_sql"],
     )
+    states = Counter()
     with multipoint_cursor, point_cursor:
         for feature in point_cursor:
             geometry = arcpy.Multipoint(feature[-1].firstPoint)
             multipoint_cursor.insertRow(feature[:-1] + (geometry,))
-    states = Counter(converted=dataset.feature_count(dataset_path))
+            states["converted"] += 1
     log_entity_states("features", states, LOG, log_level=level)
     LOG.log(level, "End: Convert.")
     return output_path
@@ -163,8 +169,8 @@ def points_to_thiessen_polygons(dataset_path, output_path, **kwargs):
     """Convert geometry from points to multipoints.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -172,8 +178,11 @@ def points_to_thiessen_polygons(dataset_path, output_path, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    kwargs.setdefault("dataset_where_sql")
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -181,10 +190,13 @@ def points_to_thiessen_polygons(dataset_path, output_path, **kwargs):
         dataset_path,
         output_path,
     )
-    view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     with view:
         arcpy.analysis.CreateThiessenPolygons(
-            in_features=view.name, out_feature_class=output_path, fields_to_copy="ALL"
+            in_features=view.name,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(output_path),
+            fields_to_copy="ALL",
         )
     states = Counter(converted=dataset.feature_count(output_path))
     log_entity_states("features", states, LOG, log_level=level)
@@ -206,8 +218,8 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
         the field will pass over with the rest of the attributes.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         topological (bool): Flag to indicate lines should be topological, or merged
             where lines overlap.
         **kwargs: Arbitrary keyword arguments. See below.
@@ -219,8 +231,10 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("id_field_name")
     level = kwargs.get("log_level", logging.INFO)
@@ -230,50 +244,43 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
         dataset_path,
         output_path,
     )
-    meta = {
-        "dataset": dataset_metadata(dataset_path),
-        "orig_tolerance": arcpy.env.XYTolerance,
-    }
+    original_tolerance = arcpy.env.XYTolerance
     view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     with view:
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
         arcpy.management.PolygonToLine(
             in_features=view.name,
-            out_feature_class=output_path,
+            # ArcPy2.8.0: Convert to str.
+            out_feature_class=str(output_path),
             neighbor_option=topological,
         )
         if "tolerance" in kwargs:
-            arcpy.env.XYTolerance = meta["orig_tolerance"]
+            arcpy.env.XYTolerance = original_tolerance
     if topological:
+        dataset_meta = dataset_metadata(dataset_path)
         for side in ["left", "right"]:
-            meta[side] = {"oid_key": side.upper() + "_FID"}
+            oid_key = side.upper() + "_FID"
             if kwargs["id_field_name"]:
-                meta[side]["id_field"] = next(
+                id_field = next(
                     field
-                    for field in meta["dataset"]["fields"]
+                    for field in dataset_meta["fields"]
                     if field["name"].lower() == kwargs["id_field_name"].lower()
                 )
-                meta[side]["id_field"]["name"] = side + "_" + kwargs["id_field_name"]
+                id_field["name"] = side.upper() + "_" + kwargs["id_field_name"]
                 # Cannot create an OID-type field, so force to long.
-                if meta[side]["id_field"]["type"].lower() == "oid":
-                    meta[side]["id_field"]["type"] = "long"
-                dataset.add_field(
-                    output_path, log_level=logging.DEBUG, **meta[side]["id_field"]
-                )
+                if id_field["type"].upper() == "OID":
+                    id_field["type"] = "LONG"
+                dataset.add_field(output_path, log_level=logging.DEBUG, **id_field)
                 attributes.update_by_joined_value(
                     output_path,
-                    field_name=meta[side]["id_field"]["name"],
+                    field_name=id_field["name"],
                     join_dataset_path=dataset_path,
                     join_field_name=kwargs["id_field_name"],
-                    on_field_pairs=[
-                        (meta[side]["oid_key"], meta["dataset"]["oid_field_name"])
-                    ],
+                    on_field_pairs=[(oid_key, dataset_meta["oid_field_name"])],
                     log_level=logging.DEBUG,
                 )
-            dataset.delete_field(
-                output_path, meta[side]["oid_key"], log_level=logging.DEBUG
-            )
+            dataset.delete_field(output_path, oid_key, log_level=logging.DEBUG)
     else:
         dataset.delete_field(output_path, "ORIG_FID", log_level=logging.DEBUG)
     LOG.log(level, "End: Convert.")
@@ -284,8 +291,8 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     """Project dataset features to a new dataset.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived. Default is 4326 (EPSG code for unprojected WGS84).
         **kwargs: Arbitrary keyword arguments. See below.
@@ -295,19 +302,20 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
-    meta = {"spatial": spatial_reference_metadata(spatial_reference_item)}
     level = kwargs.get("log_level", logging.INFO)
+    sref = spatial_reference(spatial_reference_item)
     LOG.log(
         level,
         "Start: Project `%s` to srid=%s in `%s`.",
         dataset_path,
-        meta["spatial"]["object"].factoryCode,
+        sref.factoryCode,
         output_path,
     )
-    meta["dataset"] = dataset_metadata(dataset_path)
     # Project tool cannot output to an in-memory workspace (will throw error 000944).
     # This is not a bug. Esri"s Project documentation (as of v10.6) specifically states:
     # "The in_memory workspace is not supported as a location to write the output
@@ -316,17 +324,18 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     # https://pro.arcgis.com/en/pro-app/tool-reference/data-management/project.htm
     # To avoid all this ado, using create to clone a (reprojected)
     # dataset & insert features into it.
+    dataset_meta = dataset_metadata(dataset_path)
     dataset.create(
         dataset_path=output_path,
-        field_metadata_list=meta["dataset"]["user_fields"],
-        geometry_type=meta["dataset"]["geometry_type"],
-        spatial_reference_item=meta["spatial"]["object"],
+        field_metadata_list=dataset_meta["user_fields"],
+        geometry_type=dataset_meta["geometry_type"],
+        spatial_reference_item=sref,
         log_level=logging.DEBUG,
     )
     features.insert_from_path(
         dataset_path=output_path,
         insert_dataset_path=dataset_path,
-        field_names=meta["dataset"]["user_field_names"],
+        field_names=dataset_meta["user_field_names"],
         insert_where_sql=kwargs["dataset_where_sql"],
         log_level=logging.DEBUG,
     )
@@ -341,10 +350,11 @@ def rows_to_csvfile(rows, output_path, field_names, header=False, **kwargs):
 
     Args:
         rows (iter): Collection of dictionaries or sequences representing rows.
-        output_path (str): Path of the output dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         field_names (iter): Collection of the field names, in the desired order or
             output.
-        header (bool): Write a header in the CSV output if True.
+        header (bool): Write a header in the CSV output if True. Only applicable for
+            dictionary rows.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -352,13 +362,15 @@ def rows_to_csvfile(rows, output_path, field_names, header=False, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the CSV-file.
+        pathlib.Path: Path of the converted dataset.
     """
+    output_path = Path(output_path)
+    field_names = list(contain(field_names))
     kwargs.setdefault("file_mode", "wb")
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Write rows to CSV file `%s`.", output_path)
-    field_names = list(contain(field_names))
-    with open(output_path, kwargs["file_mode"]) as csvfile:
+    csvfile = output_path.open(mode=kwargs["file_mode"])
+    with csvfile:
         for index, row in enumerate(rows):
             if index == 0:
                 if isinstance(row, dict):
@@ -384,8 +396,8 @@ def split_lines_at_vertices(dataset_path, output_path, **kwargs):
     rings.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -393,10 +405,11 @@ def split_lines_at_vertices(dataset_path, output_path, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
-    # kwargs.setdefault("tolerance")
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level,
@@ -406,7 +419,11 @@ def split_lines_at_vertices(dataset_path, output_path, **kwargs):
     )
     view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     with view:
-        arcpy.management.SplitLine(in_features=view.name, out_feature_class=output_path)
+        arcpy.management.SplitLine(
+            # ArcPy2.8.0: Convert to str.
+            in_features=view.name,
+            out_feature_class=str(output_path),
+        )
     LOG.log(level, "End: Split.")
     return output_path
 
@@ -422,8 +439,8 @@ def table_to_points(
     """Convert coordinate table to a new point dataset.
 
     Args:
-        dataset_path (str): Path of the dataset.
-        output_path (str): Path of the output dataset.
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        output_path (pathlib.Path, str): Path of the output dataset.
         x_field_name (str): Name of field with x-coordinate.
         y_field_name (str): Name of field with y-coordinate.
         spatial_reference_item: Item from which the spatial reference of the output
@@ -436,29 +453,27 @@ def table_to_points(
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Path of the converted dataset.
+        pathlib.Path: Path of the converted dataset.
     """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("z_field_name")
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(
         level, "Start: Convert `%s` to point dataset `%s`.", dataset_path, output_path
     )
-    view_name = unique_name()
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
+    layer_name = unique_name()
     arcpy.management.MakeXYEventLayer(
-        table=dataset_path,
-        out_layer=view_name,
+        table=view.name,
+        out_layer=layer_name,
         in_x_field=x_field_name,
         in_y_field=y_field_name,
-        in_z_field=kwargs.get("z_field_name"),
+        in_z_field=kwargs["z_field_name"],
         spatial_reference=spatial_reference(spatial_reference_item),
     )
-    dataset.copy(
-        view_name,
-        output_path,
-        dataset_where_sql=kwargs["dataset_where_sql"],
-        log_level=logging.DEBUG,
-    )
-    dataset.delete(view_name, log_level=logging.DEBUG)
+    dataset.copy(layer_name, output_path, log_level=logging.DEBUG)
+    dataset.delete(layer_name, log_level=logging.DEBUG)
     LOG.log(level, "End: Convert.")
     return output_path

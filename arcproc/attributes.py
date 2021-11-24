@@ -582,7 +582,7 @@ def update_by_central_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    meta = {"original_tolerance": arcpy.env.XYTolerance}
+    original_tolerance = arcpy.env.XYTolerance
     view = {
         "dataset": DatasetView(
             dataset_path,
@@ -610,7 +610,7 @@ def update_by_central_overlay(
             match_option="HAVE_THEIR_CENTER_IN",
         )
         if "tolerance" in kwargs:
-            arcpy.env.XYTolerance = meta["original_tolerance"]
+            arcpy.env.XYTolerance = original_tolerance
     if kwargs.get("replacement_value") is not None:
         update_by_function(
             temp_output_path,
@@ -628,8 +628,7 @@ def update_by_central_overlay(
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
-    # Shim: Convert to str.
-    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
     log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
@@ -672,7 +671,7 @@ def update_by_dominant_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    meta = {"original_tolerance": arcpy.env.XYTolerance}
+    original_tolerance = arcpy.env.XYTolerance
     view = {
         "dataset": DatasetView(
             dataset_path,
@@ -698,10 +697,13 @@ def update_by_dominant_overlay(
             join_attributes="ALL",
         )
         if "tolerance" in kwargs:
-            arcpy.env.XYTolerance = meta["original_tolerance"]
-    meta["output"] = dataset_metadata(temp_output_path)
+            arcpy.env.XYTolerance = original_tolerance
     # Identity makes custom FID field names - in_features FID field comes first.
-    fid_keys = [key for key in meta["output"]["field_names"] if key.startswith("FID_")]
+    fid_keys = [
+        key
+        for key in dataset_metadata(temp_output_path)["field_names"]
+        if key.startswith("FID_")
+    ]
     coverage = {}
     for oid, overlay_oid, value, area in as_iters(
         temp_output_path, field_names=fid_keys + [overlay_field_name, "SHAPE@AREA"]
@@ -717,8 +719,7 @@ def update_by_dominant_overlay(
         if oid not in coverage:
             coverage[oid] = defaultdict(float)
         coverage[oid][value] += area
-    # Shim: Convert to str.
-    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
     oid_value_map = {
         oid: max(value_area.items(), key=itemgetter(1))[0]
         for oid, value_area in coverage.items()
@@ -1436,10 +1437,6 @@ def update_by_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    meta = {
-        "dataset": dataset_metadata(dataset_path),
-        "original_tolerance": arcpy.env.XYTolerance,
-    }
     join_kwargs = {"join_operation": "join_one_to_many", "join_type": "keep_all"}
     if kwargs["overlay_central_coincident"]:
         join_kwargs["match_option"] = "have_their_center_in"
@@ -1448,7 +1445,7 @@ def update_by_overlay(
 
     # else:
     #     join_kwargs["match_option"] = "intersect"
-    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    original_tolerance = arcpy.env.XYTolerance
     overlay_copy = TempDatasetCopy(
         overlay_dataset_path,
         kwargs["overlay_where_sql"],
@@ -1457,11 +1454,11 @@ def update_by_overlay(
         # Fall back to old "in_memory"; remove once bug is cleared.
         output_path=unique_path("overlay", workspace_path="in_memory"),
     )
-    with dataset_view, overlay_copy:
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    with view, overlay_copy:
         # Avoid field name collisions with neutral name.
         overlay_copy.field_name = dataset.rename_field(
-            # Shim: Convert to str.
-            str(overlay_copy.path),
+            overlay_copy.path,
             overlay_field_name,
             new_field_name=unique_name(overlay_field_name),
             log_level=logging.DEBUG,
@@ -1471,7 +1468,7 @@ def update_by_overlay(
         # Create temp output of the overlay.
         temp_output_path = unique_path("output")
         arcpy.analysis.SpatialJoin(
-            target_features=dataset_view.name,
+            target_features=view.name,
             # ArcPy2.8.0: Convert to str.
             join_features=str(overlay_copy.path),
             # ArcPy2.8.0: Convert to str.
@@ -1479,7 +1476,7 @@ def update_by_overlay(
             **join_kwargs
         )
         if "tolerance" in kwargs:
-            arcpy.env.XYTolerance = meta["original_tolerance"]
+            arcpy.env.XYTolerance = original_tolerance
     if kwargs.get("replacement_value") is not None:
         update_by_function(
             temp_output_path,
@@ -1493,13 +1490,14 @@ def update_by_overlay(
         field_name,
         join_dataset_path=temp_output_path,
         join_field_name=overlay_copy.field_name,
-        on_field_pairs=[(meta["dataset"]["oid_field_name"], "target_fid")],
+        on_field_pairs=[
+            (dataset_metadata(dataset_path)["oid_field_name"], "target_fid")
+        ],
         dataset_where_sql=kwargs["dataset_where_sql"],
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
     )
-    # Shim: Convert to str.
-    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
     log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
@@ -1535,11 +1533,7 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
         field_name,
         overlay_dataset_path,
     )
-    meta = {
-        "dataset": dataset_metadata(dataset_path),
-        "original_tolerance": arcpy.env.XYTolerance,
-    }
-
+    original_tolerance = arcpy.env.XYTolerance
     dataset_view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
     overlay_view = DatasetView(
         overlay_dataset_path, kwargs.get("overlay_where_sql"), field_names=[]
@@ -1559,14 +1553,14 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
             match_option="intersect",
         )
         if "tolerance" in kwargs:
-            arcpy.env.XYTolerance = meta["original_tolerance"]
+            arcpy.env.XYTolerance = original_tolerance
     oid_overlay_count = dict(
         as_iters(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
     )
-    # Shim: Convert to str.
-    dataset.delete(str(temp_output_path), log_level=logging.DEBUG)
+    dataset.delete(temp_output_path, log_level=logging.DEBUG)
     session = Editor(
-        meta["dataset"]["workspace_path"], kwargs.get("use_edit_session", False)
+        dataset_metadata(dataset_path)["workspace_path"],
+        kwargs.get("use_edit_session", False),
     )
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
