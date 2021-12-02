@@ -117,7 +117,7 @@ def add_index(dataset_path, field_names, **kwargs):
     field_types = {
         field["type"].upper()
         for field in dataset_metadata(dataset_path)["fields"]
-        if field["name"].lower() in field_names
+        if field["name"].lower() in [name.lower() for name in field_names]
     }
     if "GEOMETRY" in field_types:
         if len(field_names) > 1:
