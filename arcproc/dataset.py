@@ -147,6 +147,40 @@ def add_index(dataset_path, field_names, **kwargs):
     return dataset_path
 
 
+def as_feature_set(dataset_path, field_names=None, **kwargs):
+    """Return dataset as feature set.
+
+    Args:
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        field_names (iter): Collection of field names to include in output. If
+            field_names not specified or None, all fields will be included.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        force_record_set (bool): Return record set if True, whichever type matches the
+            input if False. Default is False.
+
+    Returns:
+        arcpy.FeatureSet
+    """
+    dataset_path = Path(dataset_path)
+    kwargs.setdefault("dataset_where_sql")
+    kwargs.setdefault("force_record_set", False)
+    if field_names is not None:
+        field_names = list(field_names)
+    view = DatasetView(
+        dataset_path,
+        field_names=field_names,
+        dataset_where_sql=kwargs["dataset_where_sql"],
+    )
+    with view:
+        if kwargs["force_record_set"] or not view.is_spatial:
+            return arcpy.RecordSet(table=view.name)
+
+        return arcpy.FeatureSet(table=view.name)
+
+
 def compress(dataset_path, **kwargs):
     """Compress dataset.
 
