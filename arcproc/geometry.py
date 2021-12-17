@@ -2,6 +2,7 @@
 import logging
 from math import pi, sqrt
 
+# Py3.7: pairwise added to standard library itertools in 3.10.
 from more_itertools import pairwise
 
 import arcpy

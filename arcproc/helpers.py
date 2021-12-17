@@ -14,6 +14,7 @@ import string
 import sys
 import uuid
 
+# Py3.7: pairwise added to standard library itertools in 3.10.
 from more_itertools import pairwise
 
 import arcpy
