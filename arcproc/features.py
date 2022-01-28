@@ -833,7 +833,7 @@ def update_from_iters(
     ids = {
         "dataset": {
             tuple(freeze_values(*_id))
-            for _id in attributes.as_iters(dataset_path, id_field_names)
+            for _id in attributes.as_tuples(dataset_path, id_field_names)
         }
     }
     if inspect.isgeneratorfunction(update_features):
@@ -977,7 +977,7 @@ def update_from_path(
         field_names.discard(field_token.lower())
     field_names = list(field_names)
     states = Counter()
-    update_features = attributes.as_iters(
+    update_features = attributes.as_tuples(
         update_dataset_path,
         field_names=id_field_names + field_names,
         dataset_where_sql=kwargs["update_where_sql"],

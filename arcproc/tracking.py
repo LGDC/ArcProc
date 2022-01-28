@@ -143,7 +143,7 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     id_value = {}
     id_value["current"] = {
         row[:-1]: row[-1]
-        for row in attributes.as_iters(
+        for row in attributes.as_tuples(
             dataset_path,
             field_names=keys["id"] + [field_name],
             dataset_where_sql=current_where_sql,
@@ -151,7 +151,7 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     }
     id_value["cmp"] = {
         row[:-1]: row[-1]
-        for row in attributes.as_iters(
+        for row in attributes.as_tuples(
             cmp_dataset_path,
             field_names=keys["cmp_id"] + [kwargs.get("cmp_field_name", field_name)],
         )

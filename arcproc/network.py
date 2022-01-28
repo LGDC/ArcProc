@@ -290,7 +290,7 @@ def closest_facility_route_new(
         field_description[1] = "LONG"
     analysis.addFields(input_type, [field_description])
     cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
-    rows = attributes.as_iters(
+    rows = attributes.as_tuples(
         facility_path,
         field_names=[facility_id_field_name, "SHAPE@"],
         dataset_where_sql=kwargs["facility_where_sql"],
@@ -318,7 +318,7 @@ def closest_facility_route_new(
         field_description[1] = "LONG"
     analysis.addFields(input_type, [field_description])
     cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
-    rows = attributes.as_iters(
+    rows = attributes.as_tuples(
         dataset_path,
         field_names=[id_field_name, "SHAPE@"],
         dataset_where_sql=kwargs["dataset_where_sql"],

@@ -86,7 +86,7 @@ class FeatureMatcher:
         """
         self.assigned = Counter()
         self.matched = Counter(
-            as_iters(dataset_path, id_field_names, dataset_where_sql=dataset_where_sql)
+            as_tuples(dataset_path, id_field_names, dataset_where_sql=dataset_where_sql)
         )
 
     def assigned_count(self, feature_id):
@@ -380,7 +380,7 @@ def coordinate_node_map(
     keys = {"id": list(contain(id_field_names))}
     keys["feature"] = ["SHAPE@", from_id_field_name, to_id_field_name] + keys["id"]
     coordinate_node = {}
-    for feature in as_iters(
+    for feature in as_tuples(
         dataset_path, keys["feature"], dataset_where_sql=kwargs["dataset_where_sql"]
     ):
         _id = tuple(feature[3:])
@@ -470,7 +470,7 @@ def id_node_map(
                 for feature_id in node["ids"][end]:
                     id_nodes[feature_id][keys["node"][end]] = node["node_id"]
     else:
-        for feature in as_iters(
+        for feature in as_tuples(
             dataset_path,
             field_names=keys["feature"],
             dataset_where_sql=kwargs["dataset_where_sql"],
@@ -512,7 +512,7 @@ def id_values(dataset_path, id_field_names, field_names, **kwargs):
     dataset_path = Path(dataset_path)
     keys = {"id": list(contain(id_field_names)), "val": list(contain(field_names))}
     pivot = len(keys["id"])
-    feats = as_iters(
+    feats = as_tuples(
         dataset_path=dataset_path,
         field_names=keys["id"] + keys["val"],
         dataset_where_sql=kwargs.get("dataset_where_sql"),
@@ -742,7 +742,7 @@ def update_by_dominant_overlay(
         if key.startswith("FID_")
     ]
     coverage = {}
-    for oid, overlay_oid, value, area in as_iters(
+    for oid, overlay_oid, value, area in as_tuples(
         temp_output_path, field_names=fid_keys + [overlay_field_name, "SHAPE@AREA"]
     ):
         # Def check for -1 OID (no overlay feature): identity does not set to None.
@@ -1592,7 +1592,7 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = original_tolerance
     oid_overlay_count = dict(
-        as_iters(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
+        as_tuples(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
     )
     dataset.delete(temp_output_path, log_level=logging.DEBUG)
     session = Editor(
