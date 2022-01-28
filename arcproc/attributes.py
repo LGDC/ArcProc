@@ -207,44 +207,6 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
             yield dict(zip(cursor.fields, feature))
 
 
-def as_iters(dataset_path, field_names, **kwargs):
-    """Generate iterables of feature attribute values.
-
-    Notes:
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_names (iter): Collection of field names. The order of the names in the
-            collection will determine where its value will fall in the generated item.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived.
-        iter_type: Iterable type to yield. Default is tuple.
-
-    Yields:
-        iter
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("spatial_reference_item")
-    kwargs.setdefault("iter_type", tuple)
-    keys = {"feature": list(contain(field_names))}
-    cursor = arcpy.da.SearchCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=keys["feature"],
-        where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
-    )
-    with cursor:
-        for feature in cursor:
-            yield kwargs["iter_type"](feature)
-
-
 def as_tuples(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
