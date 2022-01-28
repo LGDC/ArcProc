@@ -199,13 +199,14 @@ def same_value(*values):
     Returns:
         bool: True if same value, False otherwise.
     """
-    # Date-times & floats can have slight variations even when essentially the same.
     if all(isinstance(val, datetime.datetime) for val in values):
+        # Microsecond rounding occurs differently on different data formats. Ignore.
         same = all(
-            abs(val1 - val2).total_seconds() < 10 ** -64
+            getattr(val1, attr) == getattr(val2, attr)
             for val1, val2 in pairwise(values)
+            for attr in ["year", "month", "day", "hour", "minute", "second"]
         )
-    if all(isinstance(val, float) for val in values):
+    elif all(isinstance(val, float) for val in values):
         same = all(math.isclose(val1, val2) for val1, val2 in pairwise(values))
     # Geometry equality has extra considerations.
     elif all(isinstance(val, (arcpy.Geometry, arcpy.Point)) for val in values):
