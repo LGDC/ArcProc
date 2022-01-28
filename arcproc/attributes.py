@@ -6,6 +6,7 @@ import logging
 from operator import itemgetter
 from pathlib import Path
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
+from typing import Any, Iterable, Iterator, Optional, Union
 
 from xsorted import xsorted
 
@@ -242,6 +243,42 @@ def as_iters(dataset_path, field_names, **kwargs):
     with cursor:
         for feature in cursor:
             yield kwargs["iter_type"](feature)
+
+
+def as_tuples(
+    dataset_path: Union[Path, str],
+    field_names: Iterable[str],
+    *,
+    dataset_where_sql: Optional[str] = None,
+    spatial_reference_item: Optional[Any] = None
+) -> Iterator[tuple]:
+    """Generate tuples of feature attribute values.
+
+    Notes:
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
+
+    Args:
+        dataset_path: Path to the dataset.
+        field_names: Collection of field names. The order of the names in the collection
+            will determine where its value will fall in the generated item.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        **kwargs: Arbitrary keyword arguments. See below.
+
+    Keyword Args:
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+    """
+    field_names = list(field_names)
+    dataset_path = Path(dataset_path)
+    cursor = arcpy.da.SearchCursor(
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
+        field_names=field_names,
+        where_clause=dataset_where_sql,
+        spatial_reference=spatial_reference(spatial_reference_item),
+    )
+    with cursor:
+        yield from cursor
 
 
 def as_values(dataset_path, field_names, **kwargs):
