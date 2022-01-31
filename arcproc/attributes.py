@@ -1,6 +1,5 @@
 """Attribute operations."""
 from collections import Counter, defaultdict
-from copy import copy, deepcopy
 from functools import partial
 import logging
 from operator import itemgetter
@@ -27,7 +26,6 @@ from arcproc.helpers import (
     contain,
     log_entity_states,
     property_value,
-    same_feature,
     same_value,
     unique_ids,
     unique_name,
@@ -122,49 +120,6 @@ class FeatureMatcher:
             feature_id (iter): Feature identifier values.
         """
         return self.matched[tuple(contain(feature_id))]
-
-
-def _update_coordinate_node_map(coordinate_node, node_id_field_metadata):
-    """Return updated coordinate/node info map."""
-
-    def _feature_count(node):
-        """Return count of features associated with node."""
-        return len(node["ids"]["from"].union(node["ids"]["to"]))
-
-    ids = {
-        "used": {
-            node["node_id"]
-            for node in coordinate_node.values()
-            if node["node_id"] is not None
-        }
-    }
-    ids["unused"] = (
-        _id
-        for _id in unique_ids(
-            python_type(node_id_field_metadata["type"]),
-            node_id_field_metadata["length"],
-        )
-        if _id not in ids["used"]
-    )
-    coordinate_node = deepcopy(coordinate_node)
-    id_coordinates = {}
-    for coordinates, node in coordinate_node.items():
-        # Assign IDs where missing.
-        if node["node_id"] is None:
-            node["node_id"] = next(ids["unused"])
-        # If ID duplicate, re-ID node with least features.
-        elif node["node_id"] in id_coordinates:
-            other_coord = id_coordinates[node["node_id"]]
-            other_node = copy(coordinate_node[other_coord])
-            new_node_id = next(ids["unused"])
-            if _feature_count(node) > _feature_count(other_node):
-                other_node["node_id"] = new_node_id
-                coordinate_node[other_coord] = other_node
-                id_coordinates[new_node_id] = id_coordinates.pop(node["node_id"])
-            else:
-                node["node_id"] = new_node_id
-        id_coordinates[node["node_id"]] = coordinates
-    return coordinate_node
 
 
 def as_dicts(dataset_path, field_names=None, **kwargs):
@@ -295,152 +250,6 @@ def as_value_count(dataset_path, field_names, **kwargs):
     """
     dataset_path = Path(dataset_path)
     return Counter(as_values(dataset_path, field_names, **kwargs))
-
-
-def coordinate_node_map(
-    dataset_path,
-    from_id_field_name,
-    to_id_field_name,
-    id_field_names=("oid@",),
-    **kwargs
-):
-    """Return mapping of coordinates to node-info dictionary.
-
-    Notes:
-        From & to IDs must be same attribute type.
-        Default output format:
-            {(x, y): {"node_id": <id>, "ids": {"from": set(), "to": set()}}}
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        from_id_field_name (str): Name of the from-ID field.
-        to_id_field_name (str): Name of the to-ID field.
-        id_field_names (iter, str): Name(s) of the ID field(s).
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        update_nodes (bool): Update nodes based on feature geometries if True. Default
-            is False.
-
-    Returns:
-        dict
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("update_nodes", False)
-    meta = {
-        "from_id_field": field_metadata(dataset_path, from_id_field_name),
-        "to_id_field": field_metadata(dataset_path, to_id_field_name),
-    }
-    if meta["from_id_field"]["type"] != meta["to_id_field"]["type"]:
-        raise ValueError("From- and to-ID fields must be of same type.")
-
-    keys = {"id": list(contain(id_field_names))}
-    keys["feature"] = ["SHAPE@", from_id_field_name, to_id_field_name] + keys["id"]
-    coordinate_node = {}
-    for feature in as_tuples(
-        dataset_path, keys["feature"], dataset_where_sql=kwargs["dataset_where_sql"]
-    ):
-        _id = tuple(feature[3:])
-        if len(keys["id"]) == 1:
-            _id = _id[0]
-        geom = feature[0]
-        node_id = {"from": feature[1], "to": feature[2]}
-        coordinate = {
-            "from": (geom.firstPoint.X, geom.firstPoint.Y),
-            "to": (geom.lastPoint.X, geom.lastPoint.Y),
-        }
-        for end in ["from", "to"]:
-            if coordinate[end] not in coordinate_node:
-                # Create new coordinate-node.
-                coordinate_node[coordinate[end]] = {
-                    "node_id": node_id[end],
-                    "ids": defaultdict(set),
-                }
-            # Assign new ID if current is missing.
-            if coordinate_node[coordinate[end]]["node_id"] is None:
-                coordinate_node[coordinate[end]]["node_id"] = node_id[end]
-            # Assign lower ID if different than current.
-            else:
-                coordinate_node[coordinate[end]]["node_id"] = min(
-                    coordinate_node[coordinate[end]]["node_id"], node_id[end]
-                )
-            # Add feature ID to end-ID set.
-            coordinate_node[coordinate[end]]["ids"][end].add(_id)
-    if kwargs["update_nodes"]:
-        coordinate_node = _update_coordinate_node_map(
-            coordinate_node, meta["from_id_field"]
-        )
-    return coordinate_node
-
-
-def id_node_map(
-    dataset_path,
-    from_id_field_name,
-    to_id_field_name,
-    id_field_names=("oid@",),
-    **kwargs
-):
-    """Return mapping of feature ID to from- & to-node ID dictionary.
-
-    Notes:
-        From & to IDs must be same attribute type.
-        Default output format: `{feature_id: {"from": from_node_id, "to": to_node_id}}`
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        from_id_field_name (str): Name of from-ID field.
-        to_id_field_name (str): Name of to-ID field.
-        id_field_names (iter, str): Name(s) of the ID field(s).
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        field_names_as_keys (bool): Use of node ID field names as keys in the map-value
-            if True; use "from" and "to" if False. Default is False.
-        update_nodes (bool): Update nodes based on feature geometries if True. Default
-            is False.
-
-    Returns:
-        dict: Mapping of feature IDs to node-end ID dictionaries.
-            `{feature_id: {"from": from_node_id, "to": to_node_id}}`
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("field_names_as_keys", False)
-    kwargs.setdefault("update_nodes", False)
-    keys = {
-        "id": list(contain(id_field_names)),
-        "node": {
-            "from": from_id_field_name if kwargs["field_names_as_keys"] else "from",
-            "to": to_id_field_name if kwargs["field_names_as_keys"] else "to",
-        },
-    }
-    keys["feature"] = [from_id_field_name, to_id_field_name] + keys["id"]
-    id_nodes = defaultdict(dict)
-    # If updating nodes, need to gather geometry/coordinates.
-    if kwargs["update_nodes"]:
-        coordinate_node = coordinate_node_map(
-            dataset_path, from_id_field_name, to_id_field_name, keys["id"], **kwargs
-        )
-        for node in coordinate_node.values():
-            for end in ["from", "to"]:
-                for feature_id in node["ids"][end]:
-                    id_nodes[feature_id][keys["node"][end]] = node["node_id"]
-    else:
-        for feature in as_tuples(
-            dataset_path,
-            field_names=keys["feature"],
-            dataset_where_sql=kwargs["dataset_where_sql"],
-        ):
-            from_node_id, to_node_id = feature[:2]
-            feature_id = feature[2:]
-            if len(keys["id"]) == 1:
-                feature_id = feature_id[0]
-            id_nodes[feature_id][keys["node"]["from"]] = from_node_id
-            id_nodes[feature_id][keys["node"]["to"]] = to_node_id
-    return id_nodes
 
 
 def id_values(dataset_path, id_field_names, field_names, **kwargs):
@@ -1307,70 +1116,6 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
                     states["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is `%s`", value["new"])
-                    raise
-
-    log_entity_states("attributes", states, LOG, log_level=level)
-    LOG.log(level, "End: Update.")
-    return states
-
-
-def update_by_node_ids(dataset_path, from_id_field_name, to_id_field_name, **kwargs):
-    """Update attribute values by node IDs.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        from_id_field_name (str): Name of the from-ID field.
-        to_id_field_name (str): Name of the to-ID field.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        use_edit_session (bool): Updates are done in an edit session if True. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        collections.Counter: Counts of features for each update-state.
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(
-        level,
-        "Start: Update attributes in `%s.%s` & `%s` by node IDs.",
-        dataset_path,
-        from_id_field_name,
-        to_id_field_name,
-    )
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    keys = {"feature": ["oid@", from_id_field_name, to_id_field_name]}
-    oid_node = id_node_map(
-        dataset_path, from_id_field_name, to_id_field_name, update_nodes=True
-    )
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
-    cursor = arcpy.da.UpdateCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=keys["feature"],
-        where_clause=kwargs["dataset_where_sql"],
-    )
-    states = Counter()
-    with session, cursor:
-        for feature in cursor:
-            value = {"oid": feature[0], "old_nodes": feature[1:]}
-            value["new_nodes"] = [
-                oid_node[value["oid"]]["from"],
-                oid_node[value["oid"]]["to"],
-            ]
-            if same_feature(value["old_nodes"], value["new_nodes"]):
-                states["unchanged"] += 1
-            else:
-                try:
-                    cursor.updateRow([value["oid"]] + value["new_nodes"])
-                    states["altered"] += 1
-                except RuntimeError:
-                    LOG.error("Offending value one of %s", value["new_nodes"])
                     raise
 
     log_entity_states("attributes", states, LOG, log_level=level)

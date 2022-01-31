@@ -1,19 +1,25 @@
 """Network analysis operations."""
+from collections import Counter
+from copy import copy, deepcopy
 import logging
 from pathlib import Path
+from typing import Any, Iterable, Optional, Union
 
 import arcpy
 
 from arcproc.arcobj import (
     ArcExtension,
     DatasetView,
+    Editor,
     dataset_metadata,
     field_metadata,
     linear_unit_string,
+    python_type,
     spatial_reference_metadata,
 )
 from arcproc import attributes
 from arcproc import dataset
+from arcproc.helpers import log_entity_states, same_feature, unique_ids
 
 
 LOG = logging.getLogger(__name__)
@@ -577,3 +583,255 @@ def generate_service_rings(
         )
     LOG.log(level, "End: Generate.")
     return output_path
+
+
+# Node functions.
+
+
+def _updated_coordinates_node_map(
+    coordinates_node: "dict[tuple, dict]",
+    node_id_data_type: Any,
+    node_id_max_length: int,
+) -> "dict[tuple, dict]":
+    """Return updated mapping of coordinates to node info mapping.
+
+    Args:
+        coordinates_node_map: Mapping of coordinates tuple to node information
+            dictionary.
+        node_id_type: Value type for node ID.
+        node_id_max_length: Maximum length for node ID, if ID data type is string.
+    """
+
+    def _feature_count(node: dict) -> int:
+        """Return count of features associated with node."""
+        return len(node["feature_ids"]["from"].union(node["feature_ids"]["to"]))
+
+    used_node_ids = {
+        node["node_id"]
+        for node in coordinates_node.values()
+        if node["node_id"] is not None
+    }
+    open_node_ids = (
+        node_id
+        for node_id in unique_ids(node_id_data_type, node_id_max_length)
+        if node_id not in used_node_ids
+    )
+    coordinates_node = deepcopy(coordinates_node)
+    node_id_coordinates = {}
+    for coordinates, node in coordinates_node.items():
+        # Assign IDs where missing.
+        if node["node_id"] is None:
+            node["node_id"] = next(open_node_ids)
+        # If ID duplicate, re-ID node with least features.
+        elif node["node_id"] in node_id_coordinates:
+            other_coordinates = node_id_coordinates[node["node_id"]]
+            other_node = copy(coordinates_node[other_coordinates])
+            new_node_id = next(open_node_ids)
+            if _feature_count(node) > _feature_count(other_node):
+                other_node["node_id"] = new_node_id
+                coordinates_node[other_coordinates] = other_node
+                node_id_coordinates[new_node_id] = node_id_coordinates.pop(
+                    node["node_id"]
+                )
+            else:
+                node["node_id"] = new_node_id
+        node_id_coordinates[node["node_id"]] = coordinates
+    return coordinates_node
+
+
+def coordinates_node_map(
+    dataset_path: Union[Path, str],
+    from_id_field_name: str,
+    to_id_field_name: str,
+    id_field_names: Iterable[str] = ("OID@",),
+    update_nodes: bool = False,
+    *,
+    dataset_where_sql: Optional[str] = None,
+    spatial_reference_item: Optional[Any] = None,
+) -> "dict[tuple, dict]":
+    """Return mapping of coordinates to node info mapping for dataset.
+
+    Notes:
+        From- & to-node IDs must be same attribute type.
+        Output format:
+            `{(x, y): {"node_id": Any, "feature_ids": {"from": set, "to": set}}}`
+
+    Args:
+        dataset_path: Path to the dataset.
+        from_id_field_name: Name of the from-node ID field.
+        to_id_field_name: Name of the to-node ID field.
+        id_field_names: Names of the feature ID fields.
+        update_nodes: Update nodes based on feature geometries if True.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            coordinates will be derived.
+    """
+    dataset_path = Path(dataset_path)
+    id_field_names = list(id_field_names)
+    node_id_data_type = None
+    node_id_max_length = None
+    for node_id_field_name in [from_id_field_name, to_id_field_name]:
+        _field_metadata = field_metadata(dataset_path, node_id_field_name)
+        if not node_id_data_type:
+            node_id_data_type = python_type(_field_metadata["type"])
+        elif python_type(_field_metadata["type"]) != node_id_data_type:
+            raise ValueError("From- and to-node ID fields must be same type.")
+
+        if node_id_data_type == str:
+            if not node_id_max_length or node_id_max_length > _field_metadata["length"]:
+                node_id_max_length = _field_metadata["length"]
+    coordinate_node = {}
+    for feature in attributes.as_dicts(
+        dataset_path,
+        field_names=id_field_names + [from_id_field_name, to_id_field_name, "SHAPE@"],
+        dataset_where_sql=dataset_where_sql,
+        spatial_reference_item=spatial_reference_item,
+    ):
+        feature["from_id"] = feature[from_id_field_name]
+        feature["to_id"] = feature[to_id_field_name]
+        feature["id"] = tuple(feature[key] for key in id_field_names)
+        feature["from_coordinates"] = (
+            feature["SHAPE@"].firstPoint.X,
+            feature["SHAPE@"].firstPoint.Y,
+        )
+        feature["to_coordinates"] = (
+            feature["SHAPE@"].lastPoint.X,
+            feature["SHAPE@"].lastPoint.Y,
+        )
+        for end in ["from", "to"]:
+            if feature[f"{end}_coordinates"] not in coordinate_node:
+                coordinate_node[feature[f"{end}_coordinates"]] = {
+                    "node_id": feature[f"{end}_id"],
+                    "feature_ids": {"from": set(), "to": set()},
+                }
+            node = coordinate_node[feature[f"{end}_coordinates"]]
+            if node["node_id"] is None:
+                node["node_id"] = feature[f"{end}_id"]
+            # Assign lower node ID if newer is different than current.
+            else:
+                node["node_id"] = min(node, feature[f"{end}_id"])
+            node["feature_ids"][end].add(feature["id"])
+    if update_nodes:
+        coordinate_node = _updated_coordinates_node_map(
+            coordinate_node, node_id_data_type, node_id_max_length
+        )
+    return coordinate_node
+
+
+def id_node_map(
+    dataset_path: Union[Path, str],
+    from_id_field_name: str,
+    to_id_field_name: str,
+    id_field_names: Iterable[str] = ("OID@",),
+    update_nodes: bool = False,
+    *,
+    dataset_where_sql: Optional[str] = None,
+) -> "dict[tuple, dict[str, Any]]":
+    """Return mapping of feature ID to from- & to-node ID dictionary.
+
+    Notes:
+        From- & to-node IDs must be same attribute type.
+        Output format:
+            `{feature_id: {"from": from_node_id, "to": to_node_id}}`
+
+    Args:
+        dataset_path: Path to the dataset.
+        from_id_field_name: Name of the from-node ID field.
+        to_id_field_name: Name of the to-node ID field.
+        id_field_names: Names of the feature ID fields.
+        update_nodes: Update nodes based on feature geometries if True.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+    """
+    dataset_path = Path(dataset_path)
+    id_field_names = list(id_field_names)
+    id_node = {}
+    if update_nodes:
+        coordinate_node = coordinates_node_map(
+            dataset_path,
+            from_id_field_name,
+            to_id_field_name,
+            id_field_names,
+            update_nodes,
+            dataset_where_sql=dataset_where_sql,
+        )
+        for node in coordinate_node.values():
+            for end in ["from", "to"]:
+                for feature_id in node["feature_ids"][end]:
+                    if feature_id not in id_node:
+                        id_node[feature_id] = {}
+                    id_node[feature_id][end] = node["node_id"]
+    else:
+        for feature in attributes.as_dicts(
+            dataset_path,
+            field_names=id_field_names + [from_id_field_name, to_id_field_name],
+            dataset_where_sql=dataset_where_sql,
+        ):
+            feature["from_id"] = feature[from_id_field_name]
+            feature["to_id"] = feature[to_id_field_name]
+            feature["id"] = tuple(feature[key] for key in id_field_names)
+            if len(feature["id"]) == 1:
+                feature["id"] = feature["id"][0]
+            for end in ["from", "to"]:
+                id_node[feature["id"]][end] = feature[f"{end}_id"]
+    return id_node
+
+
+def update_node_ids(
+    dataset_path: Union[Path, str],
+    from_id_field_name: str,
+    to_id_field_name: str,
+    *,
+    dataset_where_sql: Optional[str] = None,
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
+    """Update node ID values.
+
+    Args:
+        dataset_path: Path to the dataset.
+        from_id_field_name: Name of the from-node ID field.
+        to_id_field_name: Name of the to-node ID field.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        use_edit_session: Updates are done in an edit session if True.
+        log_level: Level to log the function at.
+
+    Returns:
+        Counts of features for each update-state.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(
+        log_level,
+        "Start: Update node IDs in `%s` (from) & `%s` (to) for `%s`.",
+        from_id_field_name,
+        to_id_field_name,
+        dataset_path,
+    )
+    cursor = arcpy.da.UpdateCursor(
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
+        field_names=["OID@", from_id_field_name, to_id_field_name],
+        where_clause=dataset_where_sql,
+    )
+    oid_node = id_node_map(
+        dataset_path, from_id_field_name, to_id_field_name, update_nodes=True
+    )
+    session = Editor(dataset_metadata(dataset_path)["workspace_path"], use_edit_session)
+    states = Counter()
+    with session, cursor:
+        for feature in cursor:
+            oid = feature[0]
+            new_feature = (oid, oid_node[oid]["from"], oid_node[oid]["to"])
+            if same_feature(feature, new_feature):
+                states["unchanged"] += 1
+            else:
+                try:
+                    cursor.updateRow(new_feature)
+                    states["altered"] += 1
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"Update cursor failed: Offending row: {new_feature}"
+                    ) from error
+
+    log_entity_states("attributes", states, LOG, log_level=log_level)
+    LOG.log(log_level, "End: Update.")
+    return states
