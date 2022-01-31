@@ -829,7 +829,7 @@ def update_node_ids(
                     states["altered"] += 1
                 except RuntimeError as error:
                     raise RuntimeError(
-                        f"Update cursor failed: Offending row: {new_feature}"
+                        f"Update cursor failed: Offending row: `{new_feature}`"
                     ) from error
 
     log_entity_states("attributes", states, LOG, log_level=log_level)
