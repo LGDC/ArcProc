@@ -25,7 +25,6 @@ from arcproc import dataset
 from arcproc.helpers import (
     contain,
     log_entity_states,
-    property_value,
     same_value,
     unique_ids,
     unique_name,
@@ -890,74 +889,6 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
             else:
                 try:
                     cursor.updateRow(feature[:-1] + [value["new"]])
-                    states["altered"] += 1
-                except RuntimeError:
-                    LOG.error("Offending value is %s", value["new"])
-                    raise
-
-    log_entity_states("attributes", states, LOG, log_level=level)
-    LOG.log(level, "End: Update.")
-    return states
-
-
-def update_by_geometry(dataset_path, field_name, geometry_properties, **kwargs):
-    """Update attribute values by cascading through geometry properties.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        geometry_properties (iter): Geometry property names in object-access order to
-            retrieve the update value.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference for the output
-            geometry property will be derived. If not specified or None, the spatial
-            reference of the dataset is used as the default.
-        use_edit_session (bool): Updates are done in an edit session if True. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        collections.Counter: Counts of features for each update-state.
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("spatial_reference_item")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(
-        level,
-        "Start: Update attributes in `%s.%s` by geometry properties `%s`.",
-        dataset_path,
-        field_name,
-        geometry_properties,
-    )
-    session = Editor(
-        dataset_metadata(dataset_path)["workspace_path"], kwargs["use_edit_session"]
-    )
-    cursor = arcpy.da.UpdateCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=["SHAPE@", field_name],
-        where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
-    )
-    states = Counter()
-    with session, cursor:
-        for feature in cursor:
-            value = {"geometry": feature[0], "old": feature[-1]}
-            value["new"] = property_value(
-                value["geometry"],
-                GEOMETRY_PROPERTY_TRANSFORM,
-                *contain(geometry_properties)
-            )
-            if same_value(value["old"], value["new"]):
-                states["unchanged"] += 1
-            else:
-                try:
-                    cursor.updateRow([value["geometry"], value["new"]])
                     states["altered"] += 1
                 except RuntimeError:
                     LOG.error("Offending value is %s", value["new"])
