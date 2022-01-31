@@ -7,4 +7,3 @@ funcsigs
 more-itertools
 pint
 requests
-xsorted

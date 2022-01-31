@@ -7,8 +7,6 @@ from pathlib import Path
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 from typing import Any, Iterable, Iterator, Optional, Union
 
-from xsorted import xsorted
-
 import arcpy
 
 from arcproc.arcobj import (
@@ -247,49 +245,6 @@ def as_value_count(dataset_path, field_names, **kwargs):
     """
     dataset_path = Path(dataset_path)
     return Counter(as_values(dataset_path, field_names, **kwargs))
-
-
-def id_values(dataset_path, id_field_names, field_names, **kwargs):
-    """Generate tuple with feature ID & attributes value or tuple of values.
-
-    If there is only one field name listed to retrieve values from, value will be
-        returned as itself, rather than in a value-tuple.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of dataset.
-        id_field_names (iter): Ordered collection of fields used to identify a feature.
-        field_names (iter): Ordered collection of fields to attribute to feature.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        sort_by_id (bool): Sort generated tuples in ID order. Default is False.
-        use_external_sort (bool): Use external sort if sort_by_id=True. Helpful for
-            memory management with large datasets. Default is False.
-        dataset_where_sql (str): SQL where-clause for dataset subselection. Default is
-            None.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived. Only relevant if geometry or geometry property are
-            attributed. Default is None (uses spatial reference of the dataset).
-
-    Yields:
-        tuple
-    """
-    dataset_path = Path(dataset_path)
-    keys = {"id": list(contain(id_field_names)), "val": list(contain(field_names))}
-    pivot = len(keys["id"])
-    feats = as_tuples(
-        dataset_path=dataset_path,
-        field_names=keys["id"] + keys["val"],
-        dataset_where_sql=kwargs.get("dataset_where_sql"),
-        spatial_reference_item=kwargs.get("spatial_reference_item"),
-    )
-    if kwargs.get("sort_by_id", False):
-        sort_func = xsorted if kwargs.get("use_external_sort", False) else sorted
-        feats = (feat for feat in sort_func(feats, key=(lambda x: x[:pivot])))
-    for feat in feats:
-        feat_id = tuple(feat[:pivot]) if len(keys["val"]) > 1 else feat[0]
-        feat_vals = tuple(feat[pivot:]) if len(keys["val"]) > 1 else feat[pivot]
-        yield (feat_id, feat_vals)
 
 
 def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
