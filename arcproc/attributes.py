@@ -224,9 +224,6 @@ def as_tuples(
         field_names: Collection of field names. The order of the names in the collection
             will determine where its value will fall in the generated item.
         dataset_where_sql: SQL where-clause for dataset subselection.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived.
     """
