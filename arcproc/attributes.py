@@ -247,58 +247,6 @@ def as_value_count(dataset_path, field_names, **kwargs):
     return Counter(as_values(dataset_path, field_names, **kwargs))
 
 
-def id_values_map(dataset_path, id_field_names, field_names, **kwargs):
-    """Return mapping of feature ID to attribute value or tuple of values.
-
-    Notes:
-        There is no guarantee that the ID value(s) are unique.
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        id_field_names (iter, str): Name(s) of the ID field(s).
-        field_names (iter, str): Name(s) of the field(s).
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived.
-
-    Returns:
-        dict
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("spatial_reference_item")
-    keys = {
-        "id": list(contain(id_field_names)),
-        "attribute": list(contain(field_names)),
-    }
-    cursor = arcpy.da.SearchCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=keys["id"] + keys["attribute"],
-        where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
-    )
-    id_attributes = {}
-    with cursor:
-        for feature in cursor:
-            value = {
-                "id": feature[0]
-                if len(keys["id"]) == 1
-                else feature[: len(keys["id"])],
-                "attributes": (
-                    feature[len(keys["id"])]
-                    if len(keys["attribute"]) == 1
-                    else tuple(feature[len(keys["id"]) :])
-                ),
-            }
-            id_attributes[value["id"]] = value["attributes"]
-    return id_attributes
-
-
 def update_by_central_overlay(
     dataset_path, field_name, overlay_dataset_path, overlay_field_name, **kwargs
 ):
