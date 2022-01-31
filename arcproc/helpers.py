@@ -136,34 +136,6 @@ def log_entity_states(entity_type, states, logger=None, **kwargs):
             logger.log(level, line)
 
 
-def property_value(item, property_transform_map, *properties):
-    """Return value of property via ordered item property tags.
-
-    Args:
-        item: Object to extract the property value from.
-        property_transform_map (dict): Mapping of known substitute properties to a
-            collection of the true properties they stand-in for.
-        *properties: Collection of properties, ordered as they would be on the item
-            itself (e.g. `item.property0.property1...`).
-
-    Returns:
-        Value of the property represented in the ordered properties.
-    """
-    if item is None:
-        return None
-
-    current_val = item
-    for prop in properties:
-        # Replace stand-ins with ordered properties.
-        if isinstance(prop, basestring) and prop in property_transform_map:
-            prop = property_transform_map.get(prop)
-        if isinstance(prop, basestring):
-            current_val = getattr(current_val, prop)
-        elif isinstance(prop, Iterable):
-            current_val = property_value(current_val, property_transform_map, *prop)
-    return current_val
-
-
 def same_feature(*features):
     """Determine whether feature representations are the same.
 
