@@ -164,7 +164,7 @@ def as_tuples(
     field_names: Iterable[str],
     *,
     dataset_where_sql: Optional[str] = None,
-    spatial_reference_item: Optional[Any] = None
+    spatial_reference_item: Optional[Any] = None,
 ) -> Iterator[tuple]:
     """Generate tuples of feature attribute values.
 
@@ -423,9 +423,10 @@ def update_by_central_overlay(
     states = update_by_joined_value(
         dataset_path,
         field_name,
+        key_field_names=["OID@"],
         join_dataset_path=temp_output_path,
         join_field_name=overlay_field_name,
-        on_field_pairs=[("OID@", "TARGET_FID")],
+        join_key_field_names=["TARGET_FID"],
         dataset_where_sql=kwargs.get("dataset_where_sql"),
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
@@ -546,7 +547,7 @@ def update_by_domain_code(
     code_field_name,
     domain_name,
     domain_workspace_path,
-    **kwargs
+    **kwargs,
 ):
     """Update attribute values using a coded-values domain.
 
@@ -898,87 +899,85 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
 
 
 def update_by_joined_value(
-    dataset_path,
-    field_name,
-    join_dataset_path,
-    join_field_name,
-    on_field_pairs,
-    **kwargs
-):
-    """Update attribute values by referencing a joinable field.
+    dataset_path: Union[Path, str],
+    field_name: str,
+    key_field_names: Iterable[str],
+    join_dataset_path: Union[Path, str],
+    join_field_name: str,
+    join_key_field_names: Iterable[str],
+    *,
+    dataset_where_sql: Optional[str] = None,
+    join_dataset_where_sql: Optional[str] = None,
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
+    """Update attribute values by referencing a joinable field in another dataset.
+
+    key_field_names & join_key_field_names must be the same length & same order.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        join_dataset_path (pathlib.Path, str): Path of the join-dataset.
-        join_field_name (str): Name of the join-field.
-        on_field_pairs (iter): Field name pairs used to to determine join.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        join_where_sql (str): SQL where-clause for join-dataset subselection.
-        use_edit_session (bool): Updates are done in an edit session if True. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to the dataset.
+        field_name: Name of the field.
+        key_field_names: Names of the relationship key fields.
+        join_dataset_path: Path to the join-dataset.
+        join_field_name: Name of the join-field.
+        join_key_field_names: Names of the relationship key fields on join-dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        join_dataset_where_sql: SQL where-clause for join-dataset subselection.
+        use_edit_session: Updates are done in an edit session if True.
+        log_level: Level to log the function at.
 
     Returns:
         collections.Counter: Counts of features for each update-state.
     """
     dataset_path = Path(dataset_path)
     join_dataset_path = Path(join_dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
+    key_field_names = list(key_field_names)
+    join_key_field_names = list(join_key_field_names)
     LOG.log(
-        level,
+        log_level,
         "Start: Update attributes in `%s.%s` by joined values in `%s.%s`.",
         dataset_path,
         field_name,
         join_dataset_path,
         join_field_name,
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    keys = {
-        "dataset_id": list(pair[0] for pair in on_field_pairs),
-        "join_id": list(pair[1] for pair in on_field_pairs),
-    }
-    keys["feature"] = keys["dataset_id"] + [field_name]
-    join_value = id_values_map(
-        join_dataset_path,
-        id_field_names=keys["join_id"],
-        field_names=join_field_name,
-        dataset_where_sql=kwargs.get("join_where_sql"),
-    )
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    if len(key_field_names) != len(join_key_field_names):
+        raise AttributeError("id_field_names & join_id_field_names not same length.")
+
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
-        field_names=keys["feature"],
-        where_clause=kwargs["dataset_where_sql"],
+        field_names=key_field_names + [field_name],
+        where_clause=dataset_where_sql,
     )
+    id_join_value = {
+        feature[:-1]: feature[-1]
+        for feature in as_tuples(
+            join_dataset_path,
+            field_names=join_key_field_names + [join_field_name],
+            dataset_where_sql=join_dataset_where_sql,
+        )
+    }
+    session = Editor(dataset_metadata(dataset_path)["workspace_path"], use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
-            value = {
-                "id": (
-                    feature[0] if len(keys["dataset_id"]) == 1 else tuple(feature[:-1])
-                ),
-                "old": feature[-1],
-            }
-            value["new"] = join_value.get(value["id"])
-            if same_value(value["old"], value["new"]):
+            value = feature[-1]
+            new_value = id_join_value.get(tuple(feature[:-1]))
+            if same_value(value, new_value):
                 states["unchanged"] += 1
             else:
                 try:
-                    cursor.updateRow(feature[:-1] + [value["new"]])
+                    cursor.updateRow(feature[:-1] + [new_value])
                     states["altered"] += 1
-                except RuntimeError:
-                    LOG.error("Offending value is `%s`", value["new"])
-                    raise
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"Update cursor failed: Offending value: `{new_value}`"
+                    ) from error
 
-    log_entity_states("attributes", states, LOG, log_level=level)
-    LOG.log(level, "End: Update.")
+    log_entity_states("attributes", states, LOG, log_level=log_level)
+    LOG.log(log_level, "End: Update.")
     return states
 
 

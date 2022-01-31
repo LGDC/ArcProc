@@ -275,9 +275,10 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
                 attributes.update_by_joined_value(
                     output_path,
                     field_name=id_field["name"],
+                    key_field_names=[oid_key],
                     join_dataset_path=dataset_path,
                     join_field_name=kwargs["id_field_name"],
-                    on_field_pairs=[(oid_key, dataset_meta["oid_field_name"])],
+                    join_key_field_names=[dataset_meta["oid_field_name"]],
                     log_level=logging.DEBUG,
                 )
             dataset.delete_field(output_path, oid_key, log_level=logging.DEBUG)
