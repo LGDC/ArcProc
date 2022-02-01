@@ -478,48 +478,57 @@ def update_by_domain_code(
     return states
 
 
-def update_by_expression(dataset_path, field_name, expression, **kwargs):
+def update_by_expression(
+    dataset_path: Union[Path, str],
+    field_name: str,
+    expression: str,
+    expression_type: str = "Python",
+    *,
+    dataset_where_sql: Optional[str] = None,
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> str:
     """Update attribute values using a (single) code-expression.
 
     Wraps arcpy.management.CalculateField.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        expression (str): Python string expression to evaluate values from.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        use_edit_session (bool): Updates are done in an edit session if True. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to the dataset.
+        field_name: Name of the field.
+        expression: String expression to evaluate values from.
+        expression_type: Type of code expression represents. Allowed values include:
+            "Arcade", "Python", "Python3", and "SQL". Case-insensitive.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        use_edit_session: Updates are done in an edit session if True.
+        log_level: Level to log the function at.
 
     Returns:
-        str: Name of the field updated.
+        Name of the field updated.
     """
     dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
+    if expression_type.upper() not in ["ARCADE", "PYTHON", "PYTHON3", "SQL"]:
+        raise AttributeError("Invalid expression_type")
+
     LOG.log(
-        level,
-        "Start: Update attributes in `%s.%s` using expression `%s`.",
+        log_level,
+        "Start: Update attributes in `%s.%s` using %s expression `%s`.",
         dataset_path,
         field_name,
+        expression_type,
         expression,
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
-    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    if expression_type.upper() == "PYTHON":
+        expression_type = "PYTHON3"
+    dataset_view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    session = Editor(dataset_metadata(dataset_path)["workspace_path"], use_edit_session)
     with session, dataset_view:
         arcpy.management.CalculateField(
             in_table=dataset_view.name,
             field=field_name,
             expression=expression,
-            expression_type="PYTHON3",
+            expression_type=expression_type,
         )
-    LOG.log(level, "End: Update.")
+    LOG.log(log_level, "End: Update.")
     return field_name
 
 
@@ -810,7 +819,7 @@ def update_by_joined_value(
         log_level: Level to log the function at.
 
     Returns:
-        collections.Counter: Counts of features for each update-state.
+        Counts of features for each update-state.
     """
     dataset_path = Path(dataset_path)
     join_dataset_path = Path(join_dataset_path)
