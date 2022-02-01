@@ -36,27 +36,6 @@ arcpy.SetLogHistory(False)
 
 EXEC_TYPES = [BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, partial]
 """list: Executable object types. Useful for determining if an object can execute."""
-GEOMETRY_PROPERTY_TRANSFORM = {
-    "x": ["X"],
-    "x-coordinate": ["X"],
-    "x-maximum": ["extent", "XMax"],
-    "xmax": ["extent", "XMax"],
-    "x-minimum": ["extent", "XMin"],
-    "xmin": ["extent", "XMin"],
-    "y": ["Y"],
-    "y-coordinate": ["Y"],
-    "y-maximum": ["extent", "YMax"],
-    "ymax": ["extent", "YMax"],
-    "y-minimum": ["extent", "YMin"],
-    "ymin": ["extent", "YMin"],
-    "z": ["Z"],
-    "z-coordinate": ["Z"],
-    "z-maximum": ["extent", "ZMax"],
-    "zmax": ["extent", "ZMax"],
-    "z-minimum": ["extent", "ZMin"],
-    "zmin": ["extent", "ZMin"],
-}
-"""dict: Mapping of geometry property tag to cascade of geometry object properties."""
 
 
 class FeatureMatcher:
