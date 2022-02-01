@@ -9,7 +9,6 @@ from arcproc.arcobj import (  # noqa: F401
     spatial_reference_metadata,
 )
 from arcproc import attributes  # noqa: F401
-from arcproc import combo  # noqa: F401
 from arcproc import convert  # noqa: F401
 from arcproc import dataset  # noqa: F401
 from arcproc import managers  # noqa: F401
