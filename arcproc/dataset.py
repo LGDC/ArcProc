@@ -62,7 +62,7 @@ def add_field(dataset_path, name, **kwargs):
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Add field `%s` on `%s`.", name, dataset_path)
     if arcpy.ListFields(dataset_path, name):
-        LOG.info("Field already exists.")
+        LOG.log(level, "Field already exists.")
         if not kwargs.get("exist_ok", False):
             raise RuntimeError("Cannot add existing field (exist_ok=False).")
 
