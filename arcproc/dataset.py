@@ -43,7 +43,7 @@ def add_field(dataset_path, name, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        str: Name of the field added.
+        dict: Mapping of field metadata.
 
     Raises:
         RuntimeError: If `exist_ok=False` and field already exists.
@@ -71,7 +71,7 @@ def add_field(dataset_path, name, **kwargs):
         # ArcPy2.8.0: Convert to str.
         arcpy.management.AddField(in_table=str(dataset_path), **add_field_kwargs)
     LOG.log(level, "End: Add.")
-    return name
+    return field_metadata(dataset_path, field_name=name)
 
 
 def add_index(dataset_path, field_names, **kwargs):
