@@ -6,7 +6,6 @@ from arcproc.arcobj import (  # noqa: F401
     DatasetView,
     Editor,
     TempDatasetCopy,
-    spatial_reference_metadata,
 )
 from arcproc import attributes  # noqa: F401
 from arcproc import convert  # noqa: F401

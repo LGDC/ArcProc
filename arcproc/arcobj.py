@@ -702,59 +702,6 @@ def python_type(type_description):
     return instance[type_description.lower()]
 
 
-def spatial_reference(item):
-    """Return ArcPy spatial reference object from a Python reference.
-
-    Args:
-        item (int): Spatial reference ID.
-             (pathlib.Path, str): Path of reference dataset/file.
-             (arcpy.Geometry): Reference geometry object.
-             (arcpy.SpatialReference): Spatial reference object.
-
-    Returns:
-        arcpy.SpatialReference.
-
-    """
-    if item is None:
-        reference_object = None
-    elif isinstance(item, arcpy.SpatialReference):
-        reference_object = item
-    elif isinstance(item, int):
-        reference_object = arcpy.SpatialReference(item)
-    elif isinstance(item, (tuple, list)):
-        reference_object = arcpy.SpatialReference(*item)
-    elif isinstance(item, arcpy.Geometry):
-        reference_object = getattr(item, "spatialReference")
-    else:
-        reference_object = arcpy.SpatialReference(
-            # ArcPy2.8.0: Convert Path to str.
-            getattr(
-                getattr(arcpy.Describe(str(item)), "spatialReference"), "factoryCode"
-            )
-        )
-    return reference_object
-
-
-def spatial_reference_metadata(item):
-    """Return mapping of spatial reference metadata key to value.
-
-    Args:
-        item (int): Spatial reference ID.
-             (pathlib.Path, str): Path of reference dataset/file.
-             (arcpy.Geometry): Reference geometry object.
-             (arcpy.SpatialReference): Spatial reference object.
-
-    Returns:
-        dict.
-    """
-    meta = {"object": spatial_reference(item)}
-    meta["spatial_reference_id"] = getattr(meta["object"], "factoryCode", None)
-    meta["angular_unit"] = getattr(meta["object"], "angularUnitName", None)
-    meta["linear_unit"] = getattr(meta["object"], "linearUnitName", None)
-    meta["wkt"] = meta["object"].exportToString()
-    return meta
-
-
 def workspace_metadata(workspace_path):
     """Return mapping of workspace metadata key to value.
 
