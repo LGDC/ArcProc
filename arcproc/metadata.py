@@ -2,9 +2,11 @@
 from dataclasses import asdict, dataclass, field
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import arcpy
+
+from arcproc.exceptions import DomainNotFoundError
 
 
 __all__ = []
@@ -13,6 +15,58 @@ LOG: logging.Logger = logging.getLogger(__name__)
 """Module-level logger."""
 
 arcpy.SetLogHistory(False)
+
+
+@dataclass
+class Domain:
+    """Representation of geodatabase domain information."""
+
+    geodatabase_path: Union[Path, str]
+    """Path to geodatabase domain resides within."""
+    name: str
+    """Name of the domain."""
+    object: arcpy.da.Domain = field(init=False)
+    """ArcPy spatial reference object."""
+    code_description: "Optional[dict[str, str]]" = field(init=False)
+    """Mapping of coded-value code to its description."""
+    description: str = field(init=False)
+    """Description of the domain."""
+    is_coded_value: bool = field(init=False)
+    """Is coded-value domain if True, False if range domain."""
+    is_range: bool = field(init=False)
+    """Is range domain if True, False if coded-value domain."""
+    owner: str = field(init=False)
+    """Owner of the domain (if enterprise geodatabase)."""
+    range: "tuple[float, float]" = field(init=False)
+    range_minimum: float = field(init=False)
+    range_maximum: float = field(init=False)
+    type: str = field(init=False)
+
+    def __post_init__(self):
+        geodatabase_path = Path(self.geodatabase_path)
+        for domain in arcpy.da.ListDomains(str(geodatabase_path)):
+            if domain.name.lower() == self.name.lower():
+                self.object = domain
+                break
+
+        else:
+            raise DomainNotFoundError(self.geodatabase_path, self.name)
+
+        self.code_description = self.object.codedValues
+        self.description = self.object.description
+        self.is_coded_value = self.object.domainType == "CodedValue"
+        self.is_range = self.object.domainType == "Range"
+        # To ensure property uses internal casing.
+        self.name = self.object.name
+        self.owner = self.object.owner
+        self.range = self.object.range
+        if not self.range:
+            self.range_minimum, self.range_maximum = None, None
+        self.type = self.object.type
+
+    def as_dict(self) -> Union[int, None]:
+        """Return spatial reference as a dictionary."""
+        return asdict(self)
 
 
 @dataclass

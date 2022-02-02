@@ -13,7 +13,6 @@ from arcproc.arcobj import (
     DatasetView,
     Editor,
     dataset_metadata,
-    domain_metadata,
     field_metadata,
     python_type,
 )
@@ -25,7 +24,7 @@ from arcproc.helpers import (
     unique_ids,
     unique_path,
 )
-from arcproc.metadata import SpatialReference
+from arcproc.metadata import Domain, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -462,11 +461,10 @@ def update_by_domain_code(
         code_field_name,
         domain_name,
     )
-    meta = {"domain": domain_metadata(domain_name, domain_workspace_path)}
     states = update_by_function(
         dataset_path,
         field_name,
-        function=meta["domain"]["code_description_map"].get,
+        function=Domain(domain_workspace_path, domain_name).code_description.get,
         field_as_first_arg=False,
         arg_field_names=[code_field_name],
         dataset_where_sql=kwargs["dataset_where_sql"],
