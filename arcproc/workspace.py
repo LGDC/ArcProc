@@ -4,7 +4,7 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import workspace_metadata
+from arcproc.metadata import Workspace
 
 
 LOG = logging.getLogger(__name__)
@@ -55,8 +55,7 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
     level = kwargs.get("log_level", logging.INFO)
     workspace_path = Path(workspace_path)
     LOG.log(level, "Start: Compress workspace `%s`.", workspace_path)
-    workspace_meta = workspace_metadata(workspace_path)
-    if not workspace_meta["is_enterprise_database"]:
+    if not Workspace(workspace_path).is_enterprise_database:
         raise ValueError(f"Compressing `{workspace_path}` unsupported.")
 
     if disconnect_users:
@@ -92,8 +91,7 @@ def copy(workspace_path, output_path, **kwargs):
     output_path = Path(output_path)
     workspace_path = Path(workspace_path)
     LOG.log(level, "Start: Copy workspace `%s` to `%s`.", workspace_path, output_path)
-    workspace_meta = workspace_metadata(workspace_path)
-    if not workspace_meta["can_copy"]:
+    if not Workspace(workspace_path).can_copy:
         raise ValueError(f"`{workspace_path}` unsupported dataset type.")
 
     # ArcPy2.8.0: Convert to str x2.
@@ -318,7 +316,8 @@ def is_valid(workspace_path):
     workspace_path = Path(workspace_path)
     exists = workspace_path and arcpy.Exists(dataset=workspace_path)
     if exists:
-        valid = workspace_metadata(workspace_path)["data_type"] == "Workspace"
+        # ArcPy2.8.0: Conver to str.
+        valid = arcpy.Describe(str(workspace_path)).dataType == "Workspace"
     else:
         valid = False
     return valid

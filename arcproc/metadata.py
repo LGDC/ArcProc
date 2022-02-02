@@ -2,7 +2,7 @@
 from dataclasses import asdict, dataclass, field
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 import arcpy
 
@@ -113,6 +113,78 @@ class SpatialReference:
         self.wkt = getattr(self.object, "exportToString", str)()
         self.angular_unit = getattr(self.object, "angularUnitName", "")
         self.linear_unit = getattr(self.object, "linearUnitName", "")
+
+    def as_dict(self) -> Union[int, None]:
+        """Return spatial reference as a dictionary."""
+        return asdict(self)
+
+
+@dataclass
+class Workspace:
+    """Representation of workspace information."""
+
+    path: Union[Path, str]
+    """Path to workspace."""
+
+    can_copy: bool = field(init=False)
+    """Workspace can be simply copied in filesystem if True."""
+    can_move: bool = field(init=False)
+    """Workspace can be simply moved in filesystem if True."""
+    connection_string: str = field(init=False)
+    """Connection string for enterprise database connection."""
+    domain_names: "list[str]" = field(init=False)
+    """Names of domains within workspace (geodatabase)."""
+    domains: "list[Domain]" = field(init=False)
+    """Metadata objects for domains within workspace (geodatabase)."""
+    factory_prog_id: str = field(init=False)
+    """Workspace factory prog ID. Rarely used outside metadata post-init."""
+    is_enterprise_database: bool = field(init=False)
+    """Workspace is an enterprise database if True."""
+    is_folder: bool = field(init=False)
+    """Workspace is a folder if True."""
+    is_file_geodatabase: bool = field(init=False)
+    """Workspace is a file geodatabase if True."""
+    is_geodatabase: bool = field(init=False)
+    """Workspace is a geodatabase (enterprise, file, or personal) if True."""
+    is_in_memory: bool = field(init=False)
+    """Workspace is the `in_memory` workspace if True."""
+    is_memory: bool = field(init=False)
+    """Workspace is the `memory` workspace if True."""
+    is_personal_geodatabase: bool = field(init=False)
+    """Workspace is a personal geodatabase if True."""
+    name: str = field(init=False)
+    """Name of the workspace."""
+    # Not really `Any` - ArcPy describe objects are not exposed in a way to ref them.
+    object: Any = field(init=False)
+    """ArcPy workspace describe-object.
+
+    Type is `Any` because ArcPy describe-objects are not exposed for reference.
+    """
+
+    def __post_init__(self):
+        # ArcPy 2.8.0: Convert to str.
+        self.object = arcpy.Describe(str(self.path))
+        self.can_copy = self.can_move = self.object.workspaceType in [
+            "FileSystem",
+            "LocalDatabase",
+        ]
+        self.connection_string = self.object.connectionString
+        self.domain_names = self.object.domains
+        self.domains = [
+            Domain(self.object.catalogPath, domain_name)
+            for domain_name in self.domain_names
+        ]
+        self.factory_prog_id = self.object.workspaceFactoryProgID
+        self.name = self.object.name
+        # To ensure property uses internal casing & resolution.
+        self.path = Path(self.object.catalogPath)
+        self.is_enterprise_database = "SdeWorkspace" in self.factory_prog_id
+        self.is_folder = self.factory_prog_id == ""
+        self.is_file_geodatabase = "FileGDBWorkspace" in self.factory_prog_id
+        self.is_geodatabase = "Database" in self.object.workspaceType
+        self.is_in_memory = "InMemoryWorkspace" in self.factory_prog_id
+        self.is_memory = "ColumnaDBWorkspace" in self.factory_prog_id
+        self.is_personal_geodatabase = "AccessWorkspace" in self.factory_prog_id
 
     def as_dict(self) -> Union[int, None]:
         """Return spatial reference as a dictionary."""
