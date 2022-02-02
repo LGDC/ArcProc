@@ -10,9 +10,9 @@ from arcproc.arcobj import (
     DatasetView,
     dataset_metadata,
     field_metadata,
-    spatial_reference,
 )
 from arcproc.helpers import contain
+from arcproc.metadata import SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -312,7 +312,7 @@ def create(dataset_path, field_metadata_list=None, geometry_type=None, **kwargs)
                 if isinstance(kwargs["spatial_reference_item"], (tuple, list))
                 else "DISABLED"
             ),
-            spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
+            spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
         )
     else:
         arcpy.management.CreateTable(

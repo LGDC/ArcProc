@@ -8,11 +8,12 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import DatasetView, dataset_metadata, spatial_reference
+from arcproc.arcobj import DatasetView, dataset_metadata
 from arcproc import attributes
 from arcproc import dataset
 from arcproc import features
 from arcproc.helpers import contain, log_entity_states, unique_name
+from arcproc.metadata import SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
         geometry_type="MULTIPOINT",
         # ArcPy2.8.0: Convert to str.
         template=str(dataset_path),
-        spatial_reference=spatial_reference(dataset_path),
+        spatial_reference=SpatialReference(dataset_path).object,
     )
     field_names = dataset_metadata(dataset_path)["user_field_names"] + ["SHAPE@"]
     multipoint_cursor = arcpy.da.InsertCursor(
@@ -309,12 +310,12 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     output_path = Path(output_path)
     kwargs.setdefault("dataset_where_sql")
     level = kwargs.get("log_level", logging.INFO)
-    sref = spatial_reference(spatial_reference_item)
+    spatial_reference = SpatialReference(spatial_reference_item)
     LOG.log(
         level,
-        "Start: Project `%s` to srid=%s in `%s`.",
+        "Start: Project `%s` to WKID=%s in `%s`.",
         dataset_path,
-        sref.factoryCode,
+        spatial_reference.wkid,
         output_path,
     )
     # Project tool cannot output to an in-memory workspace (will throw error 000944).
@@ -330,7 +331,7 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         dataset_path=output_path,
         field_metadata_list=dataset_meta["user_fields"],
         geometry_type=dataset_meta["geometry_type"],
-        spatial_reference_item=sref,
+        spatial_reference_item=spatial_reference.object,
         log_level=logging.DEBUG,
     )
     features.insert_from_path(
@@ -472,7 +473,7 @@ def table_to_points(
         in_x_field=x_field_name,
         in_y_field=y_field_name,
         in_z_field=kwargs["z_field_name"],
-        spatial_reference=spatial_reference(spatial_reference_item),
+        spatial_reference=SpatialReference(spatial_reference_item).object,
     )
     dataset.copy(layer_name, output_path, log_level=logging.DEBUG)
     dataset.delete(layer_name, log_level=logging.DEBUG)

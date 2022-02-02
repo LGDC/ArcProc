@@ -14,6 +14,7 @@ import arcpy
 from arcproc.exceptions import DatasetNotExistsError, FieldNotExistsError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
+from arcproc.metadata import SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -652,7 +653,7 @@ def linear_unit(measure_string, spatial_reference_item):
     """
     str_measure, str_unit = measure_string.split(" ")
     reference_unit = getattr(
-        spatial_reference(spatial_reference_item), "linearUnitName", "Unknown"
+        SpatialReference(spatial_reference_item), "linear_unit", "Unknown"
     )
     meter_measure = float(str_measure) * geometry.RATIO["meter"][str_unit.lower()]
     measure = meter_measure / geometry.RATIO["meter"][reference_unit.lower()]
@@ -671,7 +672,7 @@ def linear_unit_string(measure, spatial_reference_item):
         str.
     """
     reference_unit = getattr(
-        spatial_reference(spatial_reference_item), "linearUnitName", "Unknown"
+        SpatialReference(spatial_reference_item), "linear_unit", "Unknown"
     )
     return "{} {}".format(measure, reference_unit)
 

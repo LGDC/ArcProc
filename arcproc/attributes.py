@@ -16,7 +16,6 @@ from arcproc.arcobj import (
     domain_metadata,
     field_metadata,
     python_type,
-    spatial_reference,
 )
 from arcproc import dataset
 from arcproc.helpers import (
@@ -26,6 +25,7 @@ from arcproc.helpers import (
     unique_ids,
     unique_path,
 )
+from arcproc.metadata import SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
         in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
+        spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
     )
     with cursor:
         for feature in cursor:
@@ -163,7 +163,7 @@ def as_tuples(
         in_table=str(dataset_path),
         field_names=field_names,
         where_clause=dataset_where_sql,
-        spatial_reference=spatial_reference(spatial_reference_item),
+        spatial_reference=SpatialReference(spatial_reference_item).object,
     )
     with cursor:
         yield from cursor
@@ -199,7 +199,7 @@ def as_values(dataset_path, field_names, **kwargs):
         in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
+        spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
     )
     with cursor:
         for feature in cursor:
@@ -683,7 +683,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
         in_table=str(dataset_path),
         field_names=[field_name, source_field_name],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
+        spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
     )
     states = Counter()
     with session, cursor:
@@ -761,7 +761,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         in_table=str(dataset_path),
         field_names=keys["feature"],
         where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=spatial_reference(kwargs["spatial_reference_item"]),
+        spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
     )
     states = Counter()
     with session, cursor:

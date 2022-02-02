@@ -15,11 +15,11 @@ from arcproc.arcobj import (
     field_metadata,
     linear_unit_string,
     python_type,
-    spatial_reference_metadata,
 )
 from arcproc import attributes
 from arcproc import dataset
 from arcproc.helpers import log_entity_states, same_feature, unique_ids
+from arcproc.metadata import SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -267,9 +267,7 @@ def closest_facility_route_new(
     )
     analysis = arcpy.nax.ClosestFacility(network_path)
     analysis.defaultImpedanceCutoff = kwargs["max_cost"]
-    distance_units = UNIT_PLURAL[
-        spatial_reference_metadata(dataset_path)["linear_unit"]
-    ]
+    distance_units = UNIT_PLURAL[SpatialReference(dataset_path).linear_unit]
     analysis.distanceUnits = getattr(arcpy.nax.DistanceUnits, distance_units)
     analysis.ignoreInvalidLocations = True
     if kwargs["travel_from_facility"]:

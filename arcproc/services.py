@@ -7,8 +7,8 @@ import requests
 
 import arcpy
 
-from arcproc.arcobj import spatial_reference
 from arcproc.helpers import contain
+from arcproc.metadata import SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -40,10 +40,7 @@ def as_dicts(url, field_names=None, **kwargs):
         field_names = "*"
     else:
         field_names = list(contain(field_names))
-    if kwargs.get("spatial_reference_item"):
-        wkid = spatial_reference(kwargs["spatial_reference_item"]).factoryCode
-    else:
-        wkid = None
+    wkid = SpatialReference(kwargs.get("spatial_reference_item")).wkid
     feature_layer = arcgis.features.FeatureLayer(url)
     feature_set = feature_layer.query(
         where=kwargs.get("service_where_sql", "1=1"),
