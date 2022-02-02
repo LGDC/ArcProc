@@ -461,12 +461,11 @@ def update_by_domain_code(
         code_field_name,
         domain_name,
     )
-    states = update_by_function(
+    states = update_by_mapping(
         dataset_path,
         field_name,
-        function=Domain(domain_workspace_path, domain_name).code_description.get,
-        field_as_first_arg=False,
-        arg_field_names=[code_field_name],
+        mapping=Domain(domain_workspace_path, domain_name).code_description,
+        key_field_names=[code_field_name],
         dataset_where_sql=kwargs["dataset_where_sql"],
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
