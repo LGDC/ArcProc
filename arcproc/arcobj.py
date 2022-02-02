@@ -682,18 +682,3 @@ def python_type(type_description):
         "text": str,
     }
     return instance[type_description.lower()]
-
-
-def workspace_metadata(workspace_path):
-    """Return mapping of workspace metadata key to value.
-
-    Args:
-        workspace_path (pathlib.Path, str): Path of workspace.
-
-    Returns:
-        dict.
-    """
-    workspace_path = Path(workspace_path)
-    # ArcPy 2.8.0: Convert to str.
-    workspace_object = arcpy.Describe(str(workspace_path))
-    return _workspace_object_metadata(workspace_object)
