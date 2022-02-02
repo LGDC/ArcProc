@@ -11,6 +11,7 @@ import uuid
 
 import arcpy
 
+from arcproc.exceptions import FieldNotExistsError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
 
@@ -631,8 +632,8 @@ def field_metadata(dataset_path, field_name):
     dataset_path = Path(dataset_path)
     try:
         field_object = arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
-    except IndexError:
-        raise AttributeError(f"Field {field_name} not present on {dataset_path}")
+    except IndexError as error:
+        raise FieldNotExistsError(dataset_path, field_name) from error
 
     return _field_object_metadata(field_object)
 
