@@ -172,57 +172,6 @@ def densify(dataset_path, distance, only_curve_features=False, **kwargs):
     return states
 
 
-def densify_curves(dataset_path, **kwargs):
-    """Convert curves in feature geometry to regular segments of densified vertices.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        tolerance (float): Tolerance for maximum offset, in units of the dataset.
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        collections.Counter: Counts of features for each replace-state.
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("tolerance")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Densify feature geometry curves in `%s`.", dataset_path)
-    cursor = arcpy.da.UpdateCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=["SHAPE@"],
-        where_clause=kwargs["dataset_where_sql"],
-    )
-    session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
-    )
-    states = Counter()
-    with session, cursor:
-        for (geometry,) in cursor:
-            if geometry and geometry.hasCurves:
-                new_geometry = geometry.densify(
-                    method="DISTANCE",
-                    distance=1000000000.0,
-                    deviation=kwargs["tolerance"],
-                )
-                cursor.updateRow((new_geometry,))
-                states["densified"] += 1
-            else:
-                states["unchanged"] += 1
-    log_entity_states("features", states, LOG, log_level=level)
-    LOG.log(level, "End: Densify.")
-    return states
-
-
 def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
     """Dissolve geometry of features that share values in given fields.
 
