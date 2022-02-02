@@ -11,7 +11,7 @@ import uuid
 
 import arcpy
 
-from arcproc.exceptions import DatasetNotExistsError, FieldNotExistsError
+from arcproc.exceptions import DatasetNotFoundError, FieldNotFoundError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
 from arcproc.metadata import SpatialReference
@@ -587,7 +587,7 @@ def dataset_metadata(dataset_path):
     """
     dataset_path = Path(dataset_path)
     if not arcpy.Exists(dataset_path):
-        raise DatasetNotExistsError(dataset_path)
+        raise DatasetNotFoundError(dataset_path)
 
     try:
         # ArcPy2.8.0: Convert to str.
@@ -634,7 +634,7 @@ def field_metadata(dataset_path, field_name):
     try:
         field_object = arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
     except IndexError as error:
-        raise FieldNotExistsError(dataset_path, field_name) from error
+        raise FieldNotFoundError(dataset_path, field_name) from error
 
     return _field_object_metadata(field_object)
 
