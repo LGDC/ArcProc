@@ -4,6 +4,7 @@ import inspect
 from itertools import chain
 import logging
 from pathlib import Path
+from typing import Optional, Union
 
 import pint
 
@@ -33,71 +34,37 @@ UPDATE_TYPES = ["deleted", "inserted", "altered", "unchanged"]
 """list of str: Types of feature updates commonly associated wtth update counters."""
 
 
-def delete(dataset_path, **kwargs):
+def delete(
+    dataset_path: Union[Path, str],
+    *,
+    dataset_where_sql: Optional[str] = None,
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
     """Delete features in the dataset.
 
     Args:
         dataset_path (pathlib.Path, str): Path of the dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        use_edit_session: Updates are done in an edit session if True.
+        log_level: Level to log the function at.
 
     Returns:
-        collections.Counter: Counts of features for each delete-state.
+        Counts of features for each delete-state.
     """
     dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Delete features from `%s`.", dataset_path)
-    truncate_error_codes = [
-        # "Only supports Geodatabase tables and feature classes."
-        "ERROR 000187",
-        # "Operation not supported on a versioned table."
-        "ERROR 001259",
-        # "Operation not supported on table {table name}."
-        "ERROR 001260",
-        # Operation not supported on a feature class in a controller dataset.
-        "ERROR 001395",
-        # Only the data owner may execute truncate.
-        "ERROR 001400",
-    ]
-    states = Counter()
-    # Can use (faster) truncate when no sub-selection or edit session.
-    run_truncate = (
-        kwargs["dataset_where_sql"] is None and kwargs["use_edit_session"] is False
+    LOG.log(log_level, "Start: Delete features from `%s`.", dataset_path)
+    session = arcobj.Editor(
+        arcobj.dataset_metadata(dataset_path)["workspace_path"],
+        use_edit_session=use_edit_session,
     )
-    if run_truncate:
-        states["deleted"] = dataset.feature_count(dataset_path)
-        states["unchanged"] = 0
-        try:
-            # ArcPy2.8.0: Convert to str.
-            arcpy.management.TruncateTable(in_table=str(dataset_path))
-        except arcpy.ExecuteError:
-            # Avoid arcpy.GetReturnCode(); error code position inconsistent.
-            # Search messages for 'ERROR ######' instead.
-            if any(code in arcpy.GetMessages() for code in truncate_error_codes):
-                LOG.debug("Truncate unsupported; will try deleting rows.")
-                run_truncate = False
-                states.clear()
-            else:
-                raise
-
-    if not run_truncate:
-        view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
-        session = arcobj.Editor(
-            arcobj.dataset_metadata(dataset_path)["workspace_path"],
-            kwargs["use_edit_session"],
-        )
-        with view, session:
-            states["deleted"] = view.count
-            arcpy.management.DeleteRows(in_rows=view.name)
-    log_entity_states("features", states, LOG, log_level=level)
-    LOG.log(level, "End: Delete.")
+    states = Counter()
+    view = arcobj.DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    with view, session:
+        states["deleted"] = view.count
+        arcpy.management.DeleteRows(in_rows=view.name)
+    log_entity_states("features", states, LOG, log_level=log_level)
+    LOG.log(log_level, "End: Delete.")
     return states
 
 
