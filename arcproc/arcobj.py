@@ -598,24 +598,6 @@ def dataset_metadata(dataset_path):
     return _dataset_object_metadata(dataset_object)
 
 
-def domain_metadata(domain_name, workspace_path):
-    """Return mapping dataset metadata key to value.
-
-    Args:
-        domain_name (str): Name of domain.
-        workspace_path (pathlib.Path, str): Path of workspace domain is in.
-
-    Returns:
-        dict
-    """
-    workspace_path = Path(workspace_path)
-    for domain_object in arcpy.da.ListDomains(workspace_path):
-        if domain_object.name.lower() == domain_name.lower():
-            return _domain_object_metadata(domain_object)
-
-    raise ValueError(f"Domain `{domain_name}` does not exist on workspace")
-
-
 def field_metadata(dataset_path, field_name):
     """Return dictionary of field metadata.
 

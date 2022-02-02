@@ -4,7 +4,7 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import domain_metadata, workspace_metadata
+from arcproc.arcobj import workspace_metadata
 
 
 LOG = logging.getLogger(__name__)
@@ -264,9 +264,6 @@ def dataset_paths(workspace_path, **kwargs):
         for dataset_name in _dataset_names:
             if kwargs["name_validator"](dataset_name):
                 yield root_path / dataset_name
-
-
-domain_metadata = domain_metadata  # pylint: disable=invalid-name
 
 
 def execute_sql(statement, database_path, **kwargs):
