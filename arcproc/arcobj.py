@@ -488,29 +488,6 @@ def _dataset_object_metadata(dataset_object):
     return meta
 
 
-def _domain_object_metadata(domain_object):
-    """Return mapping of domain metadata key to value.
-
-    Args:
-        domain_object: Workspace domain object.
-
-    Returns:
-        dict.
-    """
-    meta = {"object": domain_object}
-    meta["name"] = getattr(meta["object"], "name")
-    meta["description"] = getattr(meta["object"], "description")
-    meta["owner"] = getattr(meta["object"], "owner")
-    meta["is_coded_value"] = getattr(meta["object"], "domainType") == "CodedValue"
-    meta["is_range"] = getattr(meta["object"], "domainType") == "Range"
-    # meta["merge_policy"] = getattr(meta["object"], "mergePolicy")
-    # meta["split_policy"] = getattr(meta["object"], "splitPolicy")
-    meta["code_description_map"] = getattr(meta["object"], "codedValues", {})
-    meta["range"] = getattr(meta["object"], "range", [])
-    meta["type"] = getattr(meta["object"], "type")
-    return meta
-
-
 def _field_object_metadata(field_object):
     """Return mapping of field metadata key to value.
 
@@ -534,45 +511,6 @@ def _field_object_metadata(field_object):
         key_attribute_name[key] = key
     for key, attribute_name in key_attribute_name.items():
         meta[key] = getattr(field_object, attribute_name)
-    return meta
-
-
-def _workspace_object_metadata(workspace_object):
-    """Return mapping of workspace metadata key to value.
-
-    Args:
-        workspace_object: ArcPy geoprocessing describe data object for workspace.
-
-    Returns:
-        dict.
-    """
-    meta = {"object": workspace_object}
-    meta["factory_prog_id"] = getattr(meta["object"], "workspaceFactoryProgID", "")
-    meta["name"] = getattr(meta["object"], "name")
-    meta["path"] = Path(getattr(meta["object"], "catalogPath"))
-    meta["data_type"] = getattr(meta["object"], "dataType")
-    meta["is_geodatabase"] = any(
-        [
-            "AccessWorkspace" in meta["factory_prog_id"],
-            "FileGDBWorkspace" in meta["factory_prog_id"],
-            "SdeWorkspace" in meta["factory_prog_id"],
-        ]
-    )
-    meta["is_folder"] = meta["factory_prog_id"] == ""
-    meta["is_file_geodatabase"] = "FileGDBWorkspace" in meta["factory_prog_id"]
-    meta["is_enterprise_database"] = "SdeWorkspace" in meta["factory_prog_id"]
-    meta["is_personal_geodatabase"] = "AccessWorkspace" in meta["factory_prog_id"]
-    meta["is_in_memory"] = "InMemoryWorkspace" in meta["factory_prog_id"]
-    meta["is_memory"] = "ColumnaDBWorkspace" in meta["factory_prog_id"]
-    meta["can_copy"] = any(
-        meta["is_{}".format(key)]
-        for key in ["folder", "file_geodatabase", "personal_geodatabase"]
-    )
-    meta["can_move"] = meta["can_copy"]
-    meta["domains"] = [
-        _domain_object_metadata(domain) for domain in arcpy.da.ListDomains(meta["path"])
-    ]
-    meta["domain_names"] = [domain["name"] for domain in meta["domains"]]
     return meta
 
 
