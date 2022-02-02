@@ -11,7 +11,7 @@ import uuid
 
 import arcpy
 
-from arcproc.exceptions import FieldNotExistsError
+from arcproc.exceptions import DatasetNotExistsError, FieldNotExistsError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
 
@@ -586,7 +586,7 @@ def dataset_metadata(dataset_path):
     """
     dataset_path = Path(dataset_path)
     if not arcpy.Exists(dataset_path):
-        raise FileNotFoundError(f"dataset_path `{dataset_path}` does not exist")
+        raise DatasetNotExistsError(dataset_path)
 
     try:
         # ArcPy2.8.0: Convert to str.
