@@ -2,7 +2,7 @@
 from dataclasses import asdict, dataclass, field
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import arcpy
 
@@ -25,9 +25,10 @@ class Domain:
     """Path to geodatabase domain resides within."""
     name: str
     """Name of the domain."""
+
     object: arcpy.da.Domain = field(init=False)
-    """ArcPy spatial reference object."""
-    code_description: "Optional[dict[str, str]]" = field(init=False)
+    """ArcPy domain object."""
+    code_description: "Union[dict[str, str], None]" = field(init=False)
     """Mapping of coded-value code to its description."""
     description: str = field(init=False)
     """Description of the domain."""
@@ -76,6 +77,7 @@ class SpatialReference:
 
     source_item: Union[int, arcpy.Geometry, arcpy.SpatialReference, Path, str, None]
     """Source item to construct spatial reference object from."""
+
     object: arcpy.SpatialReference = field(init=False)
     """ArcPy spatial reference object."""
     name: str = field(init=False)
