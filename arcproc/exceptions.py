@@ -18,6 +18,25 @@ class DatasetNotFoundError(Exception):
         return f"{self.dataset_path} -> {self.message}"
 
 
+class DomainNotFoundError(Exception):
+    """Exception raised when domain not found in given geodatabase.
+
+    Attributes:
+        geodatabase_path: Path to geodatabase expected to have the domain.
+        domain_name: Name of the not-found domain.
+        message: Explanation of the error.
+    """
+
+    def __init__(self, geodatabase_path, domain_name, message="Domain not found"):
+        self.geodatabase_path = geodatabase_path
+        self.domain_name = domain_name
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f"{self.domain_name} in {self.geodatabase_path} -> {self.message}"
+
+
 class FieldNotFoundError(Exception):
     """Exception raised when field not found on given dataset.
 
