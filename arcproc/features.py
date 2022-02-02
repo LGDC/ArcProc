@@ -33,61 +33,6 @@ UPDATE_TYPES = ["deleted", "inserted", "altered", "unchanged"]
 """list of str: Types of feature updates commonly associated wtth update counters."""
 
 
-def buffer(dataset_path, distance, dissolve_field_names=None, **kwargs):
-    """Buffer features a given distance & (optionally) dissolve on given fields.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        distance (float): Distance to buffer from feature, in the units of the dataset.
-        dissolve_field_names (iter): Iterable of field names to dissolve on.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        pathlib.Path: Path of the dataset updated.
-    """
-    dataset_path = Path(dataset_path)
-    dissolve_field_names = list(contain(dissolve_field_names))
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("use_edit_session", False)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Buffer features in `%s`.", dataset_path)
-    if dissolve_field_names:
-        LOG.log(level, "Dissolve on fields `%s`.", dissolve_field_names)
-    view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    temp_output_path = unique_path("output")
-    with view:
-        arcpy.analysis.Buffer(
-            in_features=view.name,
-            # ArcPy2.8.0: Convert to str.
-            out_feature_class=str(temp_output_path),
-            buffer_distance_or_field=distance,
-            dissolve_option="LIST" if dissolve_field_names else "NONE",
-            dissolve_field=dissolve_field_names,
-        )
-    session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
-    )
-    with session:
-        delete(
-            dataset_path,
-            dataset_where_sql=kwargs["dataset_where_sql"],
-            log_level=logging.DEBUG,
-        )
-        insert_from_path(
-            dataset_path, insert_dataset_path=temp_output_path, log_level=logging.DEBUG
-        )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
-    LOG.log(level, "End: Buffer.")
-    return dataset_path
-
-
 def delete(dataset_path, **kwargs):
     """Delete features in the dataset.
 
