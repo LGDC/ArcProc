@@ -80,6 +80,7 @@ class SpatialReference:
     name: str = field(init=False)
     """Name of the spatial reference."""
     wkid: Union[int, None] = field(init=False)
+    """Well-known ID (WKID) for the spatial reference."""
     wkt: str = field(init=False)
     """Spatial reference as well-known text (WKT)."""
     angular_unit: str = field(init=False)
@@ -104,7 +105,6 @@ class SpatialReference:
         # Allowing NoneType objects just tells ArcPy SR arguments to use dataset SR.
         if self.source_item is None:
             self.object = None
-
         self.name = getattr(self.object, "name", "")
         self.wkid = getattr(self.object, "factoryCode", None)
         self.wkt = getattr(self.object, "exportToString", str)()
