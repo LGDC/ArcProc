@@ -66,8 +66,9 @@ class Domain:
             self.range_minimum, self.range_maximum = None, None
         self.type = self.object.type
 
+    @property
     def as_dict(self) -> dict:
-        """Return as a dictionary."""
+        """Metadata as dictionary."""
         return asdict(self)
         return asdict(self)
 
@@ -115,8 +116,9 @@ class SpatialReference:
         self.angular_unit = getattr(self.object, "angularUnitName", "")
         self.linear_unit = getattr(self.object, "linearUnitName", "")
 
+    @property
     def as_dict(self) -> dict:
-        """Return as a dictionary."""
+        """Metadata as dictionary."""
         return asdict(self)
 
 
@@ -187,6 +189,7 @@ class Workspace:
         self.is_memory = "ColumnaDBWorkspace" in self.factory_prog_id
         self.is_personal_geodatabase = "AccessWorkspace" in self.factory_prog_id
 
+    @property
     def as_dict(self) -> dict:
-        """Return as a dictionary."""
+        """Metadata as dictionary."""
         return asdict(self)
