@@ -2,7 +2,7 @@
 from dataclasses import asdict, dataclass, field
 import logging
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import arcpy
 
@@ -21,13 +21,13 @@ arcpy.SetLogHistory(False)
 class Domain:
     """Representation of geodatabase domain information."""
 
-    geodatabase_path: Union[Path, str]
+    geodatabase_path: Optional[Union[Path, str]] = None
     """Path to geodatabase the domain resides within."""
-    name: str
+    name: Optional[str] = None
     """Name of the domain."""
-
-    object: arcpy.da.Domain = field(init=False)
+    object: Optional[arcpy.da.Domain] = None
     """ArcPy domain object."""
+
     code_description: "Union[dict[str, str], None]" = field(init=False)
     """Mapping of coded-value code to its description."""
     description: str = field(init=False)
@@ -48,14 +48,18 @@ class Domain:
     """Domain value type."""
 
     def __post_init__(self):
-        self.geodatabase_path = Path(self.geodatabase_path)
-        for domain in arcpy.da.ListDomains(self.geodatabase_path):
-            if domain.name.lower() == self.name.lower():
-                self.object = domain
-                break
+        if not any([self.geodatabase_path and self.name, self.object]):
+            raise AttributeError("Must provide `geodatabase_path` + `name` or `object`")
 
-        else:
-            raise DomainNotFoundError(self.geodatabase_path, self.name)
+        if self.geodatabase_path and self.name:
+            self.geodatabase_path = Path(self.geodatabase_path)
+            for domain in arcpy.da.ListDomains(self.geodatabase_path):
+                if domain.name.lower() == self.name.lower():
+                    self.object = domain
+                    break
+
+            else:
+                raise DomainNotFoundError(self.geodatabase_path, self.name)
 
         self.code_description = self.object.codedValues
         self.description = self.object.description
@@ -79,13 +83,13 @@ class Domain:
 class Field:
     """Representation of dataset field information."""
 
-    dataset_path: Union[Path, str]
+    dataset_path: Optional[Union[Path, str]] = None
     """Path to dataset the field resides within."""
-    name: str
+    name: Optional[str] = None
     """Name of the field."""
-
-    object: arcpy.Field = field(init=False)
+    object: Optional[arcpy.Field] = None
     """ArcPy field object."""
+
     alias: str = field(init=False)
     "Alias name of the field."
     default_value: Any = field(init=False)
@@ -106,14 +110,18 @@ class Field:
     "Field value type."
 
     def __post_init__(self):
-        self.dataset_path = Path(self.dataset_path)
-        for _field in arcpy.ListFields(self.dataset_path, wild_card=self.name):
-            if _field.name.lower() == self.name.lower():
-                self.object = _field
-                break
+        if not any([self.dataset_path and self.name, self.object]):
+            raise AttributeError("Must provide `dataset_path` + `name` or `object`")
 
-        else:
-            raise FieldNotFoundError(self.dataset_path, self.name)
+        if self.dataset_path and self.name:
+            self.dataset_path = Path(self.dataset_path)
+            for _field in arcpy.ListFields(self.dataset_path, wild_card=self.name):
+                if _field.name.lower() == self.name.lower():
+                    self.object = _field
+                    break
+
+            else:
+                raise FieldNotFoundError(self.dataset_path, self.name)
 
         self.alias = self.object.aliasName
         self.default_value = self.object.defaultValue
@@ -170,6 +178,7 @@ class SpatialReference:
         # Allowing NoneType objects just tells ArcPy SR arguments to use dataset SR.
         if self.source_item is None:
             self.object = None
+
         self.name = getattr(self.object, "name", "")
         self.wkid = getattr(self.object, "factoryCode", None)
         self.wkt = getattr(self.object, "exportToString", str)()
@@ -186,8 +195,13 @@ class SpatialReference:
 class Workspace:
     """Representation of workspace information."""
 
-    path: Union[Path, str]
+    path: Optional[Union[Path, str]] = None
     """Path to workspace."""
+    object: Optional[Any] = None
+    """ArcPy workspace describe-object.
+
+    Type is `Any` because ArcPy describe-objects are not exposed for reference.
+    """
 
     can_copy: bool = field(init=False)
     """Workspace can be simply copied in filesystem if True."""
@@ -217,16 +231,15 @@ class Workspace:
     """Workspace is a personal geodatabase if True."""
     name: str = field(init=False)
     """Name of the workspace."""
-    # Not really `Any` - ArcPy describe objects are not exposed in a way to ref them.
-    object: Any = field(init=False)
-    """ArcPy workspace describe-object.
-
-    Type is `Any` because ArcPy describe-objects are not exposed for reference.
-    """
 
     def __post_init__(self):
-        # ArcPy 2.8.0: Convert to str.
-        self.object = arcpy.Describe(str(self.path))
+        if not any([self.path, self.object]):
+            raise AttributeError("Must provide `path` or `object`")
+
+        if self.path:
+            # ArcPy 2.8.0: Convert to str.
+            self.object = arcpy.Describe(str(self.path))
+
         self.can_copy = self.can_move = self.object.workspaceType in [
             "FileSystem",
             "LocalDatabase",
