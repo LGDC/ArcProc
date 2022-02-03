@@ -4,9 +4,10 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc import arcobj
+from arcproc.arcobj import DatasetView
 from arcproc import attributes
 from arcproc import dataset
+from arcproc.dataset import TempDatasetCopy
 from arcproc import features
 from arcproc.helpers import unique_name, unique_path
 
@@ -64,8 +65,8 @@ def identity(
         identity_dataset_path,
         identity_field_name,
     )
-    dataset_view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    identity_copy = arcobj.TempDatasetCopy(
+    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    identity_copy = TempDatasetCopy(
         identity_dataset_path,
         dataset_where_sql=kwargs["identity_where_sql"],
         field_names=[identity_field_name],
@@ -184,8 +185,8 @@ def overlay(
     if kwargs["overlay_most_coincident"]:
         raise NotImplementedError("overlay_most_coincident not yet implemented")
 
-    dataset_view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    overlay_copy = arcobj.TempDatasetCopy(
+    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    overlay_copy = TempDatasetCopy(
         overlay_dataset_path,
         kwargs["overlay_where_sql"],
         field_names=[overlay_field_name],
@@ -291,8 +292,8 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
         union_dataset_path,
         union_field_name,
     )
-    dataset_view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    union_copy = arcobj.TempDatasetCopy(
+    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    union_copy = TempDatasetCopy(
         union_dataset_path, kwargs["union_where_sql"], field_names=[union_field_name]
     )
     with dataset_view, union_copy:

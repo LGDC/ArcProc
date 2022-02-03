@@ -1,5 +1,6 @@
 """Dataset operations."""
 from collections import Counter
+from contextlib import ContextDecorator
 from functools import partial
 import logging
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 import arcpy
 
 from arcproc.arcobj import DatasetView
-from arcproc.helpers import contain
+from arcproc.helpers import contain, unique_path
 from arcproc.metadata import Dataset, Field, SpatialReference
 
 
@@ -15,6 +16,93 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 arcpy.SetLogHistory(False)
+
+
+class TempDatasetCopy(ContextDecorator):
+    """Context manager for a temporary copy of a dataset.
+
+    Attributes:
+        path (pathlib.Path): Path of the dataset copy.
+        dataset (arcproc.metadata.Dataset): Metadata instance for the original dataset.
+        dataset_path (pathlib.Path): Path of the original dataset.
+        field_names (list): Field names to include in copy.
+        is_spatial (bool): Flag indicating if the view is spatial.
+        where_sql (str): SQL where-clause property of copy subselection.
+    """
+
+    def __init__(self, dataset_path, dataset_where_sql=None, **kwargs):
+        """Initialize instance.
+
+        Note:
+            To make a temp dataset without copying any template rows:
+            `dataset_where_sql="0=1"`
+
+        Args:
+            dataset_path (pathlib.Path, str): Path of dataset to copy.
+            dataset_where_sql (str): SQL where-clause for dataset subselection.
+            **kwargs: Arbitrary keyword arguments. See below.
+
+        Keyword Args:
+            output_path (pathlib.Path, str): Path of the dataset to create. Default is
+                None (auto-generate path)
+            field_names (iter): Field names to include in copy. If field_names not
+                specified, all fields will be included.
+            force_nonspatial (bool): True to force a nonspatial copy, False otherwise.
+                Default is False.
+        """
+        dataset_path = Path(dataset_path)
+        self.path = Path(kwargs.get("output_path", unique_path("temp")))
+        self.dataset = Dataset(dataset_path)
+        self.dataset_path = dataset_path
+        self.field_names = list(kwargs.get("field_names", self.dataset.field_names))
+        self.is_spatial = self.dataset.is_spatial and not kwargs.get(
+            "force_nonspatial", False
+        )
+        self.where_sql = dataset_where_sql
+
+    def __enter__(self):
+        self.create()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.discard()
+
+    @property
+    def exists(self):
+        """bool: True if dataset currently exists, False otherwise."""
+        return arcpy.Exists(self.path)
+
+    def create(self):
+        """Create dataset.
+
+        Returns:
+            bool: True if copy created, False otherwise.
+        """
+        if self.is_spatial:
+            func = arcpy.management.CopyFeatures
+        else:
+            func = arcpy.management.CopyRows
+        view = DatasetView(
+            self.dataset_path,
+            dataset_where_sql=self.where_sql,
+            field_names=self.field_names,
+            force_nonspatial=(not self.is_spatial),
+        )
+        with view:
+            # ArcPy2.8.0: Convert to str.
+            func(view.name, str(self.path))
+        return self.exists
+
+    def discard(self):
+        """Discard dataset.
+
+        Returns:
+            bool: True if copy discarded, False otherwise.
+        """
+        if self.exists:
+            # ArcPy2.8.0: Convert to str.
+            arcpy.management.Delete(str(self.path))
+        return not self.exists
 
 
 def add_field(dataset_path, name, **kwargs):
