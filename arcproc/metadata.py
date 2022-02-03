@@ -49,8 +49,7 @@ class Domain:
 
     def __post_init__(self):
         self.geodatabase_path = Path(self.geodatabase_path)
-        # ArcPy 2.8.0: Convert to str.
-        for domain in arcpy.da.ListDomains(str(self.geodatabase_path)):
+        for domain in arcpy.da.ListDomains(self.geodatabase_path):
             if domain.name.lower() == self.name.lower():
                 self.object = domain
                 break
