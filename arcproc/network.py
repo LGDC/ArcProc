@@ -9,7 +9,6 @@ import arcpy
 
 from arcproc.arcobj import (
     DatasetView,
-    Editor,
     linear_unit_string,
     python_type,
 )
@@ -17,6 +16,7 @@ from arcproc import attributes
 from arcproc import dataset
 from arcproc.helpers import log_entity_states, same_feature, unique_ids
 from arcproc.metadata import Dataset, Field, SpatialReference
+from arcproc.workspace import Editing
 
 
 LOG = logging.getLogger(__name__)
@@ -806,7 +806,7 @@ def update_node_ids(
     oid_node = id_node_map(
         dataset_path, from_id_field_name, to_id_field_name, update_nodes=True
     )
-    session = Editor(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:

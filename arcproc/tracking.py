@@ -8,11 +8,11 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc import arcobj
 from arcproc import attributes
 from arcproc import features
 from arcproc.helpers import contain, log_entity_states, same_value
 from arcproc.metadata import Dataset
+from arcproc.workspace import Editing
 
 
 LOG = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     states = Counter()
     # Could replace cursor with features.update_from_iters if that function adds a
     # dataset_where_sql keyword argument.
-    session = arcobj.Editor(
+    session = Editing(
         Dataset(dataset_path).workspace_path, kwargs.get("use_edit_session", False)
     )
     cursor = arcpy.da.UpdateCursor(

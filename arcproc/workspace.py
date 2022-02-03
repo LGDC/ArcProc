@@ -1,4 +1,5 @@
 """Workspace operations."""
+from contextlib import ContextDecorator
 import logging
 from pathlib import Path
 
@@ -11,6 +12,66 @@ LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
 arcpy.SetLogHistory(False)
+
+
+class Editing(ContextDecorator):
+    """Context manager for editing features.
+
+    Attributes:
+        workspace_path (pathlib.Path, str): Path for the editing workspace.
+    """
+
+    def __init__(self, workspace_path, use_edit_session=True):
+        """Initialize instance.
+
+        Args:
+            workspace_path (pathlib.Path, str): Path for the editing workspace.
+            use_edit_session (bool): True if edits are to be made in an edit session,
+                False otherwise.
+        """
+        workspace_path = Path(workspace_path)
+        self._editor = arcpy.da.Editor(workspace_path) if use_edit_session else None
+        self.workspace_path = workspace_path
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.stop(save_changes=(False if exception_type else True))
+
+    @property
+    def active(self):
+        """bool: Flag indicating whether edit session is active."""
+        return self._editor.isEditing if self._editor else False
+
+    def start(self):
+        """Start an active edit session.
+
+        Returns:
+            bool: True if session is active, False otherwise.
+        """
+        if self._editor and not self._editor.isEditing:
+            self._editor.startEditing(with_undo=True, multiuser_mode=True)
+            self._editor.startOperation()
+        return self.active
+
+    def stop(self, save_changes=True):
+        """Stop an active edit session.
+
+        Args:
+            save_changes (bool): True if edits should be saved, False otherwise.
+
+        Returns:
+            bool: True if session not active, False otherwise.
+        """
+        if self._editor and self._editor.isEditing:
+            if save_changes:
+                self._editor.stopOperation()
+            else:
+                self._editor.abortOperation()
+            self._editor.stopEditing(save_changes)
+        return not self.active
 
 
 def build_locator(locator_path, **kwargs):

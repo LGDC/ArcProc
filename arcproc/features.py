@@ -10,7 +10,7 @@ import pint
 
 import arcpy
 
-from arcproc import arcobj
+from arcproc.arcobj import DatasetView
 from arcproc import attributes
 from arcproc import dataset
 from arcproc.helpers import (
@@ -22,6 +22,7 @@ from arcproc.helpers import (
     unique_path,
 )
 from arcproc.metadata import Dataset
+from arcproc.workspace import Editing
 
 
 LOG = logging.getLogger(__name__)
@@ -55,11 +56,11 @@ def delete(
     """
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Delete features from `%s`.", dataset_path)
-    session = arcobj.Editor(
+    session = Editing(
         Dataset(dataset_path).workspace_path, use_edit_session=use_edit_session,
     )
     states = Counter()
-    view = arcobj.DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view, session:
         states["deleted"] = view.count
         arcpy.management.DeleteRows(in_rows=view.name)
@@ -101,7 +102,7 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
     if delete_ids:
         # ArcPy2.8.0: Convert to str.
         cursor = arcpy.da.UpdateCursor(str(dataset_path), field_names=id_field_names)
-        session = arcobj.Editor(
+        session = Editing(
             Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
         )
         with session, cursor:
@@ -149,7 +150,7 @@ def densify(dataset_path, distance, only_curve_features=False, **kwargs):
         field_names=["SHAPE@"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    session = arcobj.Editor(_dataset.workspace_path, kwargs["use_edit_session"])
+    session = Editing(_dataset.workspace_path, kwargs["use_edit_session"])
     states = Counter()
     with session, cursor:
         for (geometry,) in cursor:
@@ -203,7 +204,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
         dissolve_field_names,
     )
     original_tolerance = arcpy.env.XYTolerance
-    view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     temp_output_path = unique_path("output")
     with view:
         if "tolerance" in kwargs:
@@ -218,9 +219,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
         )
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = original_tolerance
-    session = arcobj.Editor(
-        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
-    )
+    session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     with session:
         delete(
             dataset_path,
@@ -277,7 +276,7 @@ def eliminate_interior_rings(
         condition = "AREA"
     else:
         condition = "PERCENT"
-    view = arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
     temp_output_path = unique_path("output")
     with view:
         arcpy.management.EliminatePolygonPart(
@@ -289,9 +288,7 @@ def eliminate_interior_rings(
             part_area_percent=max_percent_total_area,
             part_option="CONTAINED_ONLY",
         )
-    session = arcobj.Editor(
-        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
-    )
+    session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     with session:
         delete(
             dataset_path,
@@ -340,8 +337,8 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         erase_dataset_path,
     )
     view = {
-        "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "erase": arcobj.DatasetView(erase_dataset_path, kwargs["erase_where_sql"]),
+        "dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"]),
+        "erase": DatasetView(erase_dataset_path, kwargs["erase_where_sql"]),
     }
     temp_output_path = unique_path("output")
     with view["dataset"], view["erase"]:
@@ -352,9 +349,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
             out_feature_class=str(temp_output_path),
             cluster_tolerance=kwargs["tolerance"],
         )
-    session = arcobj.Editor(
-        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
-    )
+    session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     with session:
         delete(
             dataset_path,
@@ -437,9 +432,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
         insert_features = insert_features()
     # ArcPy2.8.0: Convert to str.
     cursor = arcpy.da.InsertCursor(in_table=str(dataset_path), field_names=field_names)
-    session = arcobj.Editor(
-        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
-    )
+    session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     states = Counter()
     with session, cursor:
         for row in insert_features:
@@ -513,16 +506,14 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         field_map = arcpy.FieldMap()
         field_map.addInputField(insert_dataset_path, field_name)
         field_mapping.addFieldMap(field_map)
-    view = arcobj.DatasetView(
+    view = DatasetView(
         insert_dataset_path,
         dataset_where_sql=kwargs["insert_where_sql"],
         view_name=unique_name("view"),
         # Must be nonspatial to append to nonspatial table.
         force_nonspatial=(not _datasets["dataset"].is_spatial),
     )
-    session = arcobj.Editor(
-        _datasets["dataset"].workspace_path, kwargs["use_edit_session"]
-    )
+    session = Editing(_datasets["dataset"].workspace_path, kwargs["use_edit_session"])
     with view, session:
         arcpy.management.Append(
             inputs=view.name,
@@ -567,14 +558,10 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         dataset_path,
         location_dataset_path,
     )
-    session = arcobj.Editor(
-        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
-    )
+    session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     view = {
-        "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "location": arcobj.DatasetView(
-            location_dataset_path, kwargs["location_where_sql"]
-        ),
+        "dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"]),
+        "location": DatasetView(location_dataset_path, kwargs["location_where_sql"]),
     }
     with session, view["dataset"], view["location"]:
         arcpy.management.SelectLayerByLocation(
@@ -705,9 +692,7 @@ def update_from_iters(
         ids["delete"] = {_id for _id in ids["dataset"] if _id not in feats["id_update"]}
     else:
         ids["delete"] = set()
-    session = arcobj.Editor(
-        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
-    )
+    session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     states = Counter()
     if ids["delete"] or feats["id_update"]:
         cursor = arcpy.da.UpdateCursor(
@@ -834,7 +819,7 @@ def update_from_path(
         field_names=id_field_names + field_names,
         dataset_where_sql=kwargs["update_where_sql"],
     )
-    view = arcobj.DatasetView(
+    view = DatasetView(
         dataset_path,
         dataset_where_sql=kwargs["dataset_where_sql"],
         field_names=id_field_names + field_names,
