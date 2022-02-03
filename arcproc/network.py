@@ -8,7 +8,6 @@ from typing import Any, Iterable, Optional, Union
 import arcpy
 
 from arcproc.arcobj import (
-    ArcExtension,
     DatasetView,
     Editor,
     linear_unit_string,
@@ -192,12 +191,11 @@ def closest_facility_route(
     dataset_oid_id = dict(
         attributes.as_tuples("closest/Incidents", field_names=["OID@", "dataset_id"])
     )
-    with ArcExtension("Network"):
-        arcpy.na.Solve(
-            in_network_analysis_layer="closest",
-            ignore_invalids=True,
-            terminate_on_solve_error=True,
-        )
+    arcpy.na.Solve(
+        in_network_analysis_layer="closest",
+        ignore_invalids=True,
+        terminate_on_solve_error=True,
+    )
     cursor = arcpy.da.SearchCursor("closest/Routes", field_names=keys["cursor"])
     with cursor:
         for row in cursor:
@@ -213,7 +211,6 @@ def closest_facility_route(
     LOG.log(level, "End: Generate.")
 
 
-@ArcExtension("Network")
 def closest_facility_route_new(
     dataset_path,
     id_field_name,
@@ -363,7 +360,6 @@ def closest_facility_route_new(
     LOG.log(level, "End: Generate.")
 
 
-@ArcExtension("Network")
 def generate_service_areas(
     dataset_path, output_path, network_path, cost_attribute, max_distance, **kwargs
 ):
@@ -467,7 +463,6 @@ def generate_service_areas(
     return output_path
 
 
-@ArcExtension("Network")
 def generate_service_rings(
     dataset_path,
     output_path,

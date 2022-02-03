@@ -1,11 +1,6 @@
 """Processing framework library based on ArcGIS/ArcPy."""
 import arcproc.arcobj
-from arcproc.arcobj import (  # noqa: F401
-    ArcExtension,
-    DatasetView,
-    Editor,
-    TempDatasetCopy,
-)
+from arcproc.arcobj import DatasetView, Editor, TempDatasetCopy  # noqa: F401
 import arcproc.attributes
 import arcproc.convert
 import arcproc.dataset
