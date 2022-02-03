@@ -11,7 +11,6 @@ import uuid
 
 import arcpy
 
-from arcproc.exceptions import DatasetNotFoundError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
 from arcproc.metadata import Dataset, SpatialReference
@@ -419,119 +418,6 @@ class TempDatasetCopy(ContextDecorator):
             # ArcPy2.8.0: Convert to str.
             arcpy.management.Delete(str(self.path))
         return not self.exists
-
-
-def _dataset_object_metadata(dataset_object):
-    """Return mapping of dataset metadata key to value.
-
-    Args:
-        dataset_object: ArcPy geoprocessing describe data object for dataset.
-
-    Returns:
-        dict.
-    """
-    meta = {"object": dataset_object}
-    meta["name"] = getattr(meta["object"], "name", None)
-    meta["path"] = Path(getattr(meta["object"], "catalogPath"))
-    meta["data_type"] = getattr(meta["object"], "dataType")
-    meta["workspace_path"] = Path(getattr(meta["object"], "path"))
-    # Do not use getattr here! Tables sometimes don"t have OIDs.
-    meta["is_table"] = hasattr(meta["object"], "hasOID")
-    meta["is_versioned"] = getattr(meta["object"], "isVersioned", False)
-    meta["oid_field_name"] = getattr(meta["object"], "OIDFieldName", None)
-    meta["is_spatial"] = hasattr(meta["object"], "shapeType")
-    meta["geometry_type"] = getattr(meta["object"], "shapeType", None)
-    meta["geom_type"] = meta["geometry_type"]
-    meta["geometry_field_name"] = getattr(meta["object"], "shapeFieldName", None)
-    meta["geom_field_name"] = meta["geometry_field_name"]
-    for key in ["area", "length"]:
-        meta[key + "_field_name"] = getattr(meta["object"], key + "FieldName", None)
-        if meta[key + "_field_name"] == "":
-            meta[key + "_field_name"] = None
-    meta["field_token"] = {}
-    system_field_tokens = {
-        "oid": "OID@",
-        "geom": "SHAPE@",
-        "area": "SHAPE@AREA",
-        "length": "SHAPE@LENGTH",
-    }
-    for key, token in system_field_tokens.items():
-        if meta[key + "_field_name"]:
-            meta["field_token"][meta[key + "_field_name"]] = token
-    meta["fields"] = [
-        _field_object_metadata(field) for field in getattr(meta["object"], "fields", [])
-    ]
-    meta["field_names"] = [field["name"] for field in meta["fields"]]
-    meta["field_names_tokenized"] = [
-        meta["field_token"].get(name, name) for name in meta["field_names"]
-    ]
-    meta["user_fields"] = [
-        field
-        for field in meta["fields"]
-        if field["name"]
-        not in [meta[key + "_field_name"] for key in system_field_tokens]
-    ]
-    meta["user_field_names"] = [field["name"] for field in meta["user_fields"]]
-    if hasattr(meta["object"], "spatialReference"):
-        # Must do the SpatialReference call, to convert "geoprocessing spatial reference
-        # object" (which cannot be used as spatial reference in ArcPy GP tools). to
-        # "SpatialReference object" (which can).
-        meta["spatial_reference"] = arcpy.SpatialReference(
-            getattr(getattr(meta["object"], "spatialReference"), "factoryCode")
-        )
-        meta["spatial_reference_id"] = getattr(meta["spatial_reference"], "factoryCode")
-    else:
-        meta["spatial_reference"] = None
-        meta["spatial_reference_id"] = None
-    return meta
-
-
-def _field_object_metadata(field_object):
-    """Return mapping of field metadata key to value.
-
-    Args:
-        field_object (arcpy.Field): ArcPy field object.
-
-    Returns:
-        dict.
-    """
-    meta = {"object": field_object}
-    key_attribute_name = {
-        "alias_name": "aliasName",
-        "base_name": "baseName",
-        "default_value": "defaultValue",
-        "is_editable": "editable",
-        "is_nullable": "isNullable",
-        "is_required": "required",
-    }
-    key_attribute_same = ["name", "type", "length", "precision", "scale"]
-    for key in key_attribute_same:
-        key_attribute_name[key] = key
-    for key, attribute_name in key_attribute_name.items():
-        meta[key] = getattr(field_object, attribute_name)
-    return meta
-
-
-def dataset_metadata(dataset_path):
-    """Return mapping of dataset metadata key to value.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-
-    Returns:
-        dict
-    """
-    dataset_path = Path(dataset_path)
-    if not arcpy.Exists(dataset_path):
-        raise DatasetNotFoundError(dataset_path)
-
-    try:
-        # ArcPy2.8.0: Convert to str.
-        dataset_object = arcpy.Describe(str(dataset_path), "Table")
-    except OSError:
-        # ArcPy2.8.0: Convert to str.
-        dataset_object = arcpy.Describe(str(dataset_path), "TableView")
-    return _dataset_object_metadata(dataset_object)
 
 
 def linear_unit(measure_string, spatial_reference_item):
