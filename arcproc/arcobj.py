@@ -11,7 +11,7 @@ import uuid
 
 import arcpy
 
-from arcproc.exceptions import DatasetNotFoundError, FieldNotFoundError
+from arcproc.exceptions import DatasetNotFoundError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
 from arcproc.metadata import SpatialReference
@@ -534,29 +534,6 @@ def dataset_metadata(dataset_path):
         # ArcPy2.8.0: Convert to str.
         dataset_object = arcpy.Describe(str(dataset_path), "TableView")
     return _dataset_object_metadata(dataset_object)
-
-
-def field_metadata(dataset_path, field_name):
-    """Return dictionary of field metadata.
-
-    Note:
-        Field name is case-insensitive.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-
-    Returns:
-        dict
-
-    """
-    dataset_path = Path(dataset_path)
-    try:
-        field_object = arcpy.ListFields(dataset=dataset_path, wild_card=field_name)[0]
-    except IndexError as error:
-        raise FieldNotFoundError(dataset_path, field_name) from error
-
-    return _field_object_metadata(field_object)
 
 
 def linear_unit(measure_string, spatial_reference_item):
