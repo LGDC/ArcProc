@@ -6,7 +6,7 @@ from typing import Any, Union
 
 import arcpy
 
-from arcproc.exceptions import DomainNotFoundError
+from arcproc.exceptions import DomainNotFoundError, FieldNotFoundError
 
 
 __all__ = []
@@ -73,6 +73,63 @@ class Domain:
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
         return asdict(self)
+
+
+@dataclass
+class Field:
+    """Representation of dataset field information."""
+
+    dataset_path: Union[Path, str]
+    """Path to dataset the field resides within."""
+    name: str
+    """Name of the field."""
+
+    object: arcpy.Field = field(init=False)
+    """ArcPy field object."""
+    alias: str = field(init=False)
+    "Alias name of the field."
+    default_value: Any = field(init=False)
+    "Default value of the field."
+    is_editable: bool = field(init=False)
+    """The field is editable if True."""
+    is_nullable: bool = field(init=False)
+    """The field is NULL-able if True."""
+    is_required: bool = field(init=False)
+    """The field is required if True."""
+    length: int = field(init=False)
+    """Length of the field."""
+    precision: int = field(init=False)
+    """Precision for field values."""
+    scale: int = field(init=False)
+    """Scale of the field."""
+    type: str = field(init=False)
+    "Field value type."
+
+    def __post_init__(self):
+        self.dataset_path = Path(self.dataset_path)
+        for _field in arcpy.ListFields(self.dataset_path, wild_card=self.name):
+            if _field.name.lower() == self.name.lower():
+                self.object = _field
+                break
+
+        else:
+            raise FieldNotFoundError(self.dataset_path, self.name)
+
+        self.alias = self.object.aliasName
+        self.default_value = self.object.defaultValue
+        self.is_editable = self.object.editable
+        self.is_nullable = self.object.isNullable
+        self.is_required = self.object.required
+        self.length = self.object.length
+        # To ensure property uses internal casing.
+        self.name = self.object.name
+        self.precision = self.object.precision
+        self.scale = self.object.scale
+        self.type = self.object.type
+
+    @property
+    def as_dict(self) -> dict:
+        """Metadata as dictionary."""
         return asdict(self)
 
 

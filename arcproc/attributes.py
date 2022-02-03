@@ -13,7 +13,6 @@ from arcproc.arcobj import (
     DatasetView,
     Editor,
     dataset_metadata,
-    field_metadata,
     python_type,
 )
 from arcproc import dataset
@@ -24,7 +23,7 @@ from arcproc.helpers import (
     unique_ids,
     unique_path,
 )
-from arcproc.metadata import Domain, SpatialReference
+from arcproc.metadata import Domain, Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -1059,7 +1058,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
     )
     meta = {
         "dataset": dataset_metadata(dataset_path),
-        "field": field_metadata(dataset_path, field_name),
+        "field": Field(dataset_path, field_name),
     }
     session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
@@ -1079,8 +1078,8 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                 else:
                     used_ids.add(id_value)
             id_pool = unique_ids(
-                data_type=python_type(meta["field"]["type"]),
-                string_length=meta["field"].get("length"),
+                data_type=python_type(meta["field"].type),
+                string_length=meta["field"].length,
                 initial_number=(
                     max(used_ids) + 1
                     if kwargs["start_after_max_number"]

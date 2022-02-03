@@ -12,14 +12,13 @@ from arcproc.arcobj import (
     DatasetView,
     Editor,
     dataset_metadata,
-    field_metadata,
     linear_unit_string,
     python_type,
 )
 from arcproc import attributes
 from arcproc import dataset
 from arcproc.helpers import log_entity_states, same_feature, unique_ids
-from arcproc.metadata import SpatialReference
+from arcproc.metadata import Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -117,8 +116,8 @@ def closest_facility_route(
     )
     meta = {
         "id_field": {
-            "dataset": field_metadata(dataset_path, id_field_name),
-            "facility": field_metadata(facility_path, facility_id_field_name),
+            "dataset": Field(dataset_path, id_field_name),
+            "facility": Field(facility_path, facility_id_field_name),
         }
     }
     keys = {
@@ -153,10 +152,10 @@ def closest_facility_route(
             in_network_analysis_layer="closest",
             sub_layer="Facilities",
             field_name="facility_id",
-            field_type=meta["id_field"]["facility"]["type"],
-            field_precision=meta["id_field"]["facility"]["precision"],
-            field_scale=meta["id_field"]["facility"]["scale"],
-            field_length=meta["id_field"]["facility"]["length"],
+            field_type=meta["id_field"]["facility"].type,
+            field_precision=meta["id_field"]["facility"].precision,
+            field_scale=meta["id_field"]["facility"].scale,
+            field_length=meta["id_field"]["facility"].length,
             field_is_nullable=True,
         )
         arcpy.na.AddLocations(
@@ -176,10 +175,10 @@ def closest_facility_route(
             in_network_analysis_layer="closest",
             sub_layer="Incidents",
             field_name="dataset_id",
-            field_type=meta["id_field"]["dataset"]["type"],
-            field_precision=meta["id_field"]["dataset"]["precision"],
-            field_scale=meta["id_field"]["dataset"]["scale"],
-            field_length=meta["id_field"]["dataset"]["length"],
+            field_type=meta["id_field"]["dataset"].type,
+            field_precision=meta["id_field"]["dataset"].precision,
+            field_scale=meta["id_field"]["dataset"].scale,
+            field_length=meta["id_field"]["dataset"].length,
             field_is_nullable=True,
         )
         arcpy.na.AddLocations(
@@ -276,7 +275,7 @@ def closest_facility_route_new(
     analysis.travelMode = arcpy.nax.GetTravelModes(network_path)[travel_mode]
     # Load facilities.
     input_type = arcpy.nax.ClosestFacilityInputDataType.Facilities
-    field_meta = field_metadata(
+    field = Field(
         facility_path,
         dataset_metadata(facility_path)["oid_field_name"]
         if facility_id_field_name.upper() == "OID@"
@@ -284,9 +283,9 @@ def closest_facility_route_new(
     )
     field_description = [
         "source_id",
-        field_meta["type"],
+        field.type,
         "#",
-        field_meta["length"],
+        field.length,
         "#",
         "#",
     ]
@@ -304,7 +303,7 @@ def closest_facility_route_new(
             cursor.insertRow(row)
     # Load dataset locations.
     input_type = arcpy.nax.ClosestFacilityInputDataType.Incidents
-    field_meta = field_metadata(
+    field = Field(
         dataset_path,
         dataset_metadata(dataset_path)["oid_field_name"]
         if id_field_name.upper() == "OID@"
@@ -312,9 +311,9 @@ def closest_facility_route_new(
     )
     field_description = [
         "source_id",
-        field_meta["type"],
+        field.type,
         "#",
-        field_meta["length"],
+        field.length,
         "#",
         "#",
     ]
@@ -455,12 +454,12 @@ def generate_service_areas(
     dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
-        meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
-        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
+        id_field = Field(dataset_path, kwargs["id_field_name"])
+        dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.as_dict)
         attributes.update_by_function(
             output_path,
-            field_name=meta["id_field"]["name"],
-            function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
+            field_name=id_field.name,
+            function=TYPE_ID_FUNCTION_MAP[id_field.type],
             field_as_first_arg=False,
             arg_field_names=["Name"],
             log_level=logging.DEBUG,
@@ -569,12 +568,12 @@ def generate_service_rings(
     dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
     dataset.delete("service_area", log_level=logging.DEBUG)
     if kwargs["id_field_name"]:
-        meta = {"id_field": field_metadata(dataset_path, kwargs["id_field_name"])}
-        dataset.add_field(output_path, log_level=logging.DEBUG, **meta["id_field"])
+        id_field = Field(dataset_path, kwargs["id_field_name"])
+        dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.as_dict)
         attributes.update_by_function(
             output_path,
-            meta["id_field"]["name"],
-            function=TYPE_ID_FUNCTION_MAP[meta["id_field"]["type"]],
+            id_field.name,
+            function=TYPE_ID_FUNCTION_MAP[id_field.type],
             field_as_first_arg=False,
             arg_field_names=["Name"],
             log_level=logging.DEBUG,
@@ -669,15 +668,15 @@ def coordinates_node_map(
     node_id_data_type = None
     node_id_max_length = None
     for node_id_field_name in [from_id_field_name, to_id_field_name]:
-        _field_metadata = field_metadata(dataset_path, node_id_field_name)
+        field = Field(dataset_path, node_id_field_name)
         if not node_id_data_type:
-            node_id_data_type = python_type(_field_metadata["type"])
-        elif python_type(_field_metadata["type"]) != node_id_data_type:
+            node_id_data_type = python_type(field.type)
+        elif python_type(field.type) != node_id_data_type:
             raise ValueError("From- and to-node ID fields must be same type.")
 
         if node_id_data_type == str:
-            if not node_id_max_length or node_id_max_length > _field_metadata["length"]:
-                node_id_max_length = _field_metadata["length"]
+            if not node_id_max_length or node_id_max_length > field.length:
+                node_id_max_length = field.length
     coordinate_node = {}
     for feature in attributes.as_dicts(
         dataset_path,

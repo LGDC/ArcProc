@@ -9,10 +9,9 @@ import arcpy
 from arcproc.arcobj import (
     DatasetView,
     dataset_metadata,
-    field_metadata,
 )
 from arcproc.helpers import contain
-from arcproc.metadata import SpatialReference
+from arcproc.metadata import Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -43,7 +42,7 @@ def add_field(dataset_path, name, **kwargs):
         log_level (int): Level to log the function at. Default is 20 (logging.INFO).
 
     Returns:
-        dict: Mapping of field metadata.
+        arcproc.metadata.Field: Field metadata instance.
 
     Raises:
         RuntimeError: If `exist_ok=False` and field already exists.
@@ -71,7 +70,7 @@ def add_field(dataset_path, name, **kwargs):
         # ArcPy2.8.0: Convert to str.
         arcpy.management.AddField(in_table=str(dataset_path), **add_field_kwargs)
     LOG.log(level, "End: Add.")
-    return field_metadata(dataset_path, field_name=name)
+    return Field(dataset_path, name)
 
 
 def add_index(dataset_path, field_names, **kwargs):
@@ -398,12 +397,12 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
         dataset_path,
         new_field_name,
     )
-    field_meta = field_metadata(dataset_path, field_name)
-    field_meta["name"] = new_field_name
+    field = Field(dataset_path, field_name)
+    field.name = new_field_name
     # Cannot add another OID-type field, so change to long.
-    if field_meta["type"].upper() == "OID":
-        field_meta["type"] = "LONG"
-    add_field(dataset_path, log_level=logging.DEBUG, **field_meta)
+    if field.type.upper() == "OID":
+        field.type = "LONG"
+    add_field(dataset_path, log_level=logging.DEBUG, **field.as_dict)
     LOG.log(level, "End: Duplicate.")
     return new_field_name
 
