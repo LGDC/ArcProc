@@ -21,6 +21,7 @@ from arcproc.helpers import (
     unique_name,
     unique_path,
 )
+from arcproc.metadata import Dataset
 
 
 LOG = logging.getLogger(__name__)
@@ -55,8 +56,7 @@ def delete(
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Delete features from `%s`.", dataset_path)
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        use_edit_session=use_edit_session,
+        Dataset(dataset_path).workspace_path, use_edit_session=use_edit_session,
     )
     states = Counter()
     view = arcobj.DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
@@ -102,8 +102,7 @@ def delete_by_id(dataset_path, delete_ids, id_field_names, **kwargs):
         # ArcPy2.8.0: Convert to str.
         cursor = arcpy.da.UpdateCursor(str(dataset_path), field_names=id_field_names)
         session = arcobj.Editor(
-            arcobj.dataset_metadata(dataset_path)["workspace_path"],
-            kwargs["use_edit_session"],
+            Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
         )
         with session, cursor:
             for row in cursor:
@@ -140,11 +139,9 @@ def densify(dataset_path, distance, only_curve_features=False, **kwargs):
     kwargs.setdefault("use_edit_session", False)
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Densify feature geometry in `%s`.", dataset_path)
-    dataset_meta = arcobj.dataset_metadata(dataset_path)
-    if dataset_meta["spatial_reference"].linearUnitName != "Meter":
-        distance_unit = getattr(
-            UNIT, dataset_meta["spatial_reference"].linearUnitName.lower()
-        )
+    _dataset = Dataset(dataset_path)
+    if _dataset.spatial_reference.linear_unit != "Meter":
+        distance_unit = getattr(UNIT, _dataset.spatial_reference.linear_unit.lower())
         distance_with_unit = (distance * distance_unit).to(UNIT.meter) / UNIT.meter
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
@@ -152,7 +149,7 @@ def densify(dataset_path, distance, only_curve_features=False, **kwargs):
         field_names=["SHAPE@"],
         where_clause=kwargs["dataset_where_sql"],
     )
-    session = arcobj.Editor(dataset_meta["workspace_path"], kwargs["use_edit_session"])
+    session = arcobj.Editor(_dataset.workspace_path, kwargs["use_edit_session"])
     states = Counter()
     with session, cursor:
         for (geometry,) in cursor:
@@ -222,8 +219,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = original_tolerance
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
+        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
     )
     with session:
         delete(
@@ -294,8 +290,7 @@ def eliminate_interior_rings(
             part_option="CONTAINED_ONLY",
         )
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
+        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
     )
     with session:
         delete(
@@ -358,8 +353,7 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
             cluster_tolerance=kwargs["tolerance"],
         )
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
+        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
     )
     with session:
         delete(
@@ -444,8 +438,7 @@ def insert_from_iters(dataset_path, insert_features, field_names, **kwargs):
     # ArcPy2.8.0: Convert to str.
     cursor = arcpy.da.InsertCursor(in_table=str(dataset_path), field_names=field_names)
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
+        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
     )
     states = Counter()
     with session, cursor:
@@ -489,23 +482,23 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         dataset_path,
         insert_dataset_path,
     )
-    dataset_meta = {
-        "dataset": arcobj.dataset_metadata(dataset_path),
-        "insert_dataset": arcobj.dataset_metadata(insert_dataset_path),
+    _datasets = {
+        "dataset": Dataset(dataset_path),
+        "insert_dataset": Dataset(insert_dataset_path),
     }
     if field_names is None:
         field_names = set.intersection(
             *(
-                set(name.lower() for name in _meta["field_names_tokenized"])
-                for _meta in dataset_meta.values()
+                set(name.lower() for name in _dataset.field_names_tokenized)
+                for _dataset in _datasets.values()
             )
         )
     else:
         field_names = set(name.lower() for name in contain(field_names))
     # OIDs & area/length "fields" have no business being part of an insert.
     # Geometry itself is handled separately in append function.
-    for _meta in dataset_meta.values():
-        for field_name in chain(*_meta["field_token"].items()):
+    for _dataset in _datasets.values():
+        for field_name in chain(*_dataset.field_name_token.items()):
             field_names.discard(field_name)
             field_names.discard(field_name.lower())
             field_names.discard(field_name.upper())
@@ -525,10 +518,10 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         dataset_where_sql=kwargs["insert_where_sql"],
         view_name=unique_name("view"),
         # Must be nonspatial to append to nonspatial table.
-        force_nonspatial=(not dataset_meta["dataset"]["is_spatial"]),
+        force_nonspatial=(not _datasets["dataset"].is_spatial),
     )
     session = arcobj.Editor(
-        dataset_meta["dataset"]["workspace_path"], kwargs["use_edit_session"]
+        _datasets["dataset"].workspace_path, kwargs["use_edit_session"]
     )
     with view, session:
         arcpy.management.Append(
@@ -575,8 +568,7 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
         location_dataset_path,
     )
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
+        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
     )
     view = {
         "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
@@ -714,8 +706,7 @@ def update_from_iters(
     else:
         ids["delete"] = set()
     session = arcobj.Editor(
-        arcobj.dataset_metadata(dataset_path)["workspace_path"],
-        kwargs["use_edit_session"],
+        Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],
     )
     states = Counter()
     if ids["delete"] or feats["id_update"]:
@@ -820,16 +811,16 @@ def update_from_path(
         dataset_path,
         update_dataset_path,
     )
-    dataset_meta = {
-        "dataset": arcobj.dataset_metadata(dataset_path),
-        "update_dataset": arcobj.dataset_metadata(update_dataset_path),
+    _datasets = {
+        "dataset": Dataset(dataset_path),
+        "update_dataset": Dataset(update_dataset_path),
     }
     if field_names is None:
         field_names = set(
-            name.lower() for name in dataset_meta["dataset"]["field_names_tokenized"]
+            name.lower() for name in _datasets["dataset"]["field_names_tokenized"]
         ) & set(
             name.lower()
-            for name in dataset_meta["update_dataset"]["field_names_tokenized"]
+            for name in _datasets["update_dataset"]["field_names_tokenized"]
         )
     else:
         field_names = set(name.lower() for name in list(contain(field_names)))

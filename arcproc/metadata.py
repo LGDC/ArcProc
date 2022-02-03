@@ -6,7 +6,11 @@ from typing import Any, Optional, Union
 
 import arcpy
 
-from arcproc.exceptions import DomainNotFoundError, FieldNotFoundError
+from arcproc.exceptions import (
+    DatasetNotFoundError,
+    DomainNotFoundError,
+    FieldNotFoundError,
+)
 
 
 __all__ = []
@@ -261,6 +265,121 @@ class Workspace:
         self.is_in_memory = "InMemoryWorkspace" in self.factory_prog_id
         self.is_memory = "ColumnaDBWorkspace" in self.factory_prog_id
         self.is_personal_geodatabase = "AccessWorkspace" in self.factory_prog_id
+
+    @property
+    def as_dict(self) -> dict:
+        """Metadata as dictionary."""
+        return asdict(self)
+
+
+# Metadata classes that reference above classes.
+
+
+@dataclass
+class Dataset:
+    """Representation of dataset information."""
+
+    path: Optional[Union[Path, str]] = None
+    """Path to dataset."""
+    object: Optional[Any] = None
+    """ArcPy workspace describe-object.
+
+    Type is `Any` because ArcPy describe-objects are not exposed for reference.
+    """
+
+    area_field: Union[Field, None] = field(init=False)
+    """Geometry area field on dataset."""
+    area_field_name: str = field(init=False)
+    """Name of geometry area field on dataset."""
+    field_name_token: "dict[str, str]" = field(default_factory=dict, init=False)
+    """Mapping of field name on the dataset to appropriate token."""
+    field_names: "list[str]" = field(default_factory=list, init=False)
+    """Names of fields on the dataset."""
+    field_names_tokenized: "list[str]" = field(default_factory=list, init=False)
+    """Names of fields on the dataset, tokenized where relevant."""
+    fields: "list[Field]" = field(default_factory=list, init=False)
+    """Metadata instances for fields on the dataset."""
+    geometry_field: Union[Field, None] = field(init=False)
+    """Geometry field on dataset."""
+    geometry_field_name: str = field(init=False)
+    """Name of geometry field on dataset."""
+    geometry_type: str = field(init=False)
+    """Type of geometry represented."""
+    is_spatial: bool = field(init=False)
+    """The dataset is spatial if True."""
+    is_table: bool = field(init=False)
+    """The dataset is considered a table if True."""
+    is_versioned: bool = field(init=False)
+    """The dataset is versioned if True."""
+    length_field: Union[Field, None] = field(init=False)
+    """Geoemtry length field on dataset."""
+    length_field_name: str = field(init=False)
+    """Name of geometry length field on dataset."""
+    name: str = field(init=False)
+    """Name of the dataset."""
+    oid_field: Union[Field, None] = field(init=False)
+    """Object ID field on dataset."""
+    oid_field_name: str = field(init=False)
+    """Name of object ID field on dataset."""
+    spatial_reference: SpatialReference = field(init=False)
+    """Spatial reference metadata instance for dataset."""
+    user_field_names: "list[str]" = field(default_factory=list, init=False)
+    """Names of user-defined fields on the dataset."""
+    user_fields: "list[Field]" = field(default_factory=list, init=False)
+    """Metadata instances for user-defined fields on the dataset."""
+    workspace_path: Union[Path, str] = field(init=False)
+    """Path to workspace for the dataset resides within."""
+
+    def __post_init__(self):
+        if not any([self.path, self.object]):
+            raise AttributeError("Must provide `path` or `object`")
+
+        if self.path:
+            if not arcpy.Exists(self.path):
+                raise DatasetNotFoundError(self.path)
+
+            # ArcPy2.8.0: Convert to str.
+            self.object = arcpy.Describe(str(self.path))
+        self.area_field_name = getattr(self.object, "areaFieldName", "")
+        self.geometry_field_name = getattr(self.object, "shapeFieldName", "")
+        self.geometry_type = getattr(self.object, "shapeType", "")
+        self.is_spatial = hasattr(self.object, "shapeType")
+        self.is_table = hasattr(self.object, "hasOID")
+        self.is_versioned = getattr(self.object, "isVersioned", False)
+        self.length_field_name = getattr(self.object, "lengthFieldName", "")
+        self.name = self.object.name
+        self.oid_field_name = getattr(self.object, "OIDFieldName", "")
+        # To ensure property uses internal casing & resolution.
+        self.path = Path(self.object.catalogPath)
+        self.spatial_reference = SpatialReference(
+            getattr(getattr(self.object, "spatialReference", None), "factoryCode", None)
+        )
+        self.workspace_path = Path(self.object.path)
+
+        for field_object in getattr(self.object, "fields", []):
+            _field = Field(object=field_object)
+            self.field_names.append(_field.name)
+            self.fields.append(_field)
+            if _field.name == self.area_field_name:
+                self.area_field = _field
+                self.field_name_token[_field.name] = "SHAPE@AREA"
+                self.field_names_tokenized.append("SHAPE@AREA")
+            if _field.name == self.geometry_field_name:
+                self.geometry_field = _field
+                self.field_name_token[_field.name] = "SHAPE@"
+                self.field_names_tokenized.append("SHAPE@")
+            if _field.name == self.length_field_name:
+                self.length_field = _field
+                self.field_name_token[_field.name] = "SHAPE@LENGTH"
+                self.field_names_tokenized.append("SHAPE@LENGTH")
+            if _field.name == self.oid_field_name:
+                self.oid_field = _field
+                self.field_name_token[_field.name] = "OID@"
+                self.field_names_tokenized.append("OID@")
+            else:
+                self.field_names_tokenized.append(_field.name)
+                self.user_field_names.append(_field.name)
+                self.user_fields.append(_field)
 
     @property
     def as_dict(self) -> dict:

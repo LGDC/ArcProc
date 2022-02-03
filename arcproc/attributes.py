@@ -12,7 +12,6 @@ import arcpy
 from arcproc.arcobj import (
     DatasetView,
     Editor,
-    dataset_metadata,
     python_type,
 )
 from arcproc import dataset
@@ -23,7 +22,7 @@ from arcproc.helpers import (
     unique_ids,
     unique_path,
 )
-from arcproc.metadata import Domain, Field, SpatialReference
+from arcproc.metadata import Dataset, Domain, Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -119,7 +118,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
     if field_names is None:
-        keys = {"feature": dataset_metadata(dataset_path)["field_names_tokenized"]}
+        keys = {"feature": Dataset(dataset_path).field_names_tokenized}
     else:
         keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
@@ -383,9 +382,7 @@ def update_by_dominant_overlay(
             arcpy.env.XYTolerance = original_tolerance
     # Identity makes custom FID field names - in_features FID field comes first.
     fid_keys = [
-        key
-        for key in dataset_metadata(temp_output_path)["field_names"]
-        if key.startswith("FID_")
+        key for key in Dataset(temp_output_path).field_names if key.startswith("FID_")
     ]
     coverage = {}
     for oid, overlay_oid, value, area in as_tuples(
@@ -516,7 +513,7 @@ def update_by_expression(
     if expression_type.upper() == "PYTHON":
         expression_type = "PYTHON3"
     dataset_view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
-    session = Editor(dataset_metadata(dataset_path)["workspace_path"], use_edit_session)
+    session = Editor(Dataset(dataset_path).workspace_path, use_edit_session)
     with session, dataset_view:
         arcpy.management.CalculateField(
             in_table=dataset_view.name,
@@ -588,14 +585,13 @@ def update_by_feature_match(
                 )
             )
 
-    meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {
         "id": list(contain(id_field_names)),
         "sort": list(contain(kwargs.get("sort_field_names", []))),
     }
     keys["feature"] = keys["id"] + [field_name]
     matcher = FeatureMatcher(dataset_path, keys["id"], kwargs["dataset_where_sql"])
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
@@ -672,8 +668,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
         dataset_path,
         source_field_name,
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
@@ -745,13 +740,12 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
         if isinstance(function, partial)
         else "function `{}`".format(function),
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {
         "args": list(contain(kwargs["arg_field_names"])),
         "kwargs": list(contain(kwargs["kwarg_field_names"])),
     }
     keys["feature"] = keys["args"] + keys["kwargs"] + [field_name]
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
@@ -846,7 +840,7 @@ def update_by_joined_value(
             dataset_where_sql=join_dataset_where_sql,
         )
     }
-    session = Editor(dataset_metadata(dataset_path)["workspace_path"], use_edit_session)
+    session = Editor(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
@@ -903,12 +897,11 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
         field_name,
         key_field_names,
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
     keys = {"map": list(contain(key_field_names))}
     keys["feature"] = keys["map"] + [field_name]
     if isinstance(mapping, tuple(EXEC_TYPES)):
         mapping = mapping()
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
@@ -994,8 +987,7 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
     )
     dataset.delete(temp_output_path, log_level=logging.DEBUG)
     session = Editor(
-        dataset_metadata(dataset_path)["workspace_path"],
-        kwargs.get("use_edit_session", False),
+        Dataset(dataset_path).workspace_path, kwargs.get("use_edit_session", False),
     )
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
@@ -1056,11 +1048,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
         dataset_path,
         field_name,
     )
-    meta = {
-        "dataset": dataset_metadata(dataset_path),
-        "field": Field(dataset_path, field_name),
-    }
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
@@ -1077,9 +1065,10 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                     cursor.updateRow([None])
                 else:
                     used_ids.add(id_value)
+            _field = Field(dataset_path, field_name)
             id_pool = unique_ids(
-                data_type=python_type(meta["field"].type),
-                string_length=meta["field"].length,
+                data_type=python_type(_field.type),
+                string_length=_field.length,
                 initial_number=(
                     max(used_ids) + 1
                     if kwargs["start_after_max_number"]
@@ -1138,8 +1127,7 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
         dataset_path,
         field_name,
     )
-    meta = {"dataset": dataset_metadata(dataset_path)}
-    session = Editor(meta["dataset"]["workspace_path"], kwargs["use_edit_session"])
+    session = Editor(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"])
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),

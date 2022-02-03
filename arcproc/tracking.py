@@ -12,6 +12,7 @@ from arcproc import arcobj
 from arcproc import attributes
 from arcproc import features
 from arcproc.helpers import contain, log_entity_states, same_value
+from arcproc.metadata import Dataset
 
 
 LOG = logging.getLogger(__name__)
@@ -139,7 +140,6 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
         ],
     }
     current_where_sql = "{} IS NULL".format(keys["date"][1])
-    dataset_meta = arcobj.dataset_metadata(dataset_path)
     id_value = {}
     id_value["current"] = {
         row[:-1]: row[-1]
@@ -171,7 +171,7 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     # Could replace cursor with features.update_from_iters if that function adds a
     # dataset_where_sql keyword argument.
     session = arcobj.Editor(
-        dataset_meta["workspace_path"], kwargs.get("use_edit_session", False)
+        Dataset(dataset_path).workspace_path, kwargs.get("use_edit_session", False)
     )
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.

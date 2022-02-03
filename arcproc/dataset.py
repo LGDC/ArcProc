@@ -6,12 +6,9 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import (
-    DatasetView,
-    dataset_metadata,
-)
+from arcproc.arcobj import DatasetView
 from arcproc.helpers import contain
-from arcproc.metadata import Field, SpatialReference
+from arcproc.metadata import Dataset, Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -114,9 +111,9 @@ def add_index(dataset_path, field_names, **kwargs):
         level, "Start: Add index to field(s) `%s` on `%s`.", field_names, dataset_path
     )
     field_types = {
-        field["type"].upper()
-        for field in dataset_metadata(dataset_path)["fields"]
-        if field["name"].lower() in [name.lower() for name in field_names]
+        _field.type.upper()
+        for _field in Dataset(dataset_path).fields
+        if _field.name.lower() in [name.lower() for name in field_names]
     }
     if "GEOMETRY" in field_types:
         if len(field_names) > 1:
@@ -253,7 +250,7 @@ def copy(dataset_path, output_path, **kwargs):
         kwargs["dataset_where_sql"] = "0=1"
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
-    dataset_meta = dataset_metadata(dataset_path)
+    _dataset = Dataset(dataset_path)
     view = DatasetView(
         dataset_path,
         field_names=kwargs["field_names"],
@@ -262,13 +259,13 @@ def copy(dataset_path, output_path, **kwargs):
     with view:
         if kwargs["overwrite"] and arcpy.Exists(output_path):
             delete(output_path, log_level=logging.DEBUG)
-        if dataset_meta["is_spatial"]:
+        if _dataset.is_spatial:
             arcpy.management.CopyFeatures(
                 # ArcPy2.8.0: Convert to str.
                 in_features=view.name,
                 out_feature_class=str(output_path),
             )
-        elif dataset_meta["is_table"]:
+        elif _dataset.is_table:
             # ArcPy2.8.0: Convert to str.
             arcpy.management.CopyRows(in_rows=view.name, out_table=str(output_path))
         else:
@@ -436,7 +433,7 @@ def is_valid(dataset_path):
     exists = dataset_path and arcpy.Exists(dataset=dataset_path)
     if exists:
         try:
-            valid = dataset_metadata(dataset_path)["is_table"]
+            valid = Dataset(dataset_path).is_table
         except IOError:
             valid = False
     else:
@@ -508,9 +505,9 @@ def remove_all_default_field_values(dataset_path, **kwargs):
     level = kwargs.get("log_level", logging.INFO)
     LOG.log(level, "Start: Remove all default field values for `%s`.", dataset_path)
     field_names = [
-        field["name"]
-        for field in dataset_metadata(dataset_path)["fields"]
-        if field["default_value"] is not None
+        _field.name
+        for _field in Dataset(dataset_path).fields
+        if _field.default_value is not None
     ]
     subtype_codes = [
         code

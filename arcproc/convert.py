@@ -8,12 +8,12 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import DatasetView, dataset_metadata
+from arcproc.arcobj import DatasetView
 from arcproc import attributes
 from arcproc import dataset
 from arcproc import features
 from arcproc.helpers import contain, log_entity_states, unique_name
-from arcproc.metadata import SpatialReference
+from arcproc.metadata import Dataset, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
         template=str(dataset_path),
         spatial_reference=SpatialReference(dataset_path).object,
     )
-    field_names = dataset_metadata(dataset_path)["user_field_names"] + ["SHAPE@"]
+    field_names = Dataset(dataset_path).user_field_names + ["SHAPE@"]
     multipoint_cursor = arcpy.da.InsertCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(output_path),
@@ -259,27 +259,29 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = original_tolerance
     if topological:
-        dataset_meta = dataset_metadata(dataset_path)
+        _dataset = Dataset(dataset_path)
         for side in ["left", "right"]:
             oid_key = side.upper() + "_FID"
             if kwargs["id_field_name"]:
                 id_field = next(
-                    field
-                    for field in dataset_meta["fields"]
-                    if field["name"].lower() == kwargs["id_field_name"].lower()
+                    _field
+                    for _field in _dataset.fields
+                    if _field.name.lower() == kwargs["id_field_name"].lower()
                 )
-                id_field["name"] = side.upper() + "_" + kwargs["id_field_name"]
+                id_field.name = side.upper() + "_" + kwargs["id_field_name"]
                 # Cannot create an OID-type field, so force to long.
-                if id_field["type"].upper() == "OID":
-                    id_field["type"] = "LONG"
-                dataset.add_field(output_path, log_level=logging.DEBUG, **id_field)
+                if id_field.type.upper() == "OID":
+                    id_field.type = "LONG"
+                dataset.add_field(
+                    output_path, log_level=logging.DEBUG, **id_field.as_dict
+                )
                 attributes.update_by_joined_value(
                     output_path,
                     field_name=id_field["name"],
                     key_field_names=[oid_key],
                     join_dataset_path=dataset_path,
                     join_field_name=kwargs["id_field_name"],
-                    join_key_field_names=[dataset_meta["oid_field_name"]],
+                    join_key_field_names=[_dataset.oid_field_name],
                     log_level=logging.DEBUG,
                 )
             dataset.delete_field(output_path, oid_key, log_level=logging.DEBUG)
@@ -326,18 +328,18 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
     # https://pro.arcgis.com/en/pro-app/tool-reference/data-management/project.htm
     # To avoid all this ado, using create to clone a (reprojected)
     # dataset & insert features into it.
-    dataset_meta = dataset_metadata(dataset_path)
+    _dataset = Dataset(dataset_path)
     dataset.create(
         dataset_path=output_path,
-        field_metadata_list=dataset_meta["user_fields"],
-        geometry_type=dataset_meta["geometry_type"],
+        field_metadata_list=_dataset.user_fields,
+        geometry_type=_dataset.geometry_type,
         spatial_reference_item=spatial_reference.object,
         log_level=logging.DEBUG,
     )
     features.insert_from_path(
         dataset_path=output_path,
         insert_dataset_path=dataset_path,
-        field_names=dataset_meta["user_field_names"],
+        field_names=_dataset.user_field_names,
         insert_where_sql=kwargs["dataset_where_sql"],
         log_level=logging.DEBUG,
     )

@@ -14,7 +14,7 @@ import arcpy
 from arcproc.exceptions import DatasetNotFoundError
 from arcproc import geometry
 from arcproc.helpers import unique_name, unique_path
-from arcproc.metadata import SpatialReference
+from arcproc.metadata import Dataset, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -116,8 +116,8 @@ class DatasetView(ContextDecorator):
 
     Attributes:
         name (str): Name of view.
+        dataset (arcproc.metadata.Dataset): Metadata instance for dataset.
         dataset_path (pathlib.Path, str): Path of dataset.
-        dataset_meta (dict): Metadata dictionary for dataset.
         field_names (list): Collection of field names to include in view.
         is_spatial (bool): True if view is spatial, False if not.
     """
@@ -139,14 +139,14 @@ class DatasetView(ContextDecorator):
         """
         dataset_path = Path(dataset_path)
         self.name = kwargs.get("view_name", unique_name("view"))
+        self.dataset = Dataset(dataset_path)
         self.dataset_path = dataset_path
-        self.dataset_meta = dataset_metadata(dataset_path)
         if kwargs.get("field_names") is None:
-            self.field_names = self.dataset_meta["field_names"]
+            self.field_names = self.dataset.field_names
         else:
             self.field_names = list(kwargs["field_names"])
-        self.is_spatial = all(
-            [self.dataset_meta["is_spatial"], not kwargs.get("force_nonspatial", False)]
+        self.is_spatial = self.dataset.is_spatial and not kwargs.get(
+            "force_nonspatial", False
         )
         self._where_sql = dataset_where_sql
 
@@ -172,7 +172,7 @@ class DatasetView(ContextDecorator):
         """arcpy.FieldInfo: Field info object for field settings for the view."""
         cmp_field_names = [name.lower() for name in self.field_names]
         field_info = arcpy.FieldInfo()
-        for field_name in self.dataset_meta["field_names"]:
+        for field_name in self.dataset.field_names:
             visible = "VISIBLE" if field_name.lower() in cmp_field_names else "HIDDEN"
             field_info.addField(field_name, field_name, visible, "NONE")
         return field_info
@@ -233,7 +233,7 @@ class DatasetView(ContextDecorator):
             oids = sorted(oid for oid, in cursor)
         while oids:
             chunk_where_sql = where_sql_template.format(
-                oid_field_name=self.dataset_meta["oid_field_name"],
+                oid_field_name=self.dataset.oid_field_name,
                 from_oid=min(oids),
                 to_oid=max(oids[:chunk_size]),
             )
@@ -256,7 +256,7 @@ class DatasetView(ContextDecorator):
         kwargs = {
             "where_clause": self.where_sql,
             # ArcPy2.8.0: Convert to str.
-            "workspace": str(self.dataset_meta["workspace_path"]),
+            "workspace": str(self.dataset.workspace_path),
             "field_info": self.field_info,
         }
         # ArcPy2.8.0: Convert to str.
@@ -339,8 +339,8 @@ class TempDatasetCopy(ContextDecorator):
 
     Attributes:
         path (pathlib.Path): Path of the dataset copy.
+        dataset (arcproc.metadata.Dataset): Metadata instance for the original dataset.
         dataset_path (pathlib.Path): Path of the original dataset.
-        dataset_meta (dict): Metadata dictionary for the original dataset.
         field_names (list): Field names to include in copy.
         is_spatial (bool): Flag indicating if the view is spatial.
         where_sql (str): SQL where-clause property of copy subselection.
@@ -368,13 +368,11 @@ class TempDatasetCopy(ContextDecorator):
         """
         dataset_path = Path(dataset_path)
         self.path = Path(kwargs.get("output_path", unique_path("temp")))
+        self.dataset = Dataset(dataset_path)
         self.dataset_path = dataset_path
-        self.dataset_meta = dataset_metadata(dataset_path)
-        self.field_names = list(
-            kwargs.get("field_names", self.dataset_meta["field_names"])
-        )
-        self.is_spatial = all(
-            [self.dataset_meta["is_spatial"], not kwargs.get("force_nonspatial", False)]
+        self.field_names = list(kwargs.get("field_names", self.dataset.field_names))
+        self.is_spatial = self.dataset.is_spatial and not kwargs.get(
+            "force_nonspatial", False
         )
         self.where_sql = dataset_where_sql
 

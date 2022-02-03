@@ -11,14 +11,13 @@ from arcproc.arcobj import (
     ArcExtension,
     DatasetView,
     Editor,
-    dataset_metadata,
     linear_unit_string,
     python_type,
 )
 from arcproc import attributes
 from arcproc import dataset
 from arcproc.helpers import log_entity_states, same_feature, unique_ids
-from arcproc.metadata import Field, SpatialReference
+from arcproc.metadata import Dataset, Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
@@ -277,7 +276,7 @@ def closest_facility_route_new(
     input_type = arcpy.nax.ClosestFacilityInputDataType.Facilities
     field = Field(
         facility_path,
-        dataset_metadata(facility_path)["oid_field_name"]
+        Dataset(facility_path).oid_field_name
         if facility_id_field_name.upper() == "OID@"
         else facility_id_field_name,
     )
@@ -305,7 +304,7 @@ def closest_facility_route_new(
     input_type = arcpy.nax.ClosestFacilityInputDataType.Incidents
     field = Field(
         dataset_path,
-        dataset_metadata(dataset_path)["oid_field_name"]
+        Dataset(dataset_path).oid_field_name
         if id_field_name.upper() == "OID@"
         else id_field_name,
     )
@@ -812,7 +811,7 @@ def update_node_ids(
     oid_node = id_node_map(
         dataset_path, from_id_field_name, to_id_field_name, update_nodes=True
     )
-    session = Editor(dataset_metadata(dataset_path)["workspace_path"], use_edit_session)
+    session = Editor(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
