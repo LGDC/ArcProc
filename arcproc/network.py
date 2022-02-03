@@ -7,13 +7,10 @@ from typing import Any, Iterable, Optional, Union
 
 import arcpy
 
-from arcproc.arcobj import (
-    DatasetView,
-    linear_unit_string,
-    python_type,
-)
+from arcproc.arcobj import linear_unit_string, python_type
 from arcproc import attributes
 from arcproc import dataset
+from arcproc.dataset import DatasetView
 from arcproc.helpers import log_entity_states, same_feature, unique_ids
 from arcproc.metadata import Dataset, Field, SpatialReference
 from arcproc.workspace import Editing

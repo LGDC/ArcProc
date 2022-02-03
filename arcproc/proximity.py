@@ -5,9 +5,9 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc import arcobj
 from arcproc import attributes
 from arcproc import dataset
+from arcproc.dataset import DatasetView
 from arcproc.helpers import contain, log_entity_states, unique_path
 
 
@@ -42,7 +42,7 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
     dataset_path = Path(dataset_path)
     keys = {"id": list(contain(id_field_names))}
     keys["id"] = [key.lower() for key in keys["id"]]
-    view = arcobj.DatasetView(
+    view = DatasetView(
         dataset_path, kwargs.get("dataset_where_sql"), field_names=keys["id"]
     )
     with view:
@@ -101,7 +101,7 @@ def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwa
         line += " & dissolve on fields `{}`".format(keys["dissolve"])
     line += "."
     LOG.log(level, line)
-    view = arcobj.DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
     with view:
         arcpy.analysis.Buffer(
             in_features=view.name,
@@ -149,8 +149,8 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
         output_path,
     )
     view = {
-        "clip": arcobj.DatasetView(clip_dataset_path, kwargs.get("clip_where_sql")),
-        "dataset": arcobj.DatasetView(dataset_path, kwargs.get("dataset_where_sql")),
+        "clip": DatasetView(clip_dataset_path, kwargs.get("clip_where_sql")),
+        "dataset": DatasetView(dataset_path, kwargs.get("dataset_where_sql")),
     }
     with view["dataset"], view["clip"]:
         arcpy.analysis.Clip(
@@ -206,8 +206,8 @@ def id_near_info_map(
     kwargs.setdefault("near_where_sql")
     kwargs.setdefault("near_rank", 1)
     view = {
-        "dataset": arcobj.DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "near": arcobj.DatasetView(near_dataset_path, kwargs["near_where_sql"]),
+        "dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"]),
+        "near": DatasetView(near_dataset_path, kwargs["near_where_sql"]),
     }
     with view["dataset"], view["near"]:
         temp_near_path = unique_path("near")

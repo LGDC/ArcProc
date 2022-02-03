@@ -1,6 +1,5 @@
 """Processing framework library based on ArcGIS/ArcPy."""
 import arcproc.arcobj
-from arcproc.arcobj import DatasetView  # noqa: F401
 import arcproc.attributes
 import arcproc.convert
 import arcproc.dataset

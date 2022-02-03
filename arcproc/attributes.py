@@ -9,11 +9,9 @@ from typing import Any, Iterable, Iterator, Optional, Union
 
 import arcpy
 
-from arcproc.arcobj import (
-    DatasetView,
-    python_type,
-)
+from arcproc.arcobj import python_type
 from arcproc import dataset
+from arcproc.dataset import DatasetView
 from arcproc.helpers import (
     contain,
     log_entity_states,

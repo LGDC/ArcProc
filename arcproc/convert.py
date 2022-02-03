@@ -8,9 +8,9 @@ from pathlib import Path
 
 import arcpy
 
-from arcproc.arcobj import DatasetView
 from arcproc import attributes
 from arcproc import dataset
+from arcproc.dataset import DatasetView
 from arcproc import features
 from arcproc.helpers import contain, log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference

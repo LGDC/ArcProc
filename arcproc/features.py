@@ -10,9 +10,9 @@ import pint
 
 import arcpy
 
-from arcproc.arcobj import DatasetView
 from arcproc import attributes
 from arcproc import dataset
+from arcproc.dataset import DatasetView
 from arcproc.helpers import (
     contain,
     freeze_values,
