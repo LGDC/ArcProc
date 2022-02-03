@@ -22,7 +22,7 @@ class Domain:
     """Representation of geodatabase domain information."""
 
     geodatabase_path: Union[Path, str]
-    """Path to geodatabase domain resides within."""
+    """Path to geodatabase the domain resides within."""
     name: str
     """Name of the domain."""
 
@@ -39,9 +39,13 @@ class Domain:
     owner: str = field(init=False)
     """Owner of the domain (if enterprise geodatabase)."""
     range: "tuple[float, float]" = field(init=False)
+    """Tuple of range minimum & maximum."""
     range_minimum: float = field(init=False)
+    """Range minimum."""
     range_maximum: float = field(init=False)
+    """Range maximum."""
     type: str = field(init=False)
+    """Domain value type."""
 
     def __post_init__(self):
         self.geodatabase_path = Path(self.geodatabase_path)
