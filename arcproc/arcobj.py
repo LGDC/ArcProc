@@ -1,7 +1,5 @@
 """Interfaces for ArcObjects."""
-import datetime
 import logging
-import uuid
 
 import arcpy
 
@@ -51,28 +49,3 @@ def linear_unit_string(measure, spatial_reference_item):
         SpatialReference(spatial_reference_item), "linear_unit", "Unknown"
     )
     return "{} {}".format(measure, reference_unit)
-
-
-def python_type(type_description):
-    """Return object representing the Python type.
-
-    Args:
-        type_description (str): Arc-style type description/code.
-
-    Returns:
-        Python object representing the type.
-    """
-    instance = {
-        "date": datetime.datetime,
-        "double": float,
-        "single": float,
-        "integer": int,
-        "long": int,
-        "short": int,
-        "smallinteger": int,
-        "geometry": arcpy.Geometry,
-        "guid": uuid.UUID,
-        "string": str,
-        "text": str,
-    }
-    return instance[type_description.lower()]

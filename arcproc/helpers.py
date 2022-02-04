@@ -136,6 +136,31 @@ def log_entity_states(entity_type, states, logger=None, **kwargs):
             logger.log(level, line)
 
 
+def python_type(type_description):
+    """Return object representing the Python type.
+
+    Args:
+        type_description (str): Arc-style type description/code.
+
+    Returns:
+        Python object representing the type.
+    """
+    instance = {
+        "date": datetime.datetime,
+        "double": float,
+        "single": float,
+        "integer": int,
+        "long": int,
+        "short": int,
+        "smallinteger": int,
+        "geometry": arcpy.Geometry,
+        "guid": uuid.UUID,
+        "string": str,
+        "text": str,
+    }
+    return instance[type_description.lower()]
+
+
 def same_feature(*features):
     """Determine whether feature representations are the same.
 

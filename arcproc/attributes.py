@@ -9,12 +9,12 @@ from typing import Any, Iterable, Iterator, Optional, Union
 
 import arcpy
 
-from arcproc.arcobj import python_type
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc.helpers import (
     contain,
     log_entity_states,
+    python_type,
     same_value,
     unique_ids,
     unique_path,
