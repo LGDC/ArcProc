@@ -1,6 +1,7 @@
 """Geometry-related objects."""
 import logging
 from math import pi, sqrt
+from typing import Sequence
 
 # Py3.7: pairwise added to standard library itertools in 3.10.
 from more_itertools import pairwise
@@ -95,33 +96,19 @@ def convex_hull(*geometries):
     return hull_geom
 
 
-def coordinate_distance(*coordinates):
+def coordinate_distance(*coordinates: Sequence[int, int]) -> float:
     """Return total distance between coordinates.
 
     Args:
-        *coordinates: Collection of coordinates to compare. Coordinates can be `x,y` or
-            `x,y,z`.
+        *coordinates: XY-coordinates in measure-order.
 
     Returns:
-        float: Euclidian distance between coordinates.
+        Euclidian distance between coordinates.
     """
-    distance = 0.0
-    for coord1, coord2 in pairwise(coordinates):
-        coord = {
-            1: dict(zip(["x", "y", "z"], coord1)),
-            2: dict(zip(["x", "y", "z"], coord2)),
-        }
-        coord[1].setdefault("z", 0)
-        coord[2].setdefault("z", 0)
-        distance += sqrt(
-            sum(
-                [
-                    (coord[2]["x"] - coord[1]["x"]) ** 2,
-                    (coord[2]["y"] - coord[1]["y"]) ** 2,
-                    (coord[2]["z"] - coord[1]["z"]) ** 2,
-                ]
-            )
-        )
+    distance = sum(
+        sqrt(sum([cmp_x - x ** 2, cmp_y - y ** 2]))
+        for (x, y), (cmp_x, cmp_y) in pairwise(coordinates)
+    )
     return distance
 
 
