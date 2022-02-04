@@ -7,7 +7,6 @@ from typing import Any, Iterable, Optional, Union
 
 import arcpy
 
-from arcproc.arcobj import linear_unit_string
 from arcproc import attributes
 from arcproc import dataset
 from arcproc.dataset import DatasetView
@@ -402,7 +401,9 @@ def generate_service_areas(
     LOG.log(level, "Start: Generate service areas for `%s`.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs["trim_value"] is not None:
-        trim_value = linear_unit_string(kwargs["trim_value"], dataset_path)
+        trim_value = (
+            f"""{kwargs["trim_value"]} {SpatialReference(dataset_path).linear_unit}"""
+        )
     else:
         trim_value = None
     view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
@@ -513,7 +514,9 @@ def generate_service_rings(
     LOG.log(level, "Start: Generate service rings for `%s`.", dataset_path)
     # trim_value assumes meters if not input as linear_unit string.
     if kwargs["trim_value"] is not None:
-        trim_value = linear_unit_string(kwargs["trim_value"], dataset_path)
+        trim_value = (
+            f"""{kwargs["trim_value"]} {SpatialReference(dataset_path).linear_unit}"""
+        )
     else:
         trim_value = None
     view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
