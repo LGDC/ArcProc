@@ -203,7 +203,7 @@ def closest_facility_route(
                 "geometry": feat["SHAPE@"],
             }
 
-    dataset.delete("closest", log_level=logging.DEBUG)
+    arcpy.management.Delete("closest")
     LOG.log(level, "End: Generate.")
 
 
@@ -445,7 +445,7 @@ def generate_service_areas(
         terminate_on_solve_error=True,
     )
     dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
-    dataset.delete("service_area", log_level=logging.DEBUG)
+    arcpy.management.Delete("service_area")
     if kwargs["id_field_name"]:
         id_field = Field(dataset_path, kwargs["id_field_name"])
         dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.as_dict)
@@ -560,7 +560,7 @@ def generate_service_rings(
         terminate_on_solve_error=True,
     )
     dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
-    dataset.delete("service_area", log_level=logging.DEBUG)
+    arcpy.management.Delete("service_area")
     if kwargs["id_field_name"]:
         id_field = Field(dataset_path, kwargs["id_field_name"])
         dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.as_dict)

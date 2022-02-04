@@ -229,7 +229,8 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
         insert_from_path(
             dataset_path, insert_dataset_path=temp_output_path, log_level=logging.DEBUG
         )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_output_path))
     LOG.log(level, "End: Dissolve.")
     return dataset_path
 
@@ -298,7 +299,8 @@ def eliminate_interior_rings(
         insert_from_path(
             dataset_path, insert_dataset_path=temp_output_path, log_level=logging.DEBUG
         )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_output_path))
     LOG.log(level, "End: Eliminate.")
     return dataset_path
 
@@ -359,7 +361,8 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         insert_from_path(
             dataset_path, insert_dataset_path=temp_output_path, log_level=logging.DEBUG
         )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_output_path))
     LOG.log(level, "End: Erase.")
     return dataset_path
 

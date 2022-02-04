@@ -478,6 +478,6 @@ def table_to_points(
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
     dataset.copy(layer_name, output_path, log_level=logging.DEBUG)
-    dataset.delete(layer_name, log_level=logging.DEBUG)
+    arcpy.management.Delete(layer_name)
     LOG.log(level, "End: Convert.")
     return output_path

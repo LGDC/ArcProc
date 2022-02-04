@@ -68,7 +68,8 @@ class Procedure(ContextDecorator):
         LOG.info("""Ending procedure for "%s".""", self.name)
         if not self.keep_transforms:
             if self.transform_path and dataset.is_valid(self.transform_path):
-                dataset.delete(self.transform_path, log_level=logging.DEBUG)
+                # ArcPy2.8.0: Convert to str.
+                arcpy.management.Delete(str(self.transform_path))
                 self.transform_path = None
         elapsed(self.start_time, LOG)
         LOG.info("Ended.")
@@ -222,7 +223,8 @@ class Procedure(ContextDecorator):
         transformation(**kwargs)
         if output_path != self.transform_path:
             if not self.keep_transforms and dataset.is_valid(self.transform_path):
-                dataset.delete(self.transform_path, log_level=logging.DEBUG)
+                # ArcPy2.8.0: Convert to str.
+                arcpy.management.Delete(str(self.transform_path))
             self.transform_path = output_path
         return self
 

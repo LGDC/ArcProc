@@ -9,7 +9,6 @@ from typing import Any, Iterable, Iterator, Optional, Union
 
 import arcpy
 
-from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc.helpers import (
     contain,
@@ -307,7 +306,8 @@ def update_by_central_overlay(
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_output_path))
     log_entity_states("attributes", states, LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
@@ -396,7 +396,8 @@ def update_by_dominant_overlay(
         if oid not in coverage:
             coverage[oid] = defaultdict(float)
         coverage[oid][value] += area
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_output_path))
     oid_value_map = {
         oid: max(value_area.items(), key=itemgetter(1))[0]
         for oid, value_area in coverage.items()
@@ -982,7 +983,8 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
     oid_overlay_count = dict(
         as_tuples(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
     )
-    dataset.delete(temp_output_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_output_path))
     session = Editing(
         Dataset(dataset_path).workspace_path, kwargs.get("use_edit_session", False),
     )

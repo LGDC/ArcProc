@@ -119,7 +119,8 @@ def identity(
             features.insert_from_path(
                 dataset_path, temp_output_path, log_level=logging.DEBUG
             )
-            dataset.delete(temp_output_path, log_level=logging.DEBUG)
+            # ArcPy2.8.0: Convert to str.
+            arcpy.management.Delete(str(temp_output_path))
     LOG.log(level, "End: Identity.")
     return dataset_path
 
@@ -242,7 +243,8 @@ def overlay(
             features.insert_from_path(
                 dataset_path, temp_output_path, log_level=logging.DEBUG
             )
-            dataset.delete(temp_output_path, log_level=logging.DEBUG)
+            # ArcPy2.8.0: Convert to str.
+            arcpy.management.Delete(str(temp_output_path))
         if kwargs["tolerance"]:
             arcpy.env.XYTolerance = original_tolerance
     LOG.log(level, "End: Overlay.")
@@ -338,6 +340,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
             features.insert_from_path(
                 dataset_path, temp_output_path, log_level=logging.DEBUG
             )
-            dataset.delete(temp_output_path, log_level=logging.DEBUG)
+            # ArcPy2.8.0: Convert to str.
+            arcpy.management.Delete(str(temp_output_path))
     LOG.log(level, "End: Union.")
     return dataset_path

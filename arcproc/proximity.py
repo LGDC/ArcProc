@@ -71,7 +71,8 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
             continue
 
         neighbors_map[source_id].add(neighbor_id)
-    dataset.delete(temp_neighbor_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_neighbor_path))
     return neighbors_map
 
 
@@ -254,5 +255,6 @@ def id_near_info_map(
                 "near_x": near_info["near_x"],
                 "near_y": near_info["near_y"],
             }
-    dataset.delete(temp_near_path, log_level=logging.DEBUG)
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Delete(str(temp_near_path))
     return near_info_map
