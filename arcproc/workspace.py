@@ -2,6 +2,7 @@
 from contextlib import ContextDecorator
 import logging
 from pathlib import Path
+from typing import Union
 
 import arcpy
 
@@ -96,41 +97,61 @@ def build_locator(locator_path, **kwargs):
     return locator_path
 
 
-def compress_versioned_geodatabase(geodatabase_path, disconnect_users=False, **kwargs):
+def compress_versioned_geodatabase(
+    geodatabase_path: Union[Path, str],
+    *,
+    disconnect_users: bool = False,
+    log_level: int = logging.INFO,
+) -> "tuple[bool, int, int]":
     """Compress versioned enterprise geodatabase.
 
-    Args:
-        geodatabase_path (pathlib.Path, str): Path to the geodatabase.
-        disconnect_users (bool): Flag to disconnect users before compressing.
-        **kwargs: Arbitrary keyword arguments. See below.
+    Notes: This tool assumes the compress log is named `SDE_compress_log`.
 
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+    Args:
+        geodatabase_path: Path to the geodatabase. Path must be via a connections with
+            administrative privileges.
+        disconnect_users: Disconnect users before compressing if True.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of compressed workspace.
+        Tuple containing (result boolean, start state count, end state count).
 
     Raises:
-        ValueError: If `geodatabase_path` doesn't reference a compressable geodatabase.
+        ValueError: If `geodatabase_path` doesn't reference an enterprise geodatabase.
     """
-    level = kwargs.get("log_level", logging.INFO)
     geodatabase_path = Path(geodatabase_path)
-    LOG.log(level, "Start: Compress workspace `%s`.", geodatabase_path)
+    LOG.log(log_level, "Start: Compress versioned geodatabase `%s`.", geodatabase_path)
     if not Workspace(geodatabase_path).is_enterprise_database:
-        raise ValueError(f"Compressing `{geodatabase_path}` unsupported.")
+        raise ValueError(f"Compressing `{geodatabase_path}` unsupported")
 
     if disconnect_users:
-        arcpy.AcceptConnections(
-            sde_workspace=geodatabase_path, accept_connections=False
-        )
+        arcpy.AcceptConnections(geodatabase_path, accept_connections=False)
         # ArcPy2.8.0: Convert to str.
-        arcpy.DisconnectUser(sde_workspace=str(geodatabase_path), users="ALL")
+        arcpy.DisconnectUser(str(geodatabase_path), users="ALL")
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Compress(in_workspace=str(geodatabase_path))
+    arcpy.management.Compress(str(geodatabase_path))
     if disconnect_users:
-        arcpy.AcceptConnections(sde_workspace=geodatabase_path, accept_connections=True)
-    LOG.log(level, "End: Compress.")
-    return geodatabase_path
+        arcpy.AcceptConnections(geodatabase_path, accept_connections=True)
+
+    for dirpath, _, table_names in arcpy.da.Walk(geodatabase_path, datatype="Table"):
+        for table_name in table_names:
+            if table_name.lower().endswith("sde_compress_log"):
+                log_path = Path(dirpath, table_name)
+                break
+        else:
+            continue
+        break
+
+    cursor = arcpy.da.SearchCursor(
+        # ArcPy2.8.0: Convert to str.
+        str(log_path),
+        field_names=["compress_status", "start_state_count", "end_state_count"],
+        sql_clause=(None, "ORDER BY compress_start DESC"),
+    )
+    with cursor:
+        status, start_state_count, end_state_count = next(cursor)
+    LOG.log(log_level, "End: Compress.")
+    return (status == "SUCCESS", start_state_count, end_state_count)
 
 
 def copy(workspace_path, output_path, **kwargs):
