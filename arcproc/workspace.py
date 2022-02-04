@@ -96,11 +96,11 @@ def build_locator(locator_path, **kwargs):
     return locator_path
 
 
-def compress(workspace_path, disconnect_users=False, **kwargs):
-    """Compress versioned geodatabase.
+def compress_versioned_geodatabase(geodatabase_path, disconnect_users=False, **kwargs):
+    """Compress versioned enterprise geodatabase.
 
     Args:
-        workspace_path (pathlib.Path, str): Path of the workspace.
+        geodatabase_path (pathlib.Path, str): Path to the geodatabase.
         disconnect_users (bool): Flag to disconnect users before compressing.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -111,24 +111,26 @@ def compress(workspace_path, disconnect_users=False, **kwargs):
         pathlib.Path: Path of compressed workspace.
 
     Raises:
-        ValueError: If `workspace_path` doesn't reference a compressable geodatabase.
+        ValueError: If `geodatabase_path` doesn't reference a compressable geodatabase.
     """
     level = kwargs.get("log_level", logging.INFO)
-    workspace_path = Path(workspace_path)
-    LOG.log(level, "Start: Compress workspace `%s`.", workspace_path)
-    if not Workspace(workspace_path).is_enterprise_database:
-        raise ValueError(f"Compressing `{workspace_path}` unsupported.")
+    geodatabase_path = Path(geodatabase_path)
+    LOG.log(level, "Start: Compress workspace `%s`.", geodatabase_path)
+    if not Workspace(geodatabase_path).is_enterprise_database:
+        raise ValueError(f"Compressing `{geodatabase_path}` unsupported.")
 
     if disconnect_users:
-        arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=False)
+        arcpy.AcceptConnections(
+            sde_workspace=geodatabase_path, accept_connections=False
+        )
         # ArcPy2.8.0: Convert to str.
-        arcpy.DisconnectUser(sde_workspace=str(workspace_path), users="ALL")
+        arcpy.DisconnectUser(sde_workspace=str(geodatabase_path), users="ALL")
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Compress(in_workspace=str(workspace_path))
+    arcpy.management.Compress(in_workspace=str(geodatabase_path))
     if disconnect_users:
-        arcpy.AcceptConnections(sde_workspace=workspace_path, accept_connections=True)
+        arcpy.AcceptConnections(sde_workspace=geodatabase_path, accept_connections=True)
     LOG.log(level, "End: Compress.")
-    return workspace_path
+    return geodatabase_path
 
 
 def copy(workspace_path, output_path, **kwargs):
