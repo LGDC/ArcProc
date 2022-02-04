@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.arcobj
 import arcproc.attributes
 import arcproc.convert
 import arcproc.dataset
