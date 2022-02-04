@@ -1,7 +1,7 @@
 """Geometry-related objects."""
 import logging
 from math import pi, sqrt
-from typing import Sequence
+from typing import Sequence, Union
 
 # Py3.7: pairwise added to standard library itertools in 3.10.
 from more_itertools import pairwise
@@ -9,10 +9,10 @@ from more_itertools import pairwise
 import arcpy
 
 
-LOG = logging.getLogger(__name__)
+LOG: logging.Logger = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
-RATIO = {
+RATIO: "dict[str, dict[str, float]]" = {
     "meter": {
         "foot": 0.3048,
         "feet": 0.3048,
@@ -31,7 +31,7 @@ RATIO = {
         "km": 1000.0,
     }
 }
-"""dict: Two-level mapping of ratio between two types of measure.
+"""Two-level mapping of ratio between two types of measure.
 
 Usage: `RATIO[to_measure][from_measure]`
 """
@@ -39,20 +39,16 @@ Usage: `RATIO[to_measure][from_measure]`
 arcpy.SetLogHistory(False)
 
 
-def compactness_ratio(area, perimeter):
+def compactness_ratio(
+    area: Union[float, int, None], perimeter: Union[float, int, None]
+) -> Union[float, None]:
     """Return compactness ratio (4pi * area / perimeter ** 2) result.
 
+    If one of the area & perimeter keyword arguments are zero or None, will return None.
+
     Args:
-        area (float): Area of geometry to evaluate.
-        perimeter (float): Perimeter of geometry to evaluate.
-
-    Keyword Args:
-        area (float): Area of geometry to evaluate. Only used if `geometry=None`.
-        perimeter (float): Perimeter of geometry to evaluate. Only used if
-            `geometry=None`.
-
-    Returns:
-        float: Ratio of compactness.
+        area: Area of geometry to evaluate.
+        perimeter: Perimeter of geometry to evaluate.
     """
     if not area or not perimeter:
         return None
@@ -60,17 +56,13 @@ def compactness_ratio(area, perimeter):
     return (4.0 * pi * float(area)) / (float(perimeter) ** 2.0)
 
 
-def compactness_ratio_by_geometry(geometry):
+def compactness_ratio_by_geometry(
+    geometry: Union[arcpy.Geometry, None]
+) -> Union[float, None]:
     """Return compactness ratio (4pi * area / perimeter ** 2) result using geometry.
 
-    If geometry is None or one of the area & perimeter keyword arguments are undefined/
-    None, will return None.
-
     Args:
-        geometry (arcpy.Geometry): Geometry to evaluate.
-
-    Returns:
-        float: Ratio of compactness.
+        geometry: Geometry to evaluate. A NoneType geometry is accepted & returns None.
     """
     if not geometry or not geometry.area or not geometry.length:
         return None
@@ -78,22 +70,24 @@ def compactness_ratio_by_geometry(geometry):
     return compactness_ratio(geometry.area, geometry.length)
 
 
-def convex_hull(*geometries):
+def convex_hull(*geometries: Union[arcpy.Geometry, None]) -> arcpy.Polygon:
     """Return convex hull polygon covering given geometries.
 
     Args:
-        *geometries (arcpy.Geometry): Feature geometries in displacement order.
-
-    Returns:
-        arcpy.Polygon.
+        *geometries: Feature geometries in displacement order. NoneType geometries are
+            accepted & ignored.
     """
-    hull_geom = None
-    for geom in geometries:
-        if geom:
-            hull_geom = hull_geom.union(geom).convexHull() if hull_geom else geom
-    if hull_geom and isinstance(hull_geom, (arcpy.PointGeometry, arcpy.Polyline)):
-        hull_geom = hull_geom.buffer(1)
-    return hull_geom
+    hull_geometry = None
+    for geometry in geometries:
+        if hull_geometry:
+            hull_geometry = geometry
+        elif geometry:
+            hull_geometry = hull_geometry.union(geometry).convexHull()
+    if hull_geometry and isinstance(
+        hull_geometry, (arcpy.PointGeometry, arcpy.Polyline)
+    ):
+        hull_geometry = hull_geometry.buffer(1)
+    return hull_geometry
 
 
 def coordinate_distance(*coordinates: Sequence[int, int]) -> float:
@@ -112,13 +106,17 @@ def coordinate_distance(*coordinates: Sequence[int, int]) -> float:
     return distance
 
 
-def geometry_axis_bound(geometry, axis, bound):
+def geometry_axis_bound(
+    geometry: Union[arcpy.Geometry, None], axis: str, bound: str
+) -> float:
     """Return value of axis-bound for given geometry.
 
     Args:
-        geometry (arcpy.Geometry, None): Geometry to evaluate.
-    Returns:
-        float
+        geometry: Geometry to evaluate. A NoneType geometry is accepted & returns None.
+        axis: Coordinate axis to get the bound-value for. Valid values are "X" & "Y".
+            Case-insensitive.
+        bound: Bound get the value of for the given axis. Valus values are "Min" &
+            "Max". Case-insentitive.
     """
     if not geometry:
         return None
@@ -126,22 +124,21 @@ def geometry_axis_bound(geometry, axis, bound):
     return getattr(geometry.extent, axis.upper() + bound.title())
 
 
-def line_between_centroids(*geometries):
+def line_between_centroids(*geometries: arcpy.Geometry) -> arcpy.Polyline:
     """Return line geometry connecting given geometry centroids.
 
     Args:
-        *geometries (list of arcpy.Geometry): Ordered collection of geometries.
-
-    Returns:
-        arcpy.Polyline
+        *geometries: Feature geometries in drawing order.
     """
-    points = [geom.centroid for geom in geometries]
+    points = [geometry.centroid for geometry in geometries]
     line = arcpy.Polyline(arcpy.Array(points), geometries[0].spatialReference)
     return line
 
 
-def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0, fourths=0):
-    """Convert sexagesimal-parsed angles to a decimal.
+def sexagesimal_angle_to_decimal(
+    degrees: int, minutes: int = 0, seconds: int = 0, thirds: int = 0, fourths: int = 0
+) -> float:
+    """Convert sexagesimal-parsed angles to an angle in decimal degrees.
 
     Args:
         degrees (int): Angle degrees count.
@@ -149,13 +146,7 @@ def sexagesimal_angle_to_decimal(degrees, minutes=0, seconds=0, thirds=0, fourth
         seconds (int): Angle seconds count.
         thirds (int): Angle thirds count.
         fourths (int): Angle fourths count.
-
-    Returns:
-        float: Angle in decimal degrees.
     """
-    if degrees is None:
-        return None
-
     # Degrees must be absolute or it will not sum right with subdivisions.
     absolute_decimal = abs(float(degrees))
     try:
