@@ -348,46 +348,6 @@ def dataset_paths(workspace_path, **kwargs):
                 yield root_path / dataset_name
 
 
-def execute_sql(statement, database_path, **kwargs):
-    """Execute SQL statement via ArcSDE's SQL execution interface.
-
-    Only works if database_path resolves to an actual SQL database.
-
-    Args:
-        statement (str): SQL statement to execute.
-        database_path (pathlib.Path, str): Path of the database to execute statement in.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        object: Return value from the SQL statement execution. Likely return types:
-            bool: True for successful execution of statement with no return value or
-                retured rows. False if failure.
-            list: A List of lists representing returned rows.
-            object: A single return value.
-
-    Raises:
-        AttributeError: If statement SQL syntax is incorrect.
-    """
-    database_path = Path(database_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Execute SQL statement.")
-    conn = arcpy.ArcSDESQLExecute(server=database_path)
-    try:
-        result = conn.execute(statement)
-    except AttributeError:
-        LOG.exception("Incorrect SQL syntax.")
-        raise
-
-    finally:
-        # Yeah, what can you do?
-        del conn
-    LOG.log(level, "End: Execute.")
-    return result
-
-
 def is_valid(workspace_path):
     """Indicate whether workspace is extant & valid.
 
