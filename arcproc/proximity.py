@@ -2,6 +2,7 @@
 from collections import Counter
 import logging
 from pathlib import Path
+from typing import Iterable, Optional, Union
 
 import arcpy
 
@@ -76,47 +77,56 @@ def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
     return neighbors_map
 
 
-def buffer(dataset_path, output_path, distance, dissolve_field_names=None, **kwargs):
+def buffer(
+    dataset_path: Union[Path, str],
+    output_path: Union[Path, str],
+    distance: float,
+    dissolve_field_names: Iterable[str] = tuple(),
+    *,
+    dataset_where_sql: Optional[str] = None,
+    log_level: int = logging.INFO,
+) -> Counter:
     """Buffer features a given distance & (optionally) dissolve on given fields.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        output_path (pathlib.Path, str): Path of the output dataset.
-        distance (float): Distance to buffer from feature, in the units of the dataset.
-        dissolve_field_names (iter): Iterable of field names to dissolve on.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to the dataset.
+        output_path: Path to the output dataset.
+        distance: Distance to buffer from feature, in the units of the dataset.
+        dissolve_field_names: Names of fields to dissolve on.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the output dataset.
+        Counts of features for each buffer-state.
     """
     dataset_path = Path(dataset_path)
     output_path = Path(output_path)
-    level = kwargs.get("log_level", logging.INFO)
-    keys = {"dissolve": tuple(contain(dissolve_field_names))}
-    line = f"Start: Buffer features in `{dataset_path}` into `{output_path}`"
-    if keys["dissolve"]:
-        line += " & dissolve on fields `{}`".format(keys["dissolve"])
-    line += "."
-    LOG.log(level, line)
-    view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    dissolve_field_names = list(dissolve_field_names)
+    LOG.log(
+        log_level,
+        "Start: Buffer features in `%s` into `%s`.",
+        dataset_path,
+        output_path,
+    )
+    states = Counter()
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         arcpy.analysis.Buffer(
             in_features=view.name,
             # ArcPy2.8.0: Convert to str.
             out_feature_class=str(output_path),
             buffer_distance_or_field=distance,
-            dissolve_option="LIST" if keys["dissolve"] else "NONE",
-            dissolve_field=keys["dissolve"],
+            dissolve_option="LIST" if dissolve_field_names else "NONE",
+            dissolve_field=dissolve_field_names,
         )
+    states["buffered"] = view.count
+    if dissolve_field_names:
+        states["remaining"] = dataset.feature_count(output_path)
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
         # ArcPy2.8.0: Convert to str.
         arcpy.management.DeleteField(in_table=str(output_path), drop_field=field_name)
-    LOG.log(level, "End: Buffer.")
-    return output_path
+    LOG.log(log_level, "End: Buffer.")
+    return states
 
 
 def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
