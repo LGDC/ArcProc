@@ -100,7 +100,7 @@ def coordinate_distance(*coordinates: Sequence[int, int]) -> float:
         Euclidian distance between coordinates.
     """
     distance = sum(
-        sqrt(sum([cmp_x - x ** 2, cmp_y - y ** 2]))
+        sqrt(sum([(cmp_x - x) ** 2, (cmp_y - y) ** 2]))
         for (x, y), (cmp_x, cmp_y) in pairwise(coordinates)
     )
     return distance
