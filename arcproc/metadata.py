@@ -381,15 +381,15 @@ class Dataset:
                 self.area_field = _field
                 self.field_name_token[_field.name] = "SHAPE@AREA"
                 self.field_names_tokenized.append("SHAPE@AREA")
-            if _field.name == self.geometry_field_name:
+            elif _field.name == self.geometry_field_name:
                 self.geometry_field = _field
                 self.field_name_token[_field.name] = "SHAPE@"
                 self.field_names_tokenized.append("SHAPE@")
-            if _field.name == self.length_field_name:
+            elif _field.name == self.length_field_name:
                 self.length_field = _field
                 self.field_name_token[_field.name] = "SHAPE@LENGTH"
                 self.field_names_tokenized.append("SHAPE@LENGTH")
-            if _field.name == self.oid_field_name:
+            elif _field.name == self.oid_field_name:
                 self.oid_field = _field
                 self.field_name_token[_field.name] = "OID@"
                 self.field_names_tokenized.append("OID@")
