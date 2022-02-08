@@ -90,7 +90,7 @@ def convex_hull(*geometries: Union[arcpy.Geometry, None]) -> arcpy.Polygon:
     return hull_geometry
 
 
-def coordinate_distance(*coordinates: Sequence[int, int]) -> float:
+def coordinate_distance(*coordinates: Sequence[int]) -> float:
     """Return total distance between coordinates.
 
     Args:
