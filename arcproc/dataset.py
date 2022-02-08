@@ -531,7 +531,8 @@ def create(dataset_path, field_metadata_list=None, geometry_type=None, **kwargs)
 
     Args:
         dataset_path (pathlib.Path, str): Path of the dataset .
-        field_metadata_list (iter): Collection of field metadata mappings.
+        field_metadata_list (iter): Collection of field metadata mappings. Can be Field
+            metadata objects as well as mappings.
         geometry_type (str): Type of geometry, if a spatial dataset.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -568,6 +569,8 @@ def create(dataset_path, field_metadata_list=None, geometry_type=None, **kwargs)
         )
     if field_metadata_list:
         for field_meta in field_metadata_list:
+            if isinstance(field_meta, Field):
+                field_meta = field_meta.field_as_dict
             add_field(dataset_path, log_level=logging.DEBUG, **field_meta)
     LOG.log(level, "End: Create.")
     return dataset_path
