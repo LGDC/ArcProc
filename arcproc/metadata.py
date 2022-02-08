@@ -144,6 +144,23 @@ class Field:
         """Metadata as dictionary."""
         return asdict(self)
 
+    @property
+    def field_as_dict(self) -> dict:
+        """Field attributes as dictionary."""
+        attribute_names = [
+            "name",
+            "alias",
+            "default_value",
+            "is_editable",
+            "is_nullable",
+            "is_required",
+            "length",
+            "precision",
+            "scale",
+            "type",
+        ]
+        return {name: getattr(self, name) for name in attribute_names}
+
 
 @dataclass
 class SpatialReference:
