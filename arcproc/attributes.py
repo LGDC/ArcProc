@@ -308,7 +308,7 @@ def update_by_central_overlay(
     )
     # ArcPy2.8.0: Convert to str.
     arcpy.management.Delete(str(temp_output_path))
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -411,7 +411,7 @@ def update_by_dominant_overlay(
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -464,7 +464,7 @@ def update_by_domain_code(
         use_edit_session=kwargs["use_edit_session"],
         log_level=logging.DEBUG,
     )
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -627,7 +627,7 @@ def update_by_feature_match(
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -688,7 +688,7 @@ def update_by_field(dataset_path, field_name, source_field_name, **kwargs):
                     LOG.error("Offending value is `%s`", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -772,7 +772,7 @@ def update_by_function(dataset_path, field_name, function, **kwargs):
                     LOG.error("Offending value is %s", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -855,7 +855,7 @@ def update_by_joined_value(
                         f"Update cursor failed: Offending value: `{new_value}`"
                     ) from error
 
-    log_entity_states("attributes", states, LOG, log_level=log_level)
+    log_entity_states("attributes", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
     return states
 
@@ -924,7 +924,7 @@ def update_by_mapping(dataset_path, field_name, mapping, key_field_names, **kwar
                     LOG.error("Offending value is `%s`", value["new"])
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1007,7 +1007,7 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
                 except RuntimeError:
                     LOG.error("Offending value is `%s`", value["new"])
                     raise
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1093,7 +1093,7 @@ def update_by_unique_id(dataset_path, field_name, **kwargs):
                         LOG.error("Offending value is %s", id_value)
                         raise
 
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
 
@@ -1146,6 +1146,6 @@ def update_by_value(dataset_path, field_name, value, **kwargs):
                     LOG.error("Offending value is `%s`.", value)
                     raise
 
-    log_entity_states("attributes", states, LOG, log_level=level)
+    log_entity_states("attributes", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states

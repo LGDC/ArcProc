@@ -672,6 +672,6 @@ def update_node_ids(
                         f"Update cursor failed: Offending row: `{new_feature}`"
                     ) from error
 
-    log_entity_states("attributes", states, LOG, log_level=log_level)
+    log_entity_states("attributes", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
     return states

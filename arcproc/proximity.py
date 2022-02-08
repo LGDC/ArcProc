@@ -174,7 +174,7 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
         states = Counter()
         states["remaining"] = dataset.feature_count(output_path)
         states["deleted"] = view["dataset"].count - states["remaining"]
-    log_entity_states("features", states, LOG, log_level=level)
+    log_entity_states("features", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Clip.")
     return states
 

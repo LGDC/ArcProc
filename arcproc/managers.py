@@ -71,7 +71,7 @@ class Procedure(ContextDecorator):
                 # ArcPy2.8.0: Convert to str.
                 arcpy.management.Delete(str(self.transform_path))
                 self.transform_path = None
-        elapsed(self.start_time, LOG)
+        elapsed(self.start_time, logger=LOG)
         LOG.info("Ended.")
 
     def extract(self, dataset_path, field_names=None, extract_where_sql=None):
@@ -100,7 +100,7 @@ class Procedure(ContextDecorator):
         dataset.remove_all_default_field_values(
             self.transform_path, log_level=logging.DEBUG
         )
-        log_entity_states("features", states, LOG)
+        log_entity_states("features", states, logger=LOG)
         LOG.info("End: Extract.")
         return self
 
@@ -196,7 +196,7 @@ class Procedure(ContextDecorator):
                 dataset_where_sql=load_where_sql,
                 log_level=logging.DEBUG,
             )
-        log_entity_states("features", states, LOG)
+        log_entity_states("features", states, logger=LOG)
         LOG.info("End: Load.")
         return self
 
@@ -262,6 +262,6 @@ class Procedure(ContextDecorator):
             use_edit_session=kwargs["use_edit_session"],
             log_level=logging.DEBUG,
         )
-        log_entity_states("features", states, LOG)
+        log_entity_states("features", states, logger=LOG)
         LOG.info("End: Update.")
         return self

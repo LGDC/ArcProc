@@ -161,7 +161,7 @@ def points_to_multipoints(dataset_path, output_path, **kwargs):
             geometry = arcpy.Multipoint(feature[-1].firstPoint)
             multipoint_cursor.insertRow(feature[:-1] + (geometry,))
             states["converted"] += 1
-    log_entity_states("features", states, LOG, log_level=level)
+    log_entity_states("features", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Convert.")
     return output_path
 
@@ -200,7 +200,7 @@ def points_to_thiessen_polygons(dataset_path, output_path, **kwargs):
             fields_to_copy="ALL",
         )
     states = Counter(converted=dataset.feature_count(output_path))
-    log_entity_states("features", states, LOG, log_level=level)
+    log_entity_states("features", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Convert.")
     return output_path
 

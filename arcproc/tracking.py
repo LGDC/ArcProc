@@ -87,7 +87,7 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
-    log_entity_states("tracking rows", states, LOG, log_level=level)
+    log_entity_states("tracking rows", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Consolidate.")
     return states
 
@@ -196,6 +196,6 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
             log_level=logging.DEBUG,
         )
     )
-    log_entity_states("tracking rows", states, LOG, log_level=level)
+    log_entity_states("tracking rows", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Update.")
     return states
