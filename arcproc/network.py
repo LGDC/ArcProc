@@ -597,6 +597,7 @@ def id_node_map(
         for node in coordinate_node.values():
             for end in ["from", "to"]:
                 for feature_id in node["feature_ids"][end]:
+                    feature_id = feature_id[0] if len(feature_id) == 1 else feature_id
                     if feature_id not in id_node:
                         id_node[feature_id] = {}
                     id_node[feature_id][end] = node["node_id"]
@@ -609,8 +610,9 @@ def id_node_map(
             feature["from_id"] = feature[from_id_field_name]
             feature["to_id"] = feature[to_id_field_name]
             feature["id"] = tuple(feature[key] for key in id_field_names)
-            if len(feature["id"]) == 1:
-                feature["id"] = feature["id"][0]
+            feature["id"] = (
+                feature["id"][0] if len(feature["id"]) == 1 else feature["id"]
+            )
             for end in ["from", "to"]:
                 id_node[feature["id"]][end] = feature[f"{end}_id"]
     return id_node
