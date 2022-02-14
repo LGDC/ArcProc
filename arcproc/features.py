@@ -805,10 +805,9 @@ def update_from_path(
     }
     if field_names is None:
         field_names = set(
-            name.lower() for name in _datasets["dataset"]["field_names_tokenized"]
+            name.lower() for name in _datasets["dataset"].field_names_tokenized
         ) & set(
-            name.lower()
-            for name in _datasets["update_dataset"]["field_names_tokenized"]
+            name.lower() for name in _datasets["update_dataset"].field_names_tokenized
         )
     else:
         field_names = set(name.lower() for name in list(contain(field_names)))
