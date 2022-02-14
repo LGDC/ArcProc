@@ -453,7 +453,7 @@ def _updated_coordinates_node_map(
     }
     open_node_ids = (
         node_id
-        for node_id in unique_ids(node_id_data_type, node_id_max_length)
+        for node_id in unique_ids(node_id_data_type, string_length=node_id_max_length)
         if node_id not in used_node_ids
     )
     coordinates_node = deepcopy(coordinates_node)
