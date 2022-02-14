@@ -119,7 +119,7 @@ def buffer(
             dissolve_option="LIST" if dissolve_field_names else "NONE",
             dissolve_field=dissolve_field_names,
         )
-    states["buffered"] = view.count
+        states["buffered"] = view.count
     if dissolve_field_names:
         states["remaining"] = dataset.feature_count(output_path)
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
