@@ -292,7 +292,7 @@ def unique_path(
     *,
     unique_length: int = 4,
     workspace_path: Union[Path, str] = Path("memory"),
-):
+) -> Path:
     """Return unique path in the given workspace.
 
     Args:
