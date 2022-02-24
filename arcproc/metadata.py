@@ -1,5 +1,5 @@
 """Metadata objects."""
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field, fields
 import logging
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -80,7 +80,7 @@ class Domain:
     @property
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
-        return asdict(self)
+        return dict((field.name, getattr(self, field.name)) for field in fields(self))
 
 
 @dataclass
@@ -142,7 +142,7 @@ class Field:
     @property
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
-        return asdict(self)
+        return dict((field.name, getattr(self, field.name)) for field in fields(self))
 
     @property
     def field_as_dict(self) -> dict:
@@ -209,7 +209,7 @@ class SpatialReference:
     @property
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
-        return asdict(self)
+        return dict((field.name, getattr(self, field.name)) for field in fields(self))
 
 
 @dataclass
@@ -286,7 +286,7 @@ class Workspace:
     @property
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
-        return asdict(self)
+        return dict((field.name, getattr(self, field.name)) for field in fields(self))
 
 
 # Metadata classes that reference above classes.
@@ -401,4 +401,4 @@ class Dataset:
     @property
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
-        return asdict(self)
+        return dict((field.name, getattr(self, field.name)) for field in fields(self))
