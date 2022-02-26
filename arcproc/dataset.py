@@ -1,138 +1,145 @@
 """Dataset operations."""
-from collections import Counter
 from contextlib import ContextDecorator
 from functools import partial
 import logging
 from pathlib import Path
+from typing import Any, Iterable, Iterator, List, Optional, TypeVar, Union
 
 import arcpy
 
-from arcproc.helpers import contain, unique_name, unique_path
+from arcproc.helpers import unique_name, unique_path
 from arcproc.metadata import Dataset, Field, SpatialReference
 
 
 LOG = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
 
+# Py3.7: Can replace usage with `typing.Self` in Py3.11.
+TDatasetView = TypeVar("TDatasetView", bound="DatasetView")
+"""Type variable to enable method return of self on DatasetView."""
+# Py3.7: Can replace usage with `typing.Self` in Py3.11.
+TTempDatasetCopy = TypeVar("TTempDatasetCopy", bound="TempDatasetCopy")
+"""Type variable to enable method return of self on TempDatasetCopy."""
+
 arcpy.SetLogHistory(False)
 
 
 class DatasetView(ContextDecorator):
-    """Context manager for an ArcGIS dataset view (feature layer/table view).
+    """Context manager for an ArcGIS dataset view (feature layer/table view)."""
 
-    Attributes:
-        name (str): Name of view.
-        dataset (arcproc.metadata.Dataset): Metadata instance for dataset.
-        dataset_path (pathlib.Path, str): Path of dataset.
-        field_names (list): Collection of field names to include in view.
-        is_spatial (bool): True if view is spatial, False if not.
-    """
+    dataset: Dataset
+    """Metadata instance for dataset."""
+    dataset_path: Path
+    """Path to dataset."""
+    field_names: List[str]
+    """Collection of field names to include in view."""
+    is_spatial: bool
+    """True if view is spatial, False if not."""
+    name: str
+    """Name to give view."""
 
-    def __init__(self, dataset_path, dataset_where_sql=None, **kwargs):
+    def __init__(
+        self,
+        dataset_path: Union[Path, str],
+        *,
+        name: Optional[str] = None,
+        field_names: Optional[Iterable[str]] = None,
+        dataset_where_sql: Optional[str] = None,
+        force_nonspatial: bool = False,
+    ) -> None:
         """Initialize instance.
 
         Args:
-            dataset_path (pathlib.Path, str): Path of dataset.
-            dataset_where_sql (str): SQL where-clause for dataset subselection.
-            **kwargs: Arbitrary keyword arguments. See below.
-
-        Keyword Args:
-            view_name (str): Name of view. Default is None (auto-generate name).
-            field_names (iter): Collection of field names to include in view. If
-                field_names not specified or None, all fields will be included.
-            force_nonspatial (bool): Flag that forces a nonspatial view. Default is
-                False.
+            dataset_path: Path to dataset.
+            name: Name of view. If set to None, name will be auto-generated.
+            field_names: Collection of field names to include in view. If set to None,
+                all fields will be included.
+            dataset_where_sql: SQL where-clause for dataset subselection.
+            force_nonspatial: Forces view to be nonspatial if True.
         """
-        dataset_path = Path(dataset_path)
-        self.name = kwargs.get("view_name", unique_name("view"))
-        self.dataset = Dataset(dataset_path)
-        self.dataset_path = dataset_path
-        if kwargs.get("field_names") is None:
-            self.field_names = self.dataset.field_names
-        else:
-            self.field_names = list(kwargs["field_names"])
-        self.is_spatial = self.dataset.is_spatial and not kwargs.get(
-            "force_nonspatial", False
+        self.dataset = Dataset(path=dataset_path)
+        self.dataset_path = Path(dataset_path)
+        self._dataset_where_sql = dataset_where_sql
+        self.field_names = (
+            self.dataset.field_names if field_names is None else list(field_names)
         )
-        self._where_sql = dataset_where_sql
+        self.is_spatial = self.dataset.is_spatial and not force_nonspatial
+        self.name = name if name else unique_name("View")
 
     def __enter__(self):
-        self.create()
-        return self
+        return self.create()
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.discard()
 
     @property
-    def count(self):
-        """int: Number of features in view."""
+    def count(self) -> int:
+        """Number of features in view."""
         return int(arcpy.management.GetCount(self.name).getOutput(0))
 
     @property
-    def exists(self):
-        """bool: True if view currently exists, False otherwise."""
-        return arcpy.Exists(self.name)
-
-    @property
-    def field_info(self):
-        """arcpy.FieldInfo: Field info object for field settings for the view."""
-        cmp_field_names = [name.lower() for name in self.field_names]
-        field_info = arcpy.FieldInfo()
-        for field_name in self.dataset.field_names:
-            visible = "VISIBLE" if field_name.lower() in cmp_field_names else "HIDDEN"
-            field_info.addField(field_name, field_name, visible, "NONE")
-        return field_info
-
-    @property
-    def where_sql(self):
-        """str: SQL where-clause property of dataset view subselection.
+    def dataset_where_sql(self) -> str:
+        """SQL where-clause property for dataset subselection.
 
         Setting this property will change dataset subselection for the view.
         """
-        return self._where_sql
+        return self._dataset_where_sql
 
-    @where_sql.setter
-    def where_sql(self, value):
+    @dataset_where_sql.setter
+    def dataset_where_sql(self, value):
         if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name,
                 selection_type="NEW_SELECTION",
                 where_clause=value,
             )
-        self._where_sql = value
+        self._dataset_where_sql = value
 
-    @where_sql.deleter
-    def where_sql(self):
+    @dataset_where_sql.deleter
+    def dataset_where_sql(self):
         if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name, selection_type="CLEAR_SELECTION"
             )
-        self._where_sql = None
+        self._dataset_where_sql = None
 
-    def as_chunks(self, chunk_size):
+    @property
+    def exists(self) -> bool:
+        """True if view currently exists, False otherwise."""
+        return arcpy.Exists(self.name)
+
+    @property
+    def field_info(self) -> arcpy.FieldInfo:
+        """Field information object of field settings for the view."""
+        cmp_field_names = [name.lower() for name in self.field_names]
+        field_info = arcpy.FieldInfo()
+        split_rule = "NONE"
+        for field_name in self.dataset.field_names:
+            visible = "VISIBLE" if field_name.lower() in cmp_field_names else "HIDDEN"
+            field_info.addField(field_name, field_name, visible, split_rule)
+        return field_info
+
+    def as_chunks(self, chunk_size: int) -> Iterator[TDatasetView]:
         """Generate "chunks" of view features in new DatasetView.
 
         DatasetView yielded under context management, i.e. view will be discarded
         when generator moves to next chunk-view.
 
         Args:
-            chunk_size (int): Number of features in each chunk-view.
-
-        Yields:
-            DatasetView.
+            chunk_size: Number of features in each chunk-view.
         """
         # ArcPy where clauses cannot use `BETWEEN`.
         where_sql_template = (
             "{oid_field_name} >= {from_oid} AND {oid_field_name} <= {to_oid}"
         )
-        if self.where_sql:
-            where_sql_template += f" AND ({self.where_sql})"
+        if self._dataset_where_sql:
+            where_sql_template += f" AND ({self._dataset_where_sql})"
         # Get iterable of all object IDs in dataset.
         # ArcPy2.8.0: Convert to str.
         cursor = arcpy.da.SearchCursor(
             in_table=str(self.dataset_path),
             field_names=["OID@"],
-            where_clause=self.where_sql,
+            where_clause=self._dataset_where_sql,
         )
         with cursor:
             # Sorting is important: allows selection by ID range.
@@ -143,37 +150,42 @@ class DatasetView(ContextDecorator):
                 from_oid=min(oids),
                 to_oid=max(oids[:chunk_size]),
             )
-            with DatasetView(self.name, chunk_where_sql) as chunk_view:
+            chunk_view = DatasetView(self.name, dataset_where_sql=chunk_where_sql)
+            with chunk_view:
                 yield chunk_view
 
             # Remove chunk from set.
             oids = oids[chunk_size:]
 
-    def create(self):
-        """Create view.
-
-        Returns:
-            bool: True if view created, False otherwise.
-        """
-        if self.is_spatial:
-            func = arcpy.management.MakeFeatureLayer
-        else:
-            func = arcpy.management.MakeTableView
+    def create(self) -> TDatasetView:
+        """Create view."""
         kwargs = {
-            "where_clause": self.where_sql,
+            "where_clause": self.dataset_where_sql,
             # ArcPy2.8.0: Convert to str.
             "workspace": str(self.dataset.workspace_path),
             "field_info": self.field_info,
         }
-        # ArcPy2.8.0: Convert to str.
-        func(str(self.dataset_path), self.name, **kwargs)
-        return self.exists
+        if self.is_spatial:
+            arcpy.management.MakeFeatureLayer(
+                # ArcPy2.8.0: Convert to str.
+                in_features=str(self.dataset_path),
+                out_layer=self.name,
+                **kwargs,
+            )
+        else:
+            arcpy.management.MakeTableView(
+                # ArcPy2.8.0: Convert to str.
+                in_table=str(self.dataset_path),
+                out_view=self.name,
+                **kwargs,
+            )
+        return self
 
-    def discard(self):
+    def discard(self) -> bool:
         """Discard view.
 
         Returns:
-            bool: True if view discarded, False otherwise.
+            True if view discarded, False otherwise.
         """
         if self.exists:
             arcpy.management.Delete(self.name)
@@ -181,189 +193,203 @@ class DatasetView(ContextDecorator):
 
 
 class TempDatasetCopy(ContextDecorator):
-    """Context manager for a temporary copy of a dataset.
+    """Context manager for a temporary copy of a dataset."""
 
-    Attributes:
-        path (pathlib.Path): Path of the dataset copy.
-        dataset (arcproc.metadata.Dataset): Metadata instance for the original dataset.
-        dataset_path (pathlib.Path): Path of the original dataset.
-        field_names (list): Field names to include in copy.
-        is_spatial (bool): Flag indicating if the view is spatial.
-        where_sql (str): SQL where-clause property of copy subselection.
-    """
+    copy_path: Path
+    """Path to copy dataset."""
+    dataset: Dataset
+    """Metadata instance for original dataset."""
+    dataset_path: Path
+    """Path to original dataset."""
+    dataset_where_sql: Optional[str] = None
+    """SQL where-clause property for original dataset subselection."""
+    field_names: List[str]
+    """Collection of field names to include in copy."""
+    is_spatial: bool
+    """True if copy is spatial, False if not."""
 
-    def __init__(self, dataset_path, dataset_where_sql=None, **kwargs):
+    def __init__(
+        self,
+        dataset_path: Union[Path, str],
+        *,
+        copy_path: Optional[Union[Path, str]] = None,
+        field_names: Optional[Iterable[str]] = None,
+        dataset_where_sql: Optional[str] = None,
+        force_nonspatial: bool = False,
+    ) -> None:
         """Initialize instance.
 
         Note:
             To make a temp dataset without copying any template rows:
-            `dataset_where_sql="0=1"`
+            `dataset_where_sql="0 = 1"`
 
         Args:
-            dataset_path (pathlib.Path, str): Path of dataset to copy.
-            dataset_where_sql (str): SQL where-clause for dataset subselection.
-            **kwargs: Arbitrary keyword arguments. See below.
-
-        Keyword Args:
-            output_path (pathlib.Path, str): Path of the dataset to create. Default is
-                None (auto-generate path)
-            field_names (iter): Field names to include in copy. If field_names not
-                specified, all fields will be included.
-            force_nonspatial (bool): True to force a nonspatial copy, False otherwise.
-                Default is False.
+            dataset_path: Path to original dataset.
+            copy_path: Path to copy dataset. If set to None, path will be auto-
+                generated.
+            field_names: Collection of field names to include in copy. If set to None,
+                all fields will be included.
+            dataset_where_sql: SQL where-clause property for original dataset
+                subselection.
+            force_nonspatial: Forces view to be nonspatial if True.
         """
-        dataset_path = Path(dataset_path)
-        self.path = Path(kwargs.get("output_path", unique_path("temp")))
-        self.dataset = Dataset(dataset_path)
-        self.dataset_path = dataset_path
-        self.field_names = list(kwargs.get("field_names", self.dataset.field_names))
-        self.is_spatial = self.dataset.is_spatial and not kwargs.get(
-            "force_nonspatial", False
+        self.copy_path = Path(copy_path) if copy_path else unique_path("TempCopy")
+        self.dataset = Dataset(path=dataset_path)
+        self.dataset_path = Path(dataset_path)
+        self.dataset_where_sql = dataset_where_sql
+        self.field_names = (
+            self.dataset.field_names if field_names is None else list(field_names)
         )
-        self.where_sql = dataset_where_sql
+        self.is_spatial = self.dataset.is_spatial and not force_nonspatial
 
     def __enter__(self):
-        self.create()
-        return self
+        return self.create()
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.discard()
 
     @property
-    def exists(self):
-        """bool: True if dataset currently exists, False otherwise."""
-        return arcpy.Exists(self.path)
+    def exists(self) -> bool:
+        """True if copy dataset currently exists, False otherwise."""
+        return arcpy.Exists(self.copy_path)
 
-    def create(self):
-        """Create dataset.
-
-        Returns:
-            bool: True if copy created, False otherwise.
-        """
-        if self.is_spatial:
-            func = arcpy.management.CopyFeatures
-        else:
-            func = arcpy.management.CopyRows
+    def create(self) -> TTempDatasetCopy:
+        """Create copy dataset."""
         view = DatasetView(
             self.dataset_path,
-            dataset_where_sql=self.where_sql,
             field_names=self.field_names,
+            dataset_where_sql=self.dataset_where_sql,
             force_nonspatial=(not self.is_spatial),
         )
         with view:
-            # ArcPy2.8.0: Convert to str.
-            func(view.name, str(self.path))
-        return self.exists
+            if self.is_spatial:
+                # ArcPy2.8.0: Convert to str.
+                arcpy.management.CopyFeatures(
+                    in_features=view.name, out_feature_class=str(self.copy_path)
+                )
+            else:
+                # ArcPy2.8.0: Convert to str.
+                arcpy.management.CopyRows(
+                    in_rows=view.name, out_table=str(self.copy_path)
+                )
+        return self
 
-    def discard(self):
-        """Discard dataset.
+    def discard(self) -> bool:
+        """Discard copy dataset.
 
         Returns:
-            bool: True if copy discarded, False otherwise.
+            True if dataset discarded, False otherwise.
         """
         if self.exists:
             # ArcPy2.8.0: Convert to str.
-            arcpy.management.Delete(str(self.path))
+            arcpy.management.Delete(str(self.copy_path))
         return not self.exists
 
 
-def add_field(dataset_path, name, **kwargs):
+def add_field(
+    dataset_path: Union[Path, str],
+    *,
+    name: str,
+    type: str = "TEXT",  # pylint: disable=redefined-builtin
+    precision: Optional[int] = None,
+    scale: Optional[int] = None,
+    length: Optional[int] = 64,
+    alias: Optional[str] = None,
+    is_nullable: bool = True,
+    is_required: bool = False,
+    exist_ok: bool = False,
+    log_level: int = logging.INFO,
+) -> Field:
     """Add field to dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        name (str): Name of the field.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        type (str): Data type of the field. Default is "TEXT".
-        precision (int): Precision of field. Only applies to float/double fields.
-        scale (int): Scale of field. Only applies to float/double fields.
-        length (int): Length of field. Only applies to text fields. Default is 64.
-        alias (str): Alias to assign field.
-        is_nullable (bool): Field can be nullable if True. Default is True.
-        is_required (bool): Field value will be required for feature if True. Default is
-            False.
-        exist_ok (bool): If field already exists: will raise an error if False;
-            will act as if field was added if True. Default is False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        name: Name of give field.
+        type: Data type of field.
+        precision: Precision of field. Only applies to float/double fields.
+        scale: Scale of field. Only applies to float/double fields.
+        length: Length of field. Only applies to text fields.
+        alias: Alias to assign field.
+        is_nullable: Field can be nullable if True.
+        is_required: Field value will be required for feature if True.
+        exist_ok: If field already exists, will raise an error if False; will act as if
+            field was successfully added if True.
+        log_level: Level to log the function at.
 
     Returns:
-        arcproc.metadata.Field: Field metadata instance.
+        Field metadata instance for added field.
 
     Raises:
         RuntimeError: If `exist_ok=False` and field already exists.
     """
     dataset_path = Path(dataset_path)
-    field = {
-        "name": name,
-        "type": kwargs.get("type", "TEXT"),
-        "precision": kwargs.get("precision", None),
-        "scale": kwargs.get("scale", None),
-        "length": kwargs.get("length", 64),
-        "alias": kwargs.get("alias", None),
-        "is_nullable": kwargs.get("is_nullable", True),
-        "is_required": kwargs.get("is_required", False),
-    }
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Add field `%s` on `%s`.", name, dataset_path)
-    if arcpy.ListFields(dataset_path, name):
-        LOG.log(level, "Field already exists.")
-        if not kwargs.get("exist_ok", False):
+    LOG.log(log_level, "Start: Add field `%s` on `%s`.", name, dataset_path)
+    if arcpy.ListFields(dataset_path, wild_card=name):
+        LOG.log(log_level, "Field already exists.")
+        if not exist_ok:
             raise RuntimeError("Cannot add existing field (exist_ok=False).")
 
     else:
-        add_field_kwargs = {f"field_{key}": value for key, value in field.items()}
         # ArcPy2.8.0: Convert to str.
-        arcpy.management.AddField(in_table=str(dataset_path), **add_field_kwargs)
-    LOG.log(level, "End: Add.")
+        arcpy.management.AddField(
+            in_table=str(dataset_path),
+            field_name=name,
+            field_type=type,
+            field_precision=precision,
+            field_scale=scale,
+            field_length=length,
+            field_alias=alias,
+            field_is_nullable=is_nullable,
+            field_is_required=is_required,
+        )
+    LOG.log(log_level, "End: Add.")
     return Field(dataset_path, name)
 
 
-def add_index(dataset_path, field_names, **kwargs):
+def add_index(
+    dataset_path: Union[Path, str],
+    *,
+    field_names: Iterable[str],
+    index_name: Optional[str] = None,
+    is_ascending: bool = False,
+    is_unique: bool = False,
+    fail_on_lock_ok: bool = False,
+    log_level: int = logging.INFO,
+) -> List[Field]:
     """Add index to dataset fields.
 
-    Note:
-        Index names can only be applied to non-spatial indexes for geodatabase feature
-        classes and tables.
-
-        There is a limited length allowed for index names; longer names will be
-        truncated without warning.
-
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_names (iter): Collection of participating field names.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        index_name (str): Name for index. Optional; see note.
-        is_ascending (bool): Build index in ascending order if True. Default is False.
-        is_unique (bool): Build index with unique constraint if True. Default is False.
-        fail_on_lock_ok (bool): If True, indicate success even if dataset locks prevent
-            adding index. Default is False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        field_names: Sequence of participating field names.
+        index_name (str): Name for index. Only applicable to non-spatial indexes for
+            geodatabase datasets.
+        is_ascending: Build index with values in ascending order if True. Only
+            applicable to non-spatial indexes for enterprise geodatabase datasets.
+        is_unique: Build index with unique constraint if True. Only
+            applicable to non-spatial indexes for enterprise geodatabase datasets.
+        fail_on_lock_ok: If True, indicate success even if dataset locks prevent
+            adding index.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the dataset receiving the index.
+        Sequence of field metadata instances for participating fields.
 
     Raises:
-        RuntimeError: If more than one field and any are geometry-types.
+        RuntimeError: If more than one field and any are geometry-type.
         arcpy.ExecuteError: If dataset lock prevents adding index.
     """
     dataset_path = Path(dataset_path)
-    field_names = list(contain(field_names))
-    kwargs.setdefault("index_name", "ndx_" + "_".join(field_names))
-    kwargs.setdefault("is_ascending", False)
-    kwargs.setdefault("is_unique", False)
-    kwargs.setdefault("fail_on_lock_ok", False)
-    level = kwargs.get("log_level", logging.INFO)
+    field_names = list(field_names)
     LOG.log(
-        level, "Start: Add index to field(s) `%s` on `%s`.", field_names, dataset_path
+        log_level,
+        "Start: Add index to field(s) `%s` on `%s`.",
+        field_names,
+        dataset_path,
     )
     field_types = {
-        _field.type.upper()
-        for _field in Dataset(dataset_path).fields
-        if _field.name.lower() in [name.lower() for name in field_names]
+        field.type.upper()
+        for field in Dataset(dataset_path).fields
+        if field.name.lower() in [field_name.lower() for field_name in field_names]
     }
     if "GEOMETRY" in field_types:
         if len(field_names) > 1:
@@ -377,74 +403,73 @@ def add_index(dataset_path, field_names, **kwargs):
             # ArcPy2.8.0: Convert to str.
             in_table=str(dataset_path),
             fields=field_names,
-            index_name=kwargs["index_name"],
-            unique=kwargs["is_unique"],
-            ascending=kwargs["is_ascending"],
+            index_name=index_name,
+            unique=is_unique,
+            ascending=is_ascending,
         )
     try:
         func()
     except arcpy.ExecuteError as error:
         if error.message.startswith("ERROR 000464"):
             LOG.warning("Lock on `%s` prevents adding index.", dataset_path)
-            if not kwargs["fail_on_lock_ok"]:
+            if not fail_on_lock_ok:
                 raise
 
-    LOG.log(level, "End: Add.")
-    return dataset_path
+    LOG.log(log_level, "End: Add.")
+    return [Field(dataset_path, field_name) for field_name in field_names]
 
 
-def as_feature_set(dataset_path, field_names=None, **kwargs):
+def as_feature_set(
+    dataset_path: Union[Path, str],
+    *,
+    field_names: Optional[Iterable[str]] = None,
+    dataset_where_sql: Optional[str] = None,
+    force_record_set: bool = False,
+) -> arcpy.FeatureSet:
     """Return dataset as feature set.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_names (iter): Collection of field names to include in output. If
-            field_names not specified or None, all fields will be included.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        force_record_set (bool): Return record set if True, whichever type matches the
-            input if False. Default is False.
-
-    Returns:
-        arcpy.FeatureSet
+        dataset_path: Path to dataset.
+        field_names: Collection of field names to include in output. If set to None, all
+            fields will be included.
+        dataset_where_sql: SQL where-clause property for dataset subselection.
+        force_record_set: If True, return record set. If False, return feature set if
+            spatial dataset & record set if non-spatial.
     """
     dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("force_record_set", False)
     if field_names is not None:
         field_names = list(field_names)
     view = DatasetView(
-        dataset_path,
-        field_names=field_names,
-        dataset_where_sql=kwargs["dataset_where_sql"],
+        dataset_path, field_names=field_names, dataset_where_sql=dataset_where_sql
     )
     with view:
-        if kwargs["force_record_set"] or not view.is_spatial:
+        if force_record_set or not view.is_spatial:
             return arcpy.RecordSet(table=view.name)
 
         return arcpy.FeatureSet(table=view.name)
 
 
-def compress(dataset_path, **kwargs):
+def compress(
+    dataset_path: Union[Path, str],
+    *,
+    bad_allocation_ok: bool = False,
+    log_level: int = logging.INFO,
+) -> Dataset:
     """Compress dataset.
 
-    Compression only applies to datasets in file geodatabases.
+    Only applicable to file geodatabase datasets.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the workspace.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        bad_allocation_ok: Will not raise ExecuteError on bad allocations. "Bad
+            allocation" generally occurs when dataset is too big to compress.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the compressed dataset.
+        Dataset metadata instance for compressed dataset.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Compress dataset `%s`.", dataset_path)
+    LOG.log(log_level, "Start: Compress dataset `%s`.", dataset_path)
     try:
         # ArcPy2.8.0: Convert to str.
         arcpy.management.CompressFileGeodatabaseData(in_data=str(dataset_path))
@@ -454,66 +479,64 @@ def compress(dataset_path, **kwargs):
             "bad allocation\nFailed to execute (CompressFileGeodatabaseData).\n"
         ):
             LOG.error("Compress error: bad allocation.")
+            if not bad_allocation_ok:
+                raise
+
         else:
             LOG.error("""str(error) = "%s\"""", error)
             LOG.error("""repr(error) = "%r\"""", error)
             raise
 
-    LOG.log(level, "End: Compress.")
-    return dataset_path
+    LOG.log(log_level, "End: Compress.")
+    return Dataset(dataset_path)
 
 
-def copy(dataset_path, output_path, **kwargs):
+def copy(
+    dataset_path: Union[Path, str],
+    *,
+    output_path: Union[Path, str],
+    field_names: Optional[Iterable[str]] = None,
+    dataset_where_sql: Optional[str] = None,
+    overwrite: bool = False,
+    schema_only: bool = False,
+    log_level: int = logging.INFO,
+) -> Dataset:
     """Copy features into a new dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        output_path (pathlib.Path, str): Path of output dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        field_names (iter): Collection of field names to include in output. If
-            field_names not specified or None, all fields will be included.
-        schema_only (bool): Copy only the schema--omitting data--if True. Default is
-            False.
-        overwrite (bool): Overwrite the output dataset if it exists, if True. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        output_path: Path to output dataset.
+        field_names: Collection of field names to include in output. If set to None, all
+            fields will be included.
+        dataset_where_sql: SQL where-clause property for dataset subselection.
+        overwrite: Overwrite existing dataset at output path if True.
+        schema_only: Copy only the schema--omitting data--if True.
+        log_level: Level to log the function at.
 
     Returns:
-        collections.Counter: Counts of features for each copy-state.
+        Dataset metadata instance for output dataset.
 
     Raises:
         ValueError: If dataset type not supported.
     """
     dataset_path = Path(dataset_path)
     output_path = Path(output_path)
-    kwargs.setdefault("dataset_where_sql")
-    if "field_names" not in kwargs or kwargs["field_names"] is None:
-        kwargs["field_names"] = None
-    else:
-        kwargs["field_names"] = list(contain(kwargs["field_names"]))
-    kwargs.setdefault("schema_only", False)
-    kwargs.setdefault("overwrite", False)
-    if kwargs["schema_only"]:
-        kwargs["dataset_where_sql"] = "0=1"
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
+    if field_names is not None:
+        field_names = list(field_names)
+    LOG.log(log_level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
     _dataset = Dataset(dataset_path)
     view = DatasetView(
         dataset_path,
-        field_names=kwargs["field_names"],
-        dataset_where_sql=kwargs["dataset_where_sql"],
+        field_names=field_names,
+        dataset_where_sql=dataset_where_sql if not schema_only else "0 = 1",
     )
     with view:
-        if kwargs["overwrite"] and arcpy.Exists(output_path):
+        if overwrite and arcpy.Exists(output_path):
             delete(output_path, log_level=logging.DEBUG)
         if _dataset.is_spatial:
+            # ArcPy2.8.0: Convert to str.
             arcpy.management.CopyFeatures(
-                # ArcPy2.8.0: Convert to str.
-                in_features=view.name,
-                out_feature_class=str(output_path),
+                in_features=view.name, out_feature_class=str(output_path)
             )
         elif _dataset.is_table:
             # ArcPy2.8.0: Convert to str.
@@ -521,128 +544,130 @@ def copy(dataset_path, output_path, **kwargs):
         else:
             raise ValueError(f"`{dataset_path}` unsupported dataset type.")
 
-    LOG.log(level, "End: Copy.")
-    states = Counter(copied=feature_count(output_path))
-    return states
+    LOG.log(log_level, "End: Copy.")
+    return Dataset(output_path)
 
 
-def create(dataset_path, field_metadata_list=None, geometry_type=None, **kwargs):
+def create(
+    dataset_path: Union[Path, str],
+    *,
+    field_metadata_list: Optional[Iterable[Union[Field, dict]]] = None,
+    geometry_type: Optional[str] = None,
+    spatial_reference_item: Union[
+        SpatialReference, int, arcpy.Geometry, arcpy.SpatialReference, Path, str
+    ] = 4326,
+    log_level: int = logging.INFO,
+) -> Dataset:
     """Create new dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset .
-        field_metadata_list (iter): Collection of field metadata mappings. Can be Field
-            metadata objects as well as mappings.
-        geometry_type (str): Type of geometry, if a spatial dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
+        dataset_path: Path to dataset.
+        field_metadata_list: Collection of field metadata instances or mappings.
+        geometry_type: Type of geometry, if a spatial dataset. Will create a nonspatial
+            dataset if set to None.
         spatial_reference_item: Item from which the spatial reference of the output
             geometry will be derived. Default is 4326 (EPSG code for unprojected WGS84).
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the dataset created.
+        Dataset metadata instance for created dataset.
     """
     dataset_path = Path(dataset_path)
-    kwargs.setdefault("spatial_reference_item", 4326)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Create dataset `%s`.", dataset_path)
+    LOG.log(log_level, "Start: Create dataset `%s`.", dataset_path)
     if geometry_type:
+        if isinstance(spatial_reference_item, SpatialReference):
+            spatial_reference = spatial_reference_item
+        else:
+            spatial_reference = SpatialReference(spatial_reference_item)
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.management.CreateFeatureclass(
-            # ArcPy2.8.0: Convert to str.
             out_path=str(dataset_path.parent),
             out_name=dataset_path.name,
             geometry_type=geometry_type,
-            has_z=(
-                "ENABLED"
-                if isinstance(kwargs["spatial_reference_item"], (tuple, list))
-                else "DISABLED"
-            ),
-            spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
+            has_z="DISABLED",
+            spatial_reference=spatial_reference.object,
         )
     else:
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.management.CreateTable(
-            # ArcPy2.8.0: Convert to str.
-            out_path=str(dataset_path.parent),
-            out_name=dataset_path.name,
+            out_path=str(dataset_path.parent), out_name=dataset_path.name,
         )
     if field_metadata_list:
-        for field_meta in field_metadata_list:
-            if isinstance(field_meta, Field):
-                field_meta = field_meta.field_as_dict
-            add_field(dataset_path, log_level=logging.DEBUG, **field_meta)
-    LOG.log(level, "End: Create.")
-    return dataset_path
+        for field_metadata in field_metadata_list:
+            if isinstance(field_metadata, Field):
+                field_metadata = field_metadata.field_as_dict
+            add_field(dataset_path, log_level=logging.DEBUG, **field_metadata)
+    LOG.log(log_level, "End: Create.")
+    return Dataset(dataset_path)
 
 
-def delete(dataset_path, **kwargs):
+def delete(dataset_path: Union[Path, str], *, log_level: int = logging.INFO) -> Dataset:
     """Delete dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of deleted dataset.
+        Dataset metadata instance for now-deleted dataset.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Delete dataset `%s`.", dataset_path)
+    LOG.log(log_level, "Start: Delete dataset `%s`.", dataset_path)
+    _dataset = Dataset(dataset_path)
     # ArcPy2.8.0: Convert to str.
     arcpy.management.Delete(in_data=str(dataset_path))
-    LOG.log(level, "End: Delete.")
-    return dataset_path
+    LOG.log(log_level, "End: Delete.")
+    return _dataset
 
 
-def delete_field(dataset_path, field_name, **kwargs):
+def delete_field(
+    dataset_path: Union[Path, str], *, field_name: str, log_level: int = logging.INFO
+) -> Field:
     """Delete field from dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        log_level: Level to log the function at.
 
     Returns:
-        str: Name of the field deleted.
+        Field metadata instance for now-deleted field.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Delete field `%s` on `%s`.", field_name, dataset_path)
+    LOG.log(
+        log_level, "Start: Delete field `%s` on dataset `%s`.", field_name, dataset_path
+    )
+    field = Field(dataset_path, name=field_name)
     # ArcPy2.8.0: Convert to str.
     arcpy.management.DeleteField(in_table=str(dataset_path), drop_field=field_name)
-    LOG.log(level, "End: Delete.")
-    return field_name
+    LOG.log(log_level, "End: Delete.")
+    return field
 
 
-def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
+def duplicate_field(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    new_field_name: str,
+    log_level: int = logging.INFO,
+) -> Field:
     """Create new field as a duplicate of another.
 
     Note: This does *not* duplicate the values of the original field; only the schema.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        new_field_name (str): Name of the new field.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        new_field_name: Name of new field.
+        log_level: Level to log the function at.
 
     Returns:
-        str: Name of the field created.
+        Field metadata instance for created field.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
     LOG.log(
-        level,
-        "Start: Duplicate field `%s on `%s` as `%s`.",
+        log_level,
+        "Start: Duplicate field `%s on dataset `%s` as `%s`.",
         field_name,
         dataset_path,
         new_field_name,
@@ -652,35 +677,32 @@ def duplicate_field(dataset_path, field_name, new_field_name, **kwargs):
     # Cannot add another OID-type field, so change to long.
     if field.type.upper() == "OID":
         field.type = "LONG"
-    add_field(dataset_path, log_level=logging.DEBUG, **field.as_dict)
-    LOG.log(level, "End: Duplicate.")
-    return new_field_name
+    add_field(dataset_path, log_level=logging.DEBUG, **field.field_as_dict)
+    LOG.log(log_level, "End: Duplicate.")
+    # Make new Field instance to update the `object` property.
+    return Field(dataset_path, new_field_name)
 
 
-def feature_count(dataset_path, dataset_where_sql=None):
+def feature_count(
+    dataset_path: Union[Path, str], *, dataset_where_sql: Optional[str] = None
+) -> int:
     """Return number of features in dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-
-    Returns:
-        int
+        dataset_path: Path to dataset.
+        dataset_where_sql: SQL where-clause property for dataset subselection.
     """
     dataset_path = Path(dataset_path)
-    view = DatasetView(dataset_path, dataset_where_sql)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         return view.count
 
 
-def is_valid(dataset_path):
-    """Check whether dataset is extant & valid.
+def is_valid(dataset_path: Union[Path, str]) -> bool:
+    """Return True if dataset is extant & valid.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-
-    Returns:
-        bool
+        dataset_path: Path to dataset.
     """
     dataset_path = Path(dataset_path)
     exists = dataset_path and arcpy.Exists(dataset=dataset_path)
@@ -694,118 +716,121 @@ def is_valid(dataset_path):
     return valid
 
 
-def remove_all_default_field_values(dataset_path, **kwargs):
+def remove_all_default_field_values(
+    dataset_path: Union[Path, str], *, log_level: int = logging.INFO
+) -> Dataset:
     """Remove all default field values in dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of dataset.
+        Dataset metadata instance for dataset.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Remove all default field values for `%s`.", dataset_path)
-    field_names = [
-        _field.name
-        for _field in Dataset(dataset_path).fields
-        if _field.default_value is not None
-    ]
+    LOG.log(
+        log_level,
+        "Start: Remove all default field values for dataset `%s`.",
+        dataset_path,
+    )
     subtype_codes = [
         code
-        for code, meta in arcpy.da.ListSubtypes(dataset_path).items()
-        if meta["SubtypeField"]
+        for code, _property in arcpy.da.ListSubtypes(dataset_path).items()
+        if _property["SubtypeField"]
     ]
-    for field_name in field_names:
-        LOG.log(level, "Removing default value for `%s`.", field_name)
+    for field in Dataset(dataset_path).fields:
+        if field.default_value is None:
+            continue
+
+        LOG.log(log_level, "Removing default value for field `%s`.", field.name)
         set_default_field_value(
             dataset_path,
-            field_name,
+            field_name=field.name,
             value=None,
             subtype_codes=subtype_codes,
             log_level=logging.DEBUG,
         )
-    LOG.log(level, "End: Remove.")
-    return dataset_path
+    LOG.log(log_level, "End: Remove.")
+    # Make new Dataset instance to update the field information.
+    return Dataset(dataset_path)
 
 
-def set_default_field_value(dataset_path, field_name, value=None, **kwargs):
-    """Set a default value for field.
+def set_default_field_value(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    value: Any = None,
+    subtype_codes: Optional[Iterable[int]] = None,
+    log_level: int = logging.INFO,
+) -> Field:
+    """Set default value for field.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        value (object): Default value to assign.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        subtype_codes (int): Codes for subtypes.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        value: Default value to assign.
+        subtype_codes: Codes for subtypes to participate in the default value.
+        log_level: Level to log the function at.
 
     Returns:
-        str: Name of the field.
+        Field metadata instance for field.
+
+    Raises:
+        OSError: If dataset in workspace that does not support changing field defaults.
     """
     dataset_path = Path(dataset_path)
-    if "subtype_codes" in kwargs:
-        kwargs["subtype_codes"] = list(contain(kwargs["subtype_codes"]))
-    else:
-        kwargs["subtype_codes"] = []
-    level = kwargs.get("log_level", logging.INFO)
     LOG.log(
-        level,
-        "Start: Set default value for field `%s` on `%s` to `%s`.",
+        log_level,
+        "Start: Set default value for field `%s` on dataset `%s` to `%s`.",
         field_name,
         dataset_path,
         value,
     )
-    if dataset_path.parent == Path("in_memory"):
+    if dataset_path.parent.name == "in_memory":
         raise OSError("Cannot change field default in `in_memory` workspace")
 
+    # ArcPy2.8.0: Convert Path to str.
     arcpy.management.AssignDefaultToField(
-        # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_name=field_name,
         default_value=value if value is not None else "",
-        subtype_code=kwargs["subtype_codes"],
+        subtype_code=list(subtype_codes) if subtype_codes else [],
         clear_value=value is None,
     )
-    LOG.log(level, "End: Set.")
-    return field_name
+    LOG.log(log_level, "End: Set.")
+    return Field(dataset_path, field_name)
 
 
-def rename_field(dataset_path, field_name, new_field_name, **kwargs):
+def rename_field(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    new_field_name: str,
+    log_level: int = logging.INFO,
+) -> Field:
     """Rename field.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of the field.
-        new_field_name (str): New name for the field.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        new_field_name: New name of field.
+        log_level: Level to log the function at.
 
     Returns:
-        str: New name of the field.
+        Field metadata instance for created field.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
     LOG.log(
-        level,
-        "Start: Rename field `%s` on `%s` to `%s`.",
+        log_level,
+        "Start: Rename field `%s` on dataset `%s` to `%s`.",
         field_name,
         dataset_path,
         new_field_name,
     )
+    # ArcPy2.8.0: Convert Path to str.
     arcpy.management.AlterField(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field=field_name,
-        new_field_name=new_field_name,
+        in_table=str(dataset_path), field=field_name, new_field_name=new_field_name
     )
-    LOG.log(level, "End: Rename.")
-    return new_field_name
+    LOG.log(log_level, "End: Rename.")
+    return Field(dataset_path, name=new_field_name)

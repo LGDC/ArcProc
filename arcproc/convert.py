@@ -49,7 +49,7 @@ def lines_to_vertex_points(dataset_path, output_path, endpoints_only=False, **kw
         dataset_path,
         output_path,
     )
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     with view:
         arcpy.management.FeatureVerticesToPoints(
             in_features=view.name,
@@ -57,7 +57,7 @@ def lines_to_vertex_points(dataset_path, output_path, endpoints_only=False, **kw
             out_feature_class=str(output_path),
             point_location="ALL" if not endpoints_only else "BOTH_ENDS",
         )
-    dataset.delete_field(output_path, "ORIG_FID", log_level=logging.DEBUG)
+    dataset.delete_field(output_path, field_name="ORIG_FID", log_level=logging.DEBUG)
     LOG.log(level, "End: Convert.")
     return output_path
 
@@ -96,7 +96,7 @@ def planarize(dataset_path, output_path, **kwargs):
         dataset_path,
         output_path,
     )
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     with view:
         arcpy.management.FeatureToLine(
             in_features=view.name,
@@ -191,7 +191,7 @@ def points_to_thiessen_polygons(dataset_path, output_path, **kwargs):
         dataset_path,
         output_path,
     )
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     with view:
         arcpy.analysis.CreateThiessenPolygons(
             in_features=view.name,
@@ -246,7 +246,7 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
         output_path,
     )
     original_tolerance = arcpy.env.XYTolerance
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     with view:
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = kwargs["tolerance"]
@@ -273,7 +273,7 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
                 if id_field.type.upper() == "OID":
                     id_field.type = "LONG"
                 dataset.add_field(
-                    output_path, log_level=logging.DEBUG, **id_field.as_dict
+                    output_path, log_level=logging.DEBUG, **id_field.field_as_dict
                 )
                 attributes.update_by_joined_value(
                     output_path,
@@ -284,9 +284,13 @@ def polygons_to_lines(dataset_path, output_path, topological=False, **kwargs):
                     join_key_field_names=[_dataset.oid_field_name],
                     log_level=logging.DEBUG,
                 )
-            dataset.delete_field(output_path, oid_key, log_level=logging.DEBUG)
+            dataset.delete_field(
+                output_path, field_name=oid_key, log_level=logging.DEBUG
+            )
     else:
-        dataset.delete_field(output_path, "ORIG_FID", log_level=logging.DEBUG)
+        dataset.delete_field(
+            output_path, field_name="ORIG_FID", log_level=logging.DEBUG
+        )
     LOG.log(level, "End: Convert.")
     return output_path
 
@@ -333,7 +337,7 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         dataset_path=output_path,
         field_metadata_list=_dataset.user_fields,
         geometry_type=_dataset.geometry_type,
-        spatial_reference_item=spatial_reference.object,
+        spatial_reference_item=spatial_reference,
         log_level=logging.DEBUG,
     )
     features.insert_from_path(
@@ -421,7 +425,7 @@ def split_lines_at_vertices(dataset_path, output_path, **kwargs):
         dataset_path,
         output_path,
     )
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     with view:
         arcpy.management.SplitLine(
             # ArcPy2.8.0: Convert to str.
@@ -477,7 +481,7 @@ def table_to_points(
         in_z_field=kwargs["z_field_name"],
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    dataset.copy(layer_name, output_path, log_level=logging.DEBUG)
+    dataset.copy(layer_name, output_path=output_path, log_level=logging.DEBUG)
     arcpy.management.Delete(layer_name)
     LOG.log(level, "End: Convert.")
     return output_path

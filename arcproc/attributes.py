@@ -263,14 +263,14 @@ def update_by_central_overlay(
     view = {
         "dataset": DatasetView(
             dataset_path,
-            kwargs.get("dataset_where_sql"),
             # Do *not* include any fields here (avoids name collisions in temp output).
             field_names=[],
+            dataset_where_sql=kwargs.get("dataset_where_sql"),
         ),
         "overlay": DatasetView(
             overlay_dataset_path,
-            kwargs.get("overlay_where_sql"),
             field_names=[overlay_field_name],
+            dataset_where_sql=kwargs.get("overlay_where_sql"),
         ),
     }
     with view["dataset"], view["overlay"]:
@@ -354,14 +354,14 @@ def update_by_dominant_overlay(
     view = {
         "dataset": DatasetView(
             dataset_path,
-            kwargs.get("dataset_where_sql"),
             # Do *not* include any fields here (avoids name collisions in temp output).
             field_names=[],
+            dataset_where_sql=kwargs.get("dataset_where_sql"),
         ),
         "overlay": DatasetView(
             overlay_dataset_path,
-            kwargs.get("overlay_where_sql"),
             field_names=[overlay_field_name],
+            dataset_where_sql=kwargs.get("overlay_where_sql"),
         ),
     }
     with view["dataset"], view["overlay"]:
@@ -960,9 +960,13 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
         overlay_dataset_path,
     )
     original_tolerance = arcpy.env.XYTolerance
-    dataset_view = DatasetView(dataset_path, kwargs.get("dataset_where_sql"))
+    dataset_view = DatasetView(
+        dataset_path, dataset_where_sql=kwargs.get("dataset_where_sql")
+    )
     overlay_view = DatasetView(
-        overlay_dataset_path, kwargs.get("overlay_where_sql"), field_names=[]
+        overlay_dataset_path,
+        dataset_where_sql=kwargs.get("overlay_where_sql"),
+        field_names=[],
     )
     with dataset_view, overlay_view:
         if "tolerance" in kwargs:

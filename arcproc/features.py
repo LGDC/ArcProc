@@ -204,7 +204,7 @@ def dissolve(dataset_path, dissolve_field_names=None, multipart=True, **kwargs):
         dissolve_field_names,
     )
     original_tolerance = arcpy.env.XYTolerance
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     temp_output_path = unique_path("output")
     with view:
         if "tolerance" in kwargs:
@@ -277,7 +277,7 @@ def eliminate_interior_rings(
         condition = "AREA"
     else:
         condition = "PERCENT"
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     temp_output_path = unique_path("output")
     with view:
         arcpy.management.EliminatePolygonPart(
@@ -339,8 +339,12 @@ def erase(dataset_path, erase_dataset_path, **kwargs):
         erase_dataset_path,
     )
     view = {
-        "dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "erase": DatasetView(erase_dataset_path, kwargs["erase_where_sql"]),
+        "dataset": DatasetView(
+            dataset_path, dataset_where_sql=kwargs["dataset_where_sql"]
+        ),
+        "erase": DatasetView(
+            erase_dataset_path, dataset_where_sql=kwargs["erase_where_sql"]
+        ),
     }
     temp_output_path = unique_path("output")
     with view["dataset"], view["erase"]:
@@ -511,8 +515,8 @@ def insert_from_path(dataset_path, insert_dataset_path, field_names=None, **kwar
         field_mapping.addFieldMap(field_map)
     view = DatasetView(
         insert_dataset_path,
+        name=unique_name("view"),
         dataset_where_sql=kwargs["insert_where_sql"],
-        view_name=unique_name("view"),
         # Must be nonspatial to append to nonspatial table.
         force_nonspatial=(not _datasets["dataset"].is_spatial),
     )
@@ -563,8 +567,12 @@ def keep_by_location(dataset_path, location_dataset_path, **kwargs):
     )
     session = Editing(Dataset(dataset_path).workspace_path, kwargs["use_edit_session"],)
     view = {
-        "dataset": DatasetView(dataset_path, kwargs["dataset_where_sql"]),
-        "location": DatasetView(location_dataset_path, kwargs["location_where_sql"]),
+        "dataset": DatasetView(
+            dataset_path, dataset_where_sql=kwargs["dataset_where_sql"]
+        ),
+        "location": DatasetView(
+            location_dataset_path, dataset_where_sql=kwargs["location_where_sql"]
+        ),
     }
     with session, view["dataset"], view["location"]:
         arcpy.management.SelectLayerByLocation(
@@ -823,8 +831,8 @@ def update_from_path(
     )
     view = DatasetView(
         dataset_path,
-        dataset_where_sql=kwargs["dataset_where_sql"],
         field_names=id_field_names + field_names,
+        dataset_where_sql=kwargs["dataset_where_sql"],
     )
     with view:
         states.update(

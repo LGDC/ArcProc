@@ -89,13 +89,14 @@ class Procedure(ContextDecorator):
         dataset_path = Path(dataset_path)
         LOG.info("Start: Extract `%s`.", dataset_path)
         self.transform_path = self.available_transform_path
-        states = dataset.copy(
+        states = Counter()
+        states["extracted"] = dataset.copy(
             dataset_path,
             output_path=self.transform_path,
             dataset_where_sql=extract_where_sql,
             field_names=field_names,
             log_level=logging.DEBUG,
-        )
+        ).feature_count
         # ArcPy 2.8.0: Workaround for BUG-000091314.
         dataset.remove_all_default_field_values(
             self.transform_path, log_level=logging.DEBUG
@@ -168,9 +169,9 @@ class Procedure(ContextDecorator):
         kwargs.setdefault("preserve_features", False)
         kwargs.setdefault("use_edit_session", False)
         LOG.info("Start: Load `%s`.", dataset_path)
+        states = Counter()
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
-            states = Counter()
             if not kwargs["preserve_features"]:
                 states.update(
                     features.delete(
@@ -190,7 +191,7 @@ class Procedure(ContextDecorator):
             )
         # Load to a new dataset.
         else:
-            states = dataset.copy(
+            states["copied"] = dataset.copy(
                 self.transform_path,
                 output_path=dataset_path,
                 dataset_where_sql=load_where_sql,

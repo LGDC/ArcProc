@@ -65,22 +65,24 @@ def identity(
         identity_dataset_path,
         identity_field_name,
     )
-    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    identity_copy = TempDatasetCopy(
-        identity_dataset_path,
-        dataset_where_sql=kwargs["identity_where_sql"],
-        field_names=[identity_field_name],
-        # BUG-000134367 - Cannot rename field later.
-        output_path=unique_path(prefix="temp", workspace_path="in_memory"),
+    dataset_view = DatasetView(
+        dataset_path, dataset_where_sql=kwargs["dataset_where_sql"]
     )
-    with dataset_view, identity_copy:
+    temp_identity = TempDatasetCopy(
+        identity_dataset_path,
+        # BUG-000134367 - Cannot rename field later.
+        copy_path=unique_path(prefix="temp", workspace_path="in_memory"),
+        field_names=[identity_field_name],
+        dataset_where_sql=kwargs["identity_where_sql"],
+    )
+    with dataset_view, temp_identity:
         # Avoid field name collisions with neutral holding field.
         temp_field_name = unique_name(identity_field_name, unique_length=1)
         if len(temp_field_name) > 31:
             temp_field_name = temp_field_name[len(temp_field_name) - 31 :]
         dataset.rename_field(
-            identity_copy.path,
-            identity_field_name,
+            temp_identity.copy_path,
+            field_name=identity_field_name,
             new_field_name=temp_field_name,
             log_level=logging.DEBUG,
         )
@@ -89,7 +91,7 @@ def identity(
             arcpy.analysis.Identity(
                 in_features=chunk_view.name,
                 # ArcPy2.8.0: Convert to str.
-                identity_features=str(identity_copy.path),
+                identity_features=str(temp_identity.copy_path),
                 # ArcPy2.8.0: Convert to str.
                 out_feature_class=str(temp_output_path),
                 join_attributes="ALL",
@@ -186,19 +188,21 @@ def overlay(
     if kwargs["overlay_most_coincident"]:
         raise NotImplementedError("overlay_most_coincident not yet implemented")
 
-    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    overlay_copy = TempDatasetCopy(
-        overlay_dataset_path,
-        kwargs["overlay_where_sql"],
-        field_names=[overlay_field_name],
-        # BUG-000134367 - Cannot rename field later.
-        output_path=unique_path(prefix="temp", workspace_path="in_memory"),
+    dataset_view = DatasetView(
+        dataset_path, dataset_where_sql=kwargs["dataset_where_sql"]
     )
-    with dataset_view, overlay_copy:
+    temp_overlay = TempDatasetCopy(
+        overlay_dataset_path,
+        # BUG-000134367 - Cannot rename field later.
+        copy_path=unique_path(prefix="temp", workspace_path="in_memory"),
+        field_names=[overlay_field_name],
+        dataset_where_sql=kwargs["overlay_where_sql"],
+    )
+    with dataset_view, temp_overlay:
         # Avoid field name collisions with neutral field name.
-        overlay_copy.field_name = dataset.rename_field(
-            overlay_copy.path,
-            overlay_field_name,
+        temp_overlay.field_name = dataset.rename_field(
+            temp_overlay.copy_path,
+            field_name=overlay_field_name,
             new_field_name=unique_name(overlay_field_name, unique_length=1),
             log_level=logging.DEBUG,
         )
@@ -210,7 +214,7 @@ def overlay(
             arcpy.analysis.SpatialJoin(
                 target_features=chunk_view.name,
                 # ArcPy2.8.0: Convert to str.
-                join_features=str(overlay_copy.path),
+                join_features=str(temp_overlay.copy_path),
                 # ArcPy2.8.0: Convert to str.
                 out_feature_class=str(temp_output_path),
                 join_operation="JOIN_ONE_TO_MANY",
@@ -227,7 +231,7 @@ def overlay(
                 field_name,
                 function=lambda x: x,
                 field_as_first_arg=False,
-                arg_field_names=[overlay_copy.field_name],
+                arg_field_names=[temp_overlay.field_name],
                 log_level=logging.DEBUG,
             )
             # Apply replacement value if necessary.
@@ -294,15 +298,19 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
         union_dataset_path,
         union_field_name,
     )
-    dataset_view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
-    union_copy = TempDatasetCopy(
-        union_dataset_path, kwargs["union_where_sql"], field_names=[union_field_name]
+    dataset_view = DatasetView(
+        dataset_path, dataset_where_sql=kwargs["dataset_where_sql"]
     )
-    with dataset_view, union_copy:
+    temp_union = TempDatasetCopy(
+        union_dataset_path,
+        field_names=[union_field_name],
+        dataset_where_sql=kwargs["union_where_sql"],
+    )
+    with dataset_view, temp_union:
         # Avoid field name collisions with neutral field name.
-        union_copy.field_name = dataset.rename_field(
-            union_copy.path,
-            union_field_name,
+        temp_union.field_name = dataset.rename_field(
+            temp_union.copy_path,
+            field_name=union_field_name,
             new_field_name=unique_name(union_field_name, unique_length=1),
             log_level=logging.DEBUG,
         )
@@ -310,7 +318,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
             temp_output_path = unique_path("output")
             arcpy.analysis.Union(
                 # ArcPy2.8.0: Convert to str.
-                in_features=[chunk_view.name, str(union_copy.path)],
+                in_features=[chunk_view.name, str(temp_union.copy_path)],
                 # ArcPy2.8.0: Convert to str.
                 out_feature_class=str(temp_output_path),
                 join_attributes="ALL",
@@ -324,7 +332,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
                 field_name,
                 function=lambda x: None if x == "" else x,
                 field_as_first_arg=False,
-                arg_field_names=[union_copy.field_name],
+                arg_field_names=[temp_union.field_name],
                 log_level=logging.DEBUG,
             )
             # Apply replacement value if necessary.

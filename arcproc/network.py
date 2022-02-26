@@ -255,7 +255,7 @@ def generate_service_areas(
         )
     else:
         trim_value = None
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     arcpy.na.MakeServiceAreaLayer(
         # ArcPy2.8.0: Convert to str.
         in_network_dataset=str(network_path),
@@ -293,11 +293,15 @@ def generate_service_areas(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
+    dataset.copy(
+        "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
+    )
     arcpy.management.Delete("service_area")
     if kwargs["id_field_name"]:
         id_field = Field(dataset_path, kwargs["id_field_name"])
-        dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.as_dict)
+        dataset.add_field(
+            output_path, log_level=logging.DEBUG, **id_field.field_as_dict
+        )
         attributes.update_by_function(
             output_path,
             field_name=id_field.name,
@@ -368,7 +372,7 @@ def generate_service_rings(
         )
     else:
         trim_value = None
-    view = DatasetView(dataset_path, kwargs["dataset_where_sql"])
+    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
     arcpy.na.MakeServiceAreaLayer(
         # ArcPy2.8.0: Convert to str.
         in_network_dataset=str(network_path),
@@ -408,11 +412,15 @@ def generate_service_rings(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy("service_area/Polygons", output_path, log_level=logging.DEBUG)
+    dataset.copy(
+        "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
+    )
     arcpy.management.Delete("service_area")
     if kwargs["id_field_name"]:
         id_field = Field(dataset_path, kwargs["id_field_name"])
-        dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.as_dict)
+        dataset.add_field(
+            output_path, log_level=logging.DEBUG, **id_field.field_as_dict
+        )
         attributes.update_by_function(
             output_path,
             id_field.name,
