@@ -756,6 +756,40 @@ def remove_all_default_field_values(
     return Dataset(dataset_path)
 
 
+def rename_field(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    new_field_name: str,
+    log_level: int = logging.INFO,
+) -> Field:
+    """Rename field.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        new_field_name: New name of field.
+        log_level: Level to log the function at.
+
+    Returns:
+        Field metadata instance for created field.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(
+        log_level,
+        "Start: Rename field `%s` on dataset `%s` to `%s`.",
+        field_name,
+        dataset_path,
+        new_field_name,
+    )
+    # ArcPy2.8.0: Convert Path to str.
+    arcpy.management.AlterField(
+        in_table=str(dataset_path), field=field_name, new_field_name=new_field_name
+    )
+    LOG.log(log_level, "End: Rename.")
+    return Field(dataset_path, name=new_field_name)
+
+
 def set_default_field_value(
     dataset_path: Union[Path, str],
     *,
@@ -800,37 +834,3 @@ def set_default_field_value(
     )
     LOG.log(log_level, "End: Set.")
     return Field(dataset_path, field_name)
-
-
-def rename_field(
-    dataset_path: Union[Path, str],
-    *,
-    field_name: str,
-    new_field_name: str,
-    log_level: int = logging.INFO,
-) -> Field:
-    """Rename field.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_name: Name of field.
-        new_field_name: New name of field.
-        log_level: Level to log the function at.
-
-    Returns:
-        Field metadata instance for created field.
-    """
-    dataset_path = Path(dataset_path)
-    LOG.log(
-        log_level,
-        "Start: Rename field `%s` on dataset `%s` to `%s`.",
-        field_name,
-        dataset_path,
-        new_field_name,
-    )
-    # ArcPy2.8.0: Convert Path to str.
-    arcpy.management.AlterField(
-        in_table=str(dataset_path), field=field_name, new_field_name=new_field_name
-    )
-    LOG.log(log_level, "End: Rename.")
-    return Field(dataset_path, name=new_field_name)
