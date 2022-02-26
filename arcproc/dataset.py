@@ -694,53 +694,6 @@ def is_valid(dataset_path):
     return valid
 
 
-def join_field(
-    dataset_path,
-    join_dataset_path,
-    join_field_name,
-    on_field_name,
-    on_join_field_name,
-    **kwargs,
-):
-    """Add field and its values from join-dataset.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        join_dataset_path (pathlib.Path, str): Path of the dataset to join field from.
-        join_field_name (str): Name of the field to join.
-        on_field_name (str): Name of the field to join the dataset on.
-        on_join_field_name (str): Name of the field to join the join-dataset on.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-   Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
-
-    Returns:
-        str: Name of the joined field.
-    """
-    dataset_path = Path(dataset_path)
-    join_dataset_path = Path(join_dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(
-        level,
-        "Start: Join field `%s` onto `%s` from `%s`.",
-        join_field_name,
-        dataset_path,
-        join_dataset_path,
-    )
-    arcpy.management.JoinField(
-        # ArcPy2.8.0: Convert to str.
-        in_data=str(dataset_path),
-        in_field=on_field_name,
-        # ArcPy2.8.0: Convert to str.
-        join_table=str(join_dataset_path),
-        join_field=on_join_field_name,
-        fields=[join_field_name],
-    )
-    LOG.log(level, "End: Join.")
-    return join_field_name
-
-
 def remove_all_default_field_values(dataset_path, **kwargs):
     """Remove all default field values in dataset.
 
