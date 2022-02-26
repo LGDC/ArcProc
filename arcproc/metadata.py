@@ -402,3 +402,9 @@ class Dataset:
     def as_dict(self) -> dict:
         """Metadata as dictionary."""
         return dict((field.name, getattr(self, field.name)) for field in fields(self))
+
+    @property
+    def feature_count(self) -> int:
+        """Number of features in dataset."""
+        # ArcPy2.8.0: Convert to str.
+        return int(arcpy.management.GetCount(str(self.path)).getOutput(0))
