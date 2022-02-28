@@ -146,12 +146,13 @@ class Field:
 
     @property
     def field_as_dict(self) -> dict:
-        """Field attributes as dictionary."""
+        """Field attributes as dictionary.
+
+        Intentionally aligned with `arcproc.dataset.add_field` arguments.
+        """
         attribute_names = [
             "name",
             "alias",
-            "default_value",
-            "is_editable",
             "is_nullable",
             "is_required",
             "length",

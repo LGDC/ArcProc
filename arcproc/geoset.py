@@ -205,7 +205,7 @@ def overlay(
             field_name=overlay_field_name,
             new_field_name=unique_name(overlay_field_name, unique_length=1),
             log_level=logging.DEBUG,
-        )
+        ).name
         if kwargs["tolerance"]:
             original_tolerance = arcpy.env.XYTolerance
             arcpy.env.XYTolerance = kwargs["tolerance"]
@@ -313,7 +313,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
             field_name=union_field_name,
             new_field_name=unique_name(union_field_name, unique_length=1),
             log_level=logging.DEBUG,
-        )
+        ).name
         for chunk_view in dataset_view.as_chunks(kwargs["chunk_size"]):
             temp_output_path = unique_path("output")
             arcpy.analysis.Union(
