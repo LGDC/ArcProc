@@ -575,17 +575,13 @@ def create(
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Create dataset `%s`.", dataset_path)
     if geometry_type:
-        if isinstance(spatial_reference_item, SpatialReference):
-            spatial_reference = spatial_reference_item
-        else:
-            spatial_reference = SpatialReference(spatial_reference_item)
         # ArcPy2.8.0: Convert Path to str.
         arcpy.management.CreateFeatureclass(
             out_path=str(dataset_path.parent),
             out_name=dataset_path.name,
             geometry_type=geometry_type,
             has_z="DISABLED",
-            spatial_reference=spatial_reference.object,
+            spatial_reference=SpatialReference(spatial_reference_item).object,
         )
     else:
         # ArcPy2.8.0: Convert Path to str.

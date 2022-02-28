@@ -184,8 +184,10 @@ class SpatialReference:
     """Linear unit for the spatial reference."""
 
     def __post_init__(self):
+        if isinstance(self.source_item, SpatialReference):
+            self.object = self.source_item.object
         # WKID/factory code.
-        if isinstance(self.source_item, int):
+        elif isinstance(self.source_item, int):
             self.object = arcpy.SpatialReference(self.source_item)
         elif isinstance(self.source_item, arcpy.Geometry):
             self.object = self.source_item.spatialReference
