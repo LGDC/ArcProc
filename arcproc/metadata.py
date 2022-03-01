@@ -229,6 +229,8 @@ class Workspace:
 
     can_copy: bool = field(init=False)
     """Workspace can be simply copied in filesystem if True."""
+    can_delete: bool = field(init=False)
+    """Workspace can be deleted if True."""
     can_move: bool = field(init=False)
     """Workspace can be simply moved in filesystem if True."""
     connection_string: str = field(init=False)
@@ -268,6 +270,7 @@ class Workspace:
             "FileSystem",
             "LocalDatabase",
         ]
+        self.can_delete = self.can_copy
         self.connection_string = self.object.connectionString
         self.domain_names = self.object.domains
         self.domains = [
