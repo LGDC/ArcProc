@@ -97,63 +97,6 @@ def build_locator(locator_path, **kwargs):
     return locator_path
 
 
-def compress_versioned_geodatabase(
-    geodatabase_path: Union[Path, str],
-    *,
-    disconnect_users: bool = False,
-    log_level: int = logging.INFO,
-) -> "tuple[bool, int, int]":
-    """Compress versioned enterprise geodatabase.
-
-    Notes: This tool assumes the compress log is named `SDE_compress_log`.
-
-    Args:
-        geodatabase_path: Path to the geodatabase. Path must be via a connections with
-            administrative privileges.
-        disconnect_users: Disconnect users before compressing if True.
-        log_level: Level to log the function at.
-
-    Returns:
-        Tuple containing (result boolean, start state count, end state count).
-
-    Raises:
-        ValueError: If `geodatabase_path` doesn't reference an enterprise geodatabase.
-    """
-    geodatabase_path = Path(geodatabase_path)
-    LOG.log(log_level, "Start: Compress versioned geodatabase `%s`.", geodatabase_path)
-    if not Workspace(geodatabase_path).is_enterprise_database:
-        raise ValueError(f"Compressing `{geodatabase_path}` unsupported")
-
-    if disconnect_users:
-        arcpy.AcceptConnections(geodatabase_path, accept_connections=False)
-        # ArcPy2.8.0: Convert to str.
-        arcpy.DisconnectUser(str(geodatabase_path), users="ALL")
-    # ArcPy2.8.0: Convert to str.
-    arcpy.management.Compress(str(geodatabase_path))
-    if disconnect_users:
-        arcpy.AcceptConnections(geodatabase_path, accept_connections=True)
-
-    for dirpath, _, table_names in arcpy.da.Walk(geodatabase_path, datatype="Table"):
-        for table_name in table_names:
-            if table_name.lower().endswith("sde_compress_log"):
-                log_path = Path(dirpath, table_name)
-                break
-        else:
-            continue
-        break
-
-    cursor = arcpy.da.SearchCursor(
-        # ArcPy2.8.0: Convert to str.
-        str(log_path),
-        field_names=["compress_status", "start_state_count", "end_state_count"],
-        sql_clause=(None, "ORDER BY compress_start DESC"),
-    )
-    with cursor:
-        status, start_state_count, end_state_count = next(cursor)
-    LOG.log(log_level, "End: Compress.")
-    return (status == "SUCCESS", start_state_count, end_state_count)
-
-
 def copy(workspace_path, output_path, **kwargs):
     """Copy workspace to another location.
 
