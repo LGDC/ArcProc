@@ -31,6 +31,25 @@ EXEC_TYPES = [BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, 
 """list: Executable object types. Useful for determining if an object can execute."""
 
 
+def as_value_count(dataset_path, field_name, **kwargs):
+    """Return counter of attribute values.
+
+    Args:
+        dataset_path (pathlib.Path, str): Path of the dataset.
+        field_name (str): Name of field.
+
+    Keyword Args:
+        dataset_where_sql (str): SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+
+    Returns:
+        collections.Counter
+    """
+    dataset_path = Path(dataset_path)
+    return Counter(as_values(dataset_path, field_name, **kwargs))
+
+
 def as_values(dataset_path, field_name, **kwargs):
     """Generate attribute values.
 
@@ -63,25 +82,6 @@ def as_values(dataset_path, field_name, **kwargs):
     with cursor:
         for (value,) in cursor:
             yield value
-
-
-def as_value_count(dataset_path, field_name, **kwargs):
-    """Return counter of attribute values.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_name (str): Name of field.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived.
-
-    Returns:
-        collections.Counter
-    """
-    dataset_path = Path(dataset_path)
-    return Counter(as_values(dataset_path, field_name, **kwargs))
 
 
 def update_by_central_overlay(
