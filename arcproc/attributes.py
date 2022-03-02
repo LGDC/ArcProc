@@ -5,7 +5,7 @@ import logging
 from operator import itemgetter
 from pathlib import Path
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import Iterable, Optional, Union
 
 import arcpy
 
@@ -29,39 +29,6 @@ arcpy.SetLogHistory(False)
 
 EXEC_TYPES = [BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, partial]
 """list: Executable object types. Useful for determining if an object can execute."""
-
-
-def as_tuples(
-    dataset_path: Union[Path, str],
-    field_names: Iterable[str],
-    *,
-    dataset_where_sql: Optional[str] = None,
-    spatial_reference_item: Optional[Any] = None,
-) -> Iterator[tuple]:
-    """Generate tuples of feature attribute values.
-
-    Notes:
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path: Path to the dataset.
-        field_names: Collection of field names. The order of the names in the collection
-            will determine where its value will fall in the generated item.
-        dataset_where_sql: SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived.
-    """
-    field_names = list(field_names)
-    dataset_path = Path(dataset_path)
-    cursor = arcpy.da.SearchCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=field_names,
-        where_clause=dataset_where_sql,
-        spatial_reference=SpatialReference(spatial_reference_item).object,
-    )
-    with cursor:
-        yield from cursor
 
 
 def as_values(dataset_path, field_name, **kwargs):
@@ -280,20 +247,23 @@ def update_by_dominant_overlay(
         key for key in Dataset(temp_output_path).field_names if key.startswith("FID_")
     ]
     coverage = {}
-    for oid, overlay_oid, value, area in as_tuples(
-        temp_output_path, field_names=fid_keys + [overlay_field_name, "SHAPE@AREA"]
-    ):
-        # Def check for -1 OID (no overlay feature): identity does not set to None.
-        if overlay_oid == -1:
-            value = None
-        if value is None and not kwargs.get(
-            "include_missing_overlay_value_area", False
-        ):
-            continue
+    cursor = arcpy.da.SearchCursor(
+        in_table=temp_output_path,
+        field_names=fid_keys + [overlay_field_name, "SHAPE@AREA"],
+    )
+    with cursor:
+        for oid, overlay_oid, value, area in cursor:
+            # Def check for -1 OID (no overlay feature): identity does not set to None.
+            if overlay_oid == -1:
+                value = None
+            if value is None and not kwargs.get(
+                "include_missing_overlay_value_area", False
+            ):
+                continue
 
-        if oid not in coverage:
-            coverage[oid] = defaultdict(float)
-        coverage[oid][value] += area
+            if oid not in coverage:
+                coverage[oid] = defaultdict(float)
+            coverage[oid][value] += area
     # ArcPy2.8.0: Convert to str.
     arcpy.management.Delete(str(temp_output_path))
     oid_value_map = {
@@ -613,20 +583,23 @@ def update_by_joined_value(
     if len(key_field_names) != len(join_key_field_names):
         raise AttributeError("id_field_names & join_id_field_names not same length.")
 
+    cursor = arcpy.da.SearchCursor(
+        in_table=join_dataset_path,
+        field_names=join_key_field_names + [join_field_name],
+        where_clause=join_dataset_where_sql,
+    )
+    id_join_value = {}
+    with cursor:
+        for feature in cursor:
+            _id = feature[:-1]
+            join_value = feature[-1]
+        id_join_value[_id] = join_value
     cursor = arcpy.da.UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=key_field_names + [field_name],
         where_clause=dataset_where_sql,
     )
-    id_join_value = {
-        feature[:-1]: feature[-1]
-        for feature in as_tuples(
-            join_dataset_path,
-            field_names=join_key_field_names + [join_field_name],
-            dataset_where_sql=join_dataset_where_sql,
-        )
-    }
     session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
@@ -773,9 +746,12 @@ def update_by_overlay_count(dataset_path, field_name, overlay_dataset_path, **kw
         )
         if "tolerance" in kwargs:
             arcpy.env.XYTolerance = original_tolerance
-    oid_overlay_count = dict(
-        as_tuples(temp_output_path, field_names=["TARGET_FID", "Join_Count"])
+
+    cursor = arcpy.da.SearchCursor(
+        in_table=temp_output_path, field_names=["TARGET_FID", "Join_Count"]
     )
+    with cursor:
+        oid_overlay_count = {oid: overlay_count for oid, overlay_count in cursor}
     # ArcPy2.8.0: Convert to str.
     arcpy.management.Delete(str(temp_output_path))
     session = Editing(

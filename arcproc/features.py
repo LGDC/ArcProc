@@ -4,13 +4,12 @@ import inspect
 from itertools import chain
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Iterable, Iterator, Optional, Union
 
 import pint
 
 import arcpy
 
-from arcproc import attributes
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc.helpers import (
@@ -45,7 +44,7 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     Args:
         dataset_path (pathlib.Path, str): Path of the dataset.
         field_names (iter): Collection of field names. Names will be the keys in the
-            dictionary mapping to their values. If value is None, all attributes fields
+            dictionary mapping to their values. If value is None, all attribute fields
             will be used.
         **kwargs: Arbitrary keyword arguments. See below.
 
@@ -74,6 +73,39 @@ def as_dicts(dataset_path, field_names=None, **kwargs):
     with cursor:
         for feature in cursor:
             yield dict(zip(cursor.fields, feature))
+
+
+def as_tuples(
+    dataset_path: Union[Path, str],
+    field_names: Iterable[str],
+    *,
+    dataset_where_sql: Optional[str] = None,
+    spatial_reference_item: Optional[Any] = None,
+) -> Iterator[tuple]:
+    """Generate tuples of feature attribute values.
+
+    Notes:
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
+
+    Args:
+        dataset_path: Path to the dataset.
+        field_names: Collection of field names. The order of the names in the collection
+            will determine where its value will fall in the generated item.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference of the output
+            geometry will be derived.
+    """
+    field_names = list(field_names)
+    dataset_path = Path(dataset_path)
+    cursor = arcpy.da.SearchCursor(
+        # ArcPy2.8.0: Convert to str.
+        in_table=str(dataset_path),
+        field_names=field_names,
+        where_clause=dataset_where_sql,
+        spatial_reference=SpatialReference(spatial_reference_item).object,
+    )
+    with cursor:
+        yield from cursor
 
 
 def delete(
@@ -724,7 +756,7 @@ def update_from_iters(
     ids = {
         "dataset": {
             tuple(freeze_values(*_id))
-            for _id in attributes.as_tuples(dataset_path, id_field_names)
+            for _id in as_tuples(dataset_path, id_field_names)
         }
     }
     if inspect.isgeneratorfunction(update_features):
@@ -864,7 +896,7 @@ def update_from_path(
         field_names.discard(field_token.lower())
     field_names = list(field_names)
     states = Counter()
-    update_features = attributes.as_tuples(
+    update_features = as_tuples(
         update_dataset_path,
         field_names=id_field_names + field_names,
         dataset_where_sql=kwargs["update_where_sql"],

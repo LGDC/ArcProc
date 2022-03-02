@@ -6,7 +6,6 @@ from typing import Iterable, Optional, Union
 
 import arcpy
 
-from arcproc import attributes
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc import features
@@ -245,12 +244,12 @@ def id_near_info_map(
             closest_count=kwargs["near_rank"],
         )
         oid_id_map = dict(
-            attributes.as_tuples(
+            features.as_tuples(
                 view["dataset"].name, field_names=["OID@", dataset_id_field_name]
             )
         )
         near_oid_id_map = dict(
-            attributes.as_tuples(
+            features.as_tuples(
                 view["near"].name, field_names=["OID@", near_id_field_name]
             )
         )
