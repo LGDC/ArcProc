@@ -3,7 +3,8 @@ from contextlib import ContextDecorator
 from functools import partial
 import logging
 from pathlib import Path
-from typing import Any, Iterable, Iterator, List, Optional, TypeVar, Union
+from types import TracebackType
+from typing import Any, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 
 import arcpy
 
@@ -66,10 +67,15 @@ class DatasetView(ContextDecorator):
         self.is_spatial = self.dataset.is_spatial and not force_nonspatial
         self.name = name if name else unique_name("View")
 
-    def __enter__(self):
+    def __enter__(self) -> TDatasetView:
         return self.create()
 
-    def __exit__(self, exception_type, exception_value, traceback):
+    def __exit__(
+        self,
+        exception_type: Optional[Type[BaseException]],
+        exception_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> bool:
         self.discard()
 
     @property
@@ -242,10 +248,15 @@ class TempDatasetCopy(ContextDecorator):
         )
         self.is_spatial = self.dataset.is_spatial and not force_nonspatial
 
-    def __enter__(self):
+    def __enter__(self) -> TTempDatasetCopy:
         return self.create()
 
-    def __exit__(self, exception_type, exception_value, traceback):
+    def __exit__(
+        self,
+        exception_type: Optional[Type[BaseException]],
+        exception_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> bool:
         self.discard()
 
     @property
