@@ -122,17 +122,15 @@ def as_tuples(
         yield from cursor
 
 
-def as_values(dataset_path, field_names, **kwargs):
-    """Generate feature attribute values.
-
-    Values of all given field names will be yielded as they are uncovered.
+def as_values(dataset_path, field_name, **kwargs):
+    """Generate attribute values.
 
     Notes:
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
         dataset_path (pathlib.Path, str): Path of the dataset.
-        field_names (iter): Collection of field names.
+        field_name (str): Name of field.
         **kwargs: Arbitrary keyword arguments. See below.
 
     Keyword Args:
@@ -146,21 +144,19 @@ def as_values(dataset_path, field_names, **kwargs):
     dataset_path = Path(dataset_path)
     kwargs.setdefault("dataset_where_sql")
     kwargs.setdefault("spatial_reference_item")
-    keys = {"feature": list(contain(field_names))}
     cursor = arcpy.da.SearchCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
-        field_names=keys["feature"],
+        field_names=[field_name],
         where_clause=kwargs["dataset_where_sql"],
         spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
     )
     with cursor:
-        for feature in cursor:
-            for value in feature:
-                yield value
+        for (value,) in cursor:
+            yield value
 
 
-def as_value_count(dataset_path, field_names, **kwargs):
+def as_value_count(dataset_path, field_name, **kwargs):
     """Return counter of attribute values.
 
     Args:
@@ -176,7 +172,7 @@ def as_value_count(dataset_path, field_names, **kwargs):
         collections.Counter
     """
     dataset_path = Path(dataset_path)
-    return Counter(as_values(dataset_path, field_names, **kwargs))
+    return Counter(as_values(dataset_path, field_name, **kwargs))
 
 
 def update_by_central_overlay(
