@@ -2,69 +2,80 @@
 from contextlib import ContextDecorator
 import logging
 from pathlib import Path
-from typing import Union
+from types import FunctionType, TracebackType
+from typing import Iterator, Optional, Union, Type, TypeVar
 
 import arcpy
 
 from arcproc.metadata import Workspace
 
 
-LOG = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: logging.Logger = logging.getLogger(__name__)
+"""Module-level logger."""
+
+# Py3.7: Can replace usage with `typing.Self` in Py3.11.
+TEditing = TypeVar("TEditing", bound="Editing")
+"""Type variable to enable method return of self on Editing."""
+
 
 arcpy.SetLogHistory(False)
 
 
 class Editing(ContextDecorator):
-    """Context manager for editing features.
+    """Context manager for editing features."""
 
-    Attributes:
-        workspace_path (pathlib.Path, str): Path for the editing workspace.
-    """
+    workspace_path: Path
+    """Path to editing workspace."""
 
-    def __init__(self, workspace_path, use_edit_session=True):
+    def __init__(
+        self, workspace_path: Union[Path, str], use_edit_session: bool = True
+    ) -> None:
         """Initialize instance.
 
         Args:
-            workspace_path (pathlib.Path, str): Path for the editing workspace.
-            use_edit_session (bool): True if edits are to be made in an edit session,
-                False otherwise.
+            workspace_path: Path to editing workspace.
+            use_edit_session: True if edits are to be made in an edit session.
         """
         workspace_path = Path(workspace_path)
         self._editor = arcpy.da.Editor(workspace_path) if use_edit_session else None
         self.workspace_path = workspace_path
 
-    def __enter__(self):
+    def __enter__(self) -> TEditing:
         self.start()
         return self
 
-    def __exit__(self, exception_type, exception_value, traceback):
-        self.stop(save_changes=(False if exception_type else True))
+    def __exit__(
+        self,
+        exception_type: Optional[Type[BaseException]],
+        exception_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> bool:
+        self.stop(save_changes=(not exception_type))
 
     @property
-    def active(self):
-        """bool: Flag indicating whether edit session is active."""
+    def active(self) -> bool:
+        """Edit session is active if True."""
         return self._editor.isEditing if self._editor else False
 
-    def start(self):
+    def start(self) -> bool:
         """Start an active edit session.
 
         Returns:
-            bool: True if session is active, False otherwise.
+            State of edit session after attempting start.
         """
         if self._editor and not self._editor.isEditing:
             self._editor.startEditing(with_undo=True, multiuser_mode=True)
             self._editor.startOperation()
         return self.active
 
-    def stop(self, save_changes=True):
+    def stop(self, save_changes: bool = True) -> bool:
         """Stop an active edit session.
 
         Args:
-            save_changes (bool): True if edits should be saved, False otherwise.
+            save_changes: Save edit changes if True.
 
         Returns:
-            bool: True if session not active, False otherwise.
+            State of edit session after attempting start.
         """
         if self._editor and self._editor.isEditing:
             if save_changes:
@@ -75,128 +86,127 @@ class Editing(ContextDecorator):
         return not self.active
 
 
-def build_locator(locator_path, **kwargs):
+def build_locator(
+    locator_path: Union[Path, str], *, log_level: int = logging.INFO
+) -> bool:
     """Build locator.
 
     Args:
-        locator_path (pathlib.Path, str): Path of the locator.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        locator_path: Path to locator.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the built locator.
+        True if successfully built, False otherwise.
     """
-    level = kwargs.get("log_level", logging.INFO)
     locator_path = Path(locator_path)
-    LOG.log(level, "Start: Build locator `%s`.", locator_path)
+    LOG.log(log_level, "Start: Build locator `%s`.", locator_path)
     # ArcPy 2.8.0: Convert to str.
     arcpy.geocoding.RebuildAddressLocator(in_address_locator=str(locator_path))
-    LOG.log(level, "End: Build.")
-    return locator_path
+    LOG.log(log_level, "End: Build.")
+    return True
 
 
-def copy(workspace_path, output_path, **kwargs):
+def copy(
+    workspace_path: Union[Path, str],
+    *,
+    output_path: Union[Path, str],
+    log_level: int = logging.INFO,
+) -> Workspace:
     """Copy workspace to another location.
 
     Args:
-        workspace_path (pathlib.Path, str): Path of the workspace.
-        output_path (pathlib.Path, str): Path of output workspace.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        workspace_path: Path to workspace.
+        output_path: Path to copied workspace.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Output path of copied workspace.
+        Workspace metadata instance for output workspace.
 
     Raises:
-        ValueError: If dataset type not supported.
+        ValueError: If workspace type not supported.
     """
-    level = kwargs.get("log_level", logging.INFO)
     output_path = Path(output_path)
     workspace_path = Path(workspace_path)
-    LOG.log(level, "Start: Copy workspace `%s` to `%s`.", workspace_path, output_path)
+    LOG.log(
+        log_level, "Start: Copy workspace `%s` to `%s`.", workspace_path, output_path
+    )
     if not Workspace(workspace_path).can_copy:
         raise ValueError(f"`{workspace_path}` unsupported dataset type.")
 
     # ArcPy2.8.0: Convert to str x2.
     arcpy.management.Copy(in_data=str(workspace_path), out_data=str(output_path))
-    LOG.log(level, "End: Copy.")
-    return output_path
+    LOG.log(log_level, "End: Copy.")
+    return Workspace(output_path)
 
 
 def create_file_geodatabase(
-    geodatabase_path, xml_workspace_path=None, include_xml_data=False, **kwargs
-):
+    geodatabase_path: Union[Path, str],
+    *,
+    xml_workspace_path: Optional[Union[Path, str]] = None,
+    include_xml_data: bool = False,
+    log_level: int = logging.INFO,
+) -> Workspace:
     """Create new file geodatabase.
 
     Args:
-        geodatabase_path (pathlib.Path, str): Path of the geodatabase.
-        xml_workspace_path (pathlib.Path, str, None): Path of the XML workspace document
-            to initialize the geodatabase with.
-        include_xml_data (bool): Flag to include data stored in the XML workspace
-            document, if it has any.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        geodatabase_path: Path to file geodatabase.
+        xml_workspace_path: Path to XML workspace document to initialize geodatabase.
+        include_xml_data: Include any data stored in the XML workspace document if True.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of created file geodatabase.
+        Workspace metadata instance for file geodatabase.
     """
     geodatabase_path = Path(geodatabase_path)
+    LOG.log(log_level, "Start: Create file geodatabase at `%s`.", geodatabase_path)
     if xml_workspace_path:
         xml_workspace_path = Path(xml_workspace_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Create file geodatabase `%s`.", geodatabase_path)
     if geodatabase_path.exists():
         LOG.warning("Geodatabase already exists.")
-        return geodatabase_path
-
-    arcpy.management.CreateFileGDB(
-        # ArcPy2.8.0: Convert to str.
-        out_folder_path=str(geodatabase_path.parent),
-        out_name=geodatabase_path.name,
-        out_version="CURRENT",
-    )
-    if xml_workspace_path:
-        arcpy.management.ImportXMLWorkspaceDocument(
+    else:
+        arcpy.management.CreateFileGDB(
             # ArcPy2.8.0: Convert to str.
-            target_geodatabase=str(geodatabase_path),
-            # ArcPy2.8.0: Convert to str.
-            in_file=str(xml_workspace_path),
-            import_type=("DATA" if include_xml_data else "SCHEMA_ONLY"),
-            config_keyword="DEFAULTS",
+            out_folder_path=str(geodatabase_path.parent),
+            out_name=geodatabase_path.name,
+            out_version="CURRENT",
         )
-    LOG.log(level, "End: Create.")
-    return geodatabase_path
+        if xml_workspace_path:
+            arcpy.management.ImportXMLWorkspaceDocument(
+                # ArcPy2.8.0: Convert to str.
+                target_geodatabase=str(geodatabase_path),
+                # ArcPy2.8.0: Convert to str.
+                in_file=str(xml_workspace_path),
+                import_type=("DATA" if include_xml_data else "SCHEMA_ONLY"),
+                config_keyword="DEFAULTS",
+            )
+    LOG.log(log_level, "End: Create.")
+    return Workspace(geodatabase_path)
 
 
 def create_geodatabase_xml_backup(
-    geodatabase_path, output_path, include_data=False, include_metadata=True, **kwargs
-):
+    geodatabase_path: Union[Path, str],
+    *,
+    output_path: Union[Path, str],
+    include_data: bool = False,
+    include_metadata: bool = True,
+    log_level: int = logging.INFO,
+) -> Path:
     """Create backup of geodatabase as XML workspace document.
 
     Args:
-        geodatabase_path (pathlib.Path, str): Path of the geodatabase.
-        output_path (pathlib.Path, str): Path of the XML workspace document to create.
-        include_data (bool): Flag to include data in the output.
-        include_metadata (bool): Flag to include metadata in the output.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        geodatabase_path: Path to geodatabase.
+        output_path: Path to XML workspace document.
+        include_data (bool): Include data in output if True.
+        include_metadata (bool): Include metadata in output if True.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of created XML workspace document.
+        Path to created XML workspace document.
     """
     geodatabase_path = Path(geodatabase_path)
-    level = kwargs.get("log_level", logging.INFO)
     output_path = Path(output_path)
     LOG.log(
-        level,
+        log_level,
         "Start: Create XML backup of geodatabase `%s` at `%s`.",
         geodatabase_path,
         output_path,
@@ -210,85 +220,81 @@ def create_geodatabase_xml_backup(
         storage_type="BINARY",
         export_metadata=include_metadata,
     )
-    LOG.log(level, "End: Create.")
+    LOG.log(log_level, "End: Create.")
     return output_path
 
 
-def dataset_names(workspace_path, **kwargs):
+def dataset_names(
+    workspace_path: Union[Path, str],
+    *,
+    include_feature_classes: bool = True,
+    include_rasters: bool = True,
+    include_tables: bool = True,
+    only_top_level: bool = False,
+    name_validator: Optional[FunctionType] = None,
+) -> Iterator[str]:
     """Generate names of datasets in workspace.
 
     Args:
-        workspace_path (pathlib.Path, str): Path of the workspace.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        include_feature_classes (bool): Flag to include feature class datasets. Default
-            is True.
-        include_rasters (bool): Flag to include raster datasets. Default is True.
-        include_tables (bool): Flag to include nonspatial tables. Default is True.
-        only_top_level (bool): Flag to only list datasets at the top-level. Default is
-            False.
-        name_validator (function): Function to validate dataset names yielded. Default
-            is all names considered valid.
-
-    Yields:
-        str: Name of the next dataset in the workspace.
+        workspace_path: Path to workspace.
+        include_feature_classes: Include feature class datasets in generator if True.
+        include_rasters: Include raster datasets in generator if True.
+        include_tables: Include table datasets in generator if True.
+        only_top_level: List only datasets at the top-level of the workspace if True.
+        name_validator: Function to validate dataset names yielded.
     """
     workspace_path = Path(workspace_path)
-    kwargs.setdefault("include_feature_classes", True)
-    kwargs.setdefault("include_rasters", True)
-    kwargs.setdefault("include_tables", True)
-    kwargs.setdefault("only_top_level", False)
-    kwargs.setdefault("name_validator", lambda n: True)
-    for dataset_path in dataset_paths(workspace_path, **kwargs):
+    for dataset_path in dataset_paths(
+        workspace_path,
+        include_feature_classes=include_feature_classes,
+        include_rasters=include_rasters,
+        include_tables=include_tables,
+        only_top_level=only_top_level,
+        name_validator=name_validator,
+    ):
         yield dataset_path.name
 
 
-def dataset_paths(workspace_path, **kwargs):
+def dataset_paths(
+    workspace_path: Union[Path, str],
+    *,
+    include_feature_classes: bool = True,
+    include_rasters: bool = True,
+    include_tables: bool = True,
+    only_top_level: bool = False,
+    name_validator: Optional[FunctionType] = None,
+) -> Iterator[Path]:
     """Generate paths of datasets in workspace.
 
     Args:
-        workspace_path (pathlib.Path, str): Path of the workspace.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        include_feature_classes (bool): Flag to include feature class datasets. Default
-            is True.
-        include_rasters (bool): Flag to include raster datasets. Default is True.
-        include_tables (bool): Flag to include nonspatial tables. Default is True.
-        only_top_level (bool): Flag to only list datasets at the top-level. Default is
-            False.
-        name_validator (function): Function to validate dataset names yielded. Default
-            is all names considered valid.
-
-    Yields:
-        pathlib.Path: Path of the next dataset in the workspace.
+        workspace_path: Path to workspace.
+        include_feature_classes: Include feature class datasets in generator if True.
+        include_rasters: Include raster datasets in generator if True.
+        include_tables: Include table datasets in generator if True.
+        only_top_level: List only datasets at the top-level of the workspace if True.
+        name_validator: Function to validate dataset names yielded.
     """
     workspace_path = Path(workspace_path)
-    kwargs.setdefault("include_feature_classes", True)
-    kwargs.setdefault("include_rasters", True)
-    kwargs.setdefault("include_tables", True)
-    kwargs.setdefault("only_top_level", False)
-    kwargs.setdefault("name_validator", lambda n: True)
-    dataset_types = {
-        "feature_classes": ["FeatureClass"],
-        "rasters": ["RasterCatalog", "RasterDataset"],
-        "tables": ["Table"],
-    }
-    include_data_types = []
-    for _type in dataset_types:
-        if kwargs["include_" + _type]:
-            include_data_types.extend(dataset_types[_type])
+    data_types = []
+    if include_feature_classes:
+        data_types.append("FeatureClass")
+    if include_rasters:
+        data_types += ["RasterCatalog", "RasterDataset"]
+    if include_tables:
+        data_types.append("Table")
     for root_path, _, _dataset_names in arcpy.da.Walk(
-        workspace_path, datatype=include_data_types
+        workspace_path, datatype=data_types
     ):
         root_path = Path(root_path)
-        if kwargs["only_top_level"] and root_path != workspace_path:
+        if only_top_level and root_path != workspace_path:
             continue
 
         for dataset_name in _dataset_names:
-            if kwargs["name_validator"](dataset_name):
-                yield root_path / dataset_name
+            if name_validator:
+                if not name_validator(dataset_name):
+                    continue
+
+            yield root_path / dataset_name
 
 
 def delete(
@@ -318,14 +324,11 @@ def delete(
     return _workspace
 
 
-def is_valid(workspace_path):
-    """Indicate whether workspace is extant & valid.
+def is_valid(workspace_path: Union[Path, str]) -> bool:
+    """Return True if workspace is extant & valid.
 
     Args:
-        workspace_path (pathlib.Path, str): Path of the workspace.
-
-    Returns:
-        bool
+        workspace_path: Path to workspace.
     """
     workspace_path = Path(workspace_path)
     exists = workspace_path and arcpy.Exists(dataset=workspace_path)
