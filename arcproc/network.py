@@ -10,6 +10,7 @@ import arcpy
 from arcproc import attributes
 from arcproc import dataset
 from arcproc.dataset import DatasetView
+from arcproc import features
 from arcproc.helpers import log_entity_states, python_type, same_feature, unique_ids
 from arcproc.metadata import Dataset, Field, SpatialReference
 from arcproc.workspace import Editing
@@ -529,7 +530,7 @@ def coordinates_node_map(
             if not node_id_max_length or node_id_max_length > field.length:
                 node_id_max_length = field.length
     coordinate_node = {}
-    for feature in attributes.as_dicts(
+    for feature in features.as_dicts(
         dataset_path,
         field_names=id_field_names + [from_id_field_name, to_id_field_name, "SHAPE@"],
         dataset_where_sql=dataset_where_sql,
@@ -610,7 +611,7 @@ def id_node_map(
                         id_node[feature_id] = {}
                     id_node[feature_id][end] = node["node_id"]
     else:
-        for feature in attributes.as_dicts(
+        for feature in features.as_dicts(
             dataset_path,
             field_names=id_field_names + [from_id_field_name, to_id_field_name],
             dataset_where_sql=dataset_where_sql,

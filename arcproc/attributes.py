@@ -89,46 +89,6 @@ class FeatureMatcher:
         return self.matched[tuple(contain(feature_id))]
 
 
-def as_dicts(dataset_path, field_names=None, **kwargs):
-    """Generate mappings of feature attribute name to value.
-
-    Notes:
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        field_names (iter): Collection of field names. Names will be the keys in the
-            dictionary mapping to their values. If value is None, all attributes fields
-            will be used.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            geometry will be derived.
-
-    Yields:
-        dict
-    """
-    dataset_path = Path(dataset_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("spatial_reference_item")
-    if field_names is None:
-        keys = {"feature": Dataset(dataset_path).field_names_tokenized}
-    else:
-        keys = {"feature": list(contain(field_names))}
-    cursor = arcpy.da.SearchCursor(
-        # ArcPy2.8.0: Convert to str.
-        in_table=str(dataset_path),
-        field_names=keys["feature"],
-        where_clause=kwargs["dataset_where_sql"],
-        spatial_reference=SpatialReference(kwargs["spatial_reference_item"]).object,
-    )
-    with cursor:
-        for feature in cursor:
-            yield dict(zip(cursor.fields, feature))
-
-
 def as_tuples(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],

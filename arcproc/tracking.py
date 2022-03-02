@@ -56,7 +56,7 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
     }
     keys["row"] = keys["id"] + keys["date"] + [field_name]
     id_rows = defaultdict(list)
-    for row in attributes.as_dicts(dataset_path, field_names=keys["row"]):
+    for row in features.as_dicts(dataset_path, field_names=keys["row"]):
         id_ = tuple(row[key] for key in keys["id"])
         id_rows[id_].append(row)
     for id_ in list(id_rows):
