@@ -1,13 +1,12 @@
 """ArcGIS Server service operations."""
 import logging
-from pathlib import Path
-from typing import Iterable, Iterator, Optional, Union
+from typing import Iterable, Iterator, Optional
 
 import arcgis
 
 import arcpy
 
-from arcproc.metadata import SpatialReference
+from arcproc.metadata import SpatialReference, SpatialReferenceSourceItem
 
 
 LOG: logging.Logger = logging.getLogger(__name__)
@@ -21,9 +20,7 @@ def as_dicts(
     field_names: Optional[Iterable[str]] = None,
     service_where_sql: Optional[str] = None,
     include_geometry: bool = True,
-    spatial_reference_item: Optional[
-        Union[SpatialReference, int, arcpy.Geometry, arcpy.SpatialReference, Path, str]
-    ] = None,
+    spatial_reference_item: SpatialReferenceSourceItem = None,
 ) -> Iterator[dict]:
     """Generate mappings of feature attribute name to value.
 

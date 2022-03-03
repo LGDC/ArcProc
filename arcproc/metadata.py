@@ -414,3 +414,12 @@ class Dataset:
         """Number of features in dataset."""
         # ArcPy2.8.0: Convert to str.
         return int(arcpy.management.GetCount(str(self.path)).getOutput(0))
+
+
+# Type aliases.
+
+
+SpatialReferenceSourceItem = Union[
+    SpatialReference, int, arcpy.Geometry, arcpy.SpatialReference, Path, str, None
+]
+"""Type alias for allowable SpatialReference source items."""

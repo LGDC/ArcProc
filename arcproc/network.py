@@ -12,7 +12,12 @@ from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc import features
 from arcproc.helpers import log_entity_states, python_type, same_feature, unique_ids
-from arcproc.metadata import Dataset, Field, SpatialReference
+from arcproc.metadata import (
+    Dataset,
+    Field,
+    SpatialReference,
+    SpatialReferenceSourceItem,
+)
 from arcproc.workspace import Editing
 
 
@@ -496,7 +501,7 @@ def coordinates_node_map(
     update_nodes: bool = False,
     *,
     dataset_where_sql: Optional[str] = None,
-    spatial_reference_item: Optional[Any] = None,
+    spatial_reference_item: SpatialReferenceSourceItem = None,
 ) -> "dict[tuple, dict]":
     """Return mapping of coordinates to node info mapping for dataset.
 

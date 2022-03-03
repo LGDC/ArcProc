@@ -9,7 +9,12 @@ from typing import Any, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 import arcpy
 
 from arcproc.helpers import unique_name, unique_path
-from arcproc.metadata import Dataset, Field, SpatialReference
+from arcproc.metadata import (
+    Dataset,
+    Field,
+    SpatialReference,
+    SpatialReferenceSourceItem,
+)
 
 
 LOG = logging.getLogger(__name__)
@@ -564,9 +569,7 @@ def create(
     *,
     field_metadata_list: Optional[Iterable[Union[Field, dict]]] = None,
     geometry_type: Optional[str] = None,
-    spatial_reference_item: Union[
-        SpatialReference, int, arcpy.Geometry, arcpy.SpatialReference, Path, str
-    ] = 4326,
+    spatial_reference_item: SpatialReferenceSourceItem = 4326,
     log_level: int = logging.INFO,
 ) -> Dataset:
     """Create new dataset.
@@ -586,6 +589,8 @@ def create(
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Create dataset `%s`.", dataset_path)
     if geometry_type:
+        if spatial_reference_item is None:
+            spatial_reference_item = 4326
         # ArcPy2.8.0: Convert Path to str.
         arcpy.management.CreateFeatureclass(
             out_path=str(dataset_path.parent),
