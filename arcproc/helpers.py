@@ -2,6 +2,7 @@
 from collections import Counter
 from collections.abc import Iterable
 from datetime import datetime as _datetime, timedelta
+from functools import partial
 import inspect
 import logging
 
@@ -9,6 +10,7 @@ import math
 import random
 from pathlib import Path
 import string
+from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 from typing import Any, Iterator, Optional, Sequence, Union
 from uuid import UUID, uuid4
 
@@ -20,6 +22,16 @@ import arcpy
 
 LOG: logging.Logger = logging.getLogger(__name__)
 """logging.Logger: Module-level logger."""
+
+EXECUTABLE_TYPES: tuple = (
+    BuiltinFunctionType,
+    BuiltinMethodType,
+    FunctionType,
+    MethodType,
+    partial,
+)
+"""Executable object types. Useful for determining if an object can be executed."""
+
 
 arcpy.SetLogHistory(False)
 
