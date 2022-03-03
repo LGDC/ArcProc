@@ -105,7 +105,7 @@ def log_entity_states(
     *,
     logger: Optional[logging.Logger] = None,
     log_level: int = logging.INFO,
-    logline_format: str = "{count} {entity_type} {state}",
+    logline_format: str = "{count} {entity_type} {state}.",
 ) -> None:
     """Log the counts for entities in each state from provided counter.
 
