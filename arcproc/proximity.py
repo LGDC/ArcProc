@@ -185,6 +185,57 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
     return states
 
 
+def erase_features(
+    dataset_path: Union[Path, str],
+    *,
+    erase_dataset_path: Union[Path, str],
+    output_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    erase_where_sql: Optional[str] = None,
+    log_level: int = logging.INFO,
+) -> Counter:
+    """Erase feature geometry where it overlaps erase-dataset geometry.
+
+    Args:
+        dataset_path: Path to dataset.
+        erase_dataset_path: Path to erase-dataset.
+        output_path: Path to output dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        erase_where_sql: SQL where-clause for erase-dataset subselection.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for before and after operation.
+    """
+    dataset_path = Path(dataset_path)
+    erase_dataset_path = Path(erase_dataset_path)
+    output_path = Path(output_path)
+    LOG.log(
+        log_level,
+        "Start: Erase features in `%s` where overlapping features in `%s` into `%s`.",
+        dataset_path,
+        erase_dataset_path,
+        output_path,
+    )
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    erase_view = DatasetView(
+        erase_dataset_path, field_names=[], dataset_where_sql=erase_where_sql
+    )
+    states = Counter()
+    with view, erase_view:
+        states["in original dataset"] = view.count
+        arcpy.analysis.Erase(
+            in_features=view.name,
+            erase_features=erase_view.name,
+            # ArcPy2.8.0: Convert path to str.
+            out_feature_class=str(output_path),
+        )
+    states["in output"] = dataset.feature_count(output_path)
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Erase.")
+    return states
+
+
 def id_near_info_map(
     dataset_path,
     dataset_id_field_name,
