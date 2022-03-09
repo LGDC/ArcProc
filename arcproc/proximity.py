@@ -10,6 +10,7 @@ from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc import features
 from arcproc.helpers import contain, log_entity_states, unique_path
+from arcproc.metadata import Dataset
 
 
 LOG = logging.getLogger(__name__)
@@ -182,6 +183,78 @@ def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
         states["deleted"] = view["dataset"].count - states["remaining"]
     log_entity_states("features", states, logger=LOG, log_level=level)
     LOG.log(level, "End: Clip.")
+    return states
+
+
+def dissolve_features(
+    dataset_path: Union[Path, str],
+    *,
+    output_path: Union[Path, str],
+    dissolve_field_names: Optional[Iterable[str]] = None,
+    dataset_where_sql: Optional[str] = None,
+    all_fields_in_output: bool = False,
+    allow_multipart: bool = True,
+    unsplit_lines: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
+    """Dissolve feature geometry that share value in given fields.
+
+    Args:
+        dataset_path: Path to dataset.
+        output_path: Path to output dataset.
+        dissolve_field_names: Collection of field names to base dissolve on.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        all_fields_in_output: All fields in the dataset will persist in the output
+            dataset if True. Otherwise, only the dissolve fields will persist. Non-
+            dissolve fields will have default values, of course.
+        allow_multipart: Allow multipart features in output if True.
+        unsplit_lines: Merge line features when endpoints meet without crossing features
+            if True.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for before and after operation.
+    """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    if dissolve_field_names is not None:
+        dissolve_field_names = list(dissolve_field_names)
+    LOG.log(
+        log_level,
+        "Start: Dissolve features in `%s` on fields `%s`  into `%s`.",
+        dataset_path,
+        dissolve_field_names,
+        output_path,
+    )
+    view = DatasetView(
+        dataset_path,
+        field_names=dissolve_field_names,
+        dataset_where_sql=dataset_where_sql,
+    )
+    states = Counter()
+    with view:
+        states["in original dataset"] = view.count
+        arcpy.management.Dissolve(
+            in_features=view.name,
+            # ArcPy2.8.0: Convert path to str.
+            out_feature_class=str(output_path),
+            dissolve_field=dissolve_field_names,
+            multi_part=allow_multipart,
+            unsplit_lines=unsplit_lines,
+        )
+    states["in output"] = dataset.feature_count(output_path)
+    if all_fields_in_output:
+        for _field in Dataset(dataset_path).user_fields:
+            # Cannot add a non-nullable field to existing features.
+            _field.is_nullable = True
+            dataset.add_field(
+                output_path,
+                exist_ok=True,
+                log_level=logging.DEBUG,
+                **_field.field_as_dict,
+            )
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Dissolve.")
     return states
 
 
