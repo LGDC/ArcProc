@@ -1,9 +1,6 @@
 arcgis
 # Installed with app.
 #arcpy
-# For Python 2 compatibility.
-contextlib2
 funcsigs
 more-itertools
 pint
-requests
