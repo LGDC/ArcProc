@@ -539,6 +539,8 @@ def copy(
     output_path = Path(output_path)
     if field_names is not None:
         field_names = list(field_names)
+    else:
+        field_names = Dataset(dataset_path).user_field_names
     LOG.log(log_level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
     _dataset = Dataset(dataset_path)
     view = DatasetView(
