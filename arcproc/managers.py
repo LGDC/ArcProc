@@ -173,22 +173,18 @@ class Procedure(ContextDecorator):
         # Load to an existing dataset.
         if dataset.is_valid(dataset_path):
             if not kwargs["preserve_features"]:
-                states.update(
-                    features.delete(
-                        dataset_path,
-                        use_edit_session=kwargs["use_edit_session"],
-                        log_level=logging.DEBUG,
-                    )
-                )
-            states.update(
-                features.insert_from_path(
+                states["deleted"] = features.delete(
                     dataset_path,
-                    insert_dataset_path=self.transform_path,
-                    insert_where_sql=load_where_sql,
                     use_edit_session=kwargs["use_edit_session"],
                     log_level=logging.DEBUG,
-                )
-            )
+                )["deleted"]
+            states["inserted"] = features.insert_from_path(
+                dataset_path,
+                source_path=self.transform_path,
+                source_where_sql=load_where_sql,
+                use_edit_session=kwargs["use_edit_session"],
+                log_level=logging.DEBUG,
+            )["inserted"]
         # Load to a new dataset.
         else:
             states["copied"] = dataset.copy(
@@ -256,9 +252,9 @@ class Procedure(ContextDecorator):
         LOG.info("Start: Update `%s`.", dataset_path)
         states = features.update_from_path(
             dataset_path,
-            update_dataset_path=self.transform_path,
-            id_field_names=id_field_names,
             field_names=field_names,
+            id_field_names=id_field_names,
+            source_path=self.transform_path,
             delete_missing_features=kwargs["delete_missing_features"],
             use_edit_session=kwargs["use_edit_session"],
             log_level=logging.DEBUG,

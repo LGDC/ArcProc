@@ -17,6 +17,7 @@ arcpy.SetLogHistory(False)
 
 def as_dicts(
     url: str,
+    *,
     field_names: Optional[Iterable[str]] = None,
     service_where_sql: Optional[str] = None,
     include_geometry: bool = True,
@@ -29,9 +30,10 @@ def as_dicts(
 
     Args:
         url: URL for the service endpoint.
-        field_names: Collection of field names to include in dictionary. If set to None,
-            all fields will be included. Do not include geometry field; use
-            `include_geometry` to have added to dictionary.
+        field_names: Names of fields to include in generated dictionary. Names will be
+            the keys in the dictionary mapping to their attributes values. If set to
+            None, all fields will be included.
+            Do not include geometry field; use `include_geometry` to have added.
         include_geometry: Add geometry attribute to dictionary under "SHAPE@" key if
             True.
         service_where_sql: SQL where-clause for service subselection.

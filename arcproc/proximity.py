@@ -387,7 +387,7 @@ def id_near_info_map(
         "near_rank",
     ]
     near_info_map = {}
-    for near_info in features.as_dicts(temp_near_path, field_names):
+    for near_info in features.as_dicts(temp_near_path, field_names=field_names):
         if near_info["near_rank"] == kwargs["near_rank"]:
             _id = oid_id_map[near_info["in_fid"]]
             near_info_map[_id] = {

@@ -341,10 +341,10 @@ def project(dataset_path, output_path, spatial_reference_item=4326, **kwargs):
         log_level=logging.DEBUG,
     )
     features.insert_from_path(
-        dataset_path=output_path,
-        insert_dataset_path=dataset_path,
+        output_path,
         field_names=_dataset.user_field_names,
-        insert_where_sql=kwargs["dataset_where_sql"],
+        source_path=dataset_path,
+        source_where_sql=kwargs["dataset_where_sql"],
         log_level=logging.DEBUG,
     )
     LOG.log(level, "End: Project.")

@@ -119,7 +119,7 @@ def identity(
             # Replace original chunk features with new features.
             features.delete(chunk_view.name, log_level=logging.DEBUG)
             features.insert_from_path(
-                dataset_path, temp_output_path, log_level=logging.DEBUG
+                dataset_path, source_path=temp_output_path, log_level=logging.DEBUG
             )
             # ArcPy2.8.0: Convert to str.
             arcpy.management.Delete(str(temp_output_path))
@@ -245,7 +245,7 @@ def overlay(
             # Replace original chunk features with new features.
             features.delete(chunk_view.name, log_level=logging.DEBUG)
             features.insert_from_path(
-                dataset_path, temp_output_path, log_level=logging.DEBUG
+                dataset_path, source_path=temp_output_path, log_level=logging.DEBUG
             )
             # ArcPy2.8.0: Convert to str.
             arcpy.management.Delete(str(temp_output_path))
@@ -346,7 +346,7 @@ def union(dataset_path, field_name, union_dataset_path, union_field_name, **kwar
             # Replace original chunk features with new features.
             features.delete(chunk_view.name, log_level=logging.DEBUG)
             features.insert_from_path(
-                dataset_path, temp_output_path, log_level=logging.DEBUG
+                dataset_path, source_path=temp_output_path, log_level=logging.DEBUG
             )
             # ArcPy2.8.0: Convert to str.
             arcpy.management.Delete(str(temp_output_path))

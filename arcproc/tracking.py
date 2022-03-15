@@ -79,10 +79,10 @@ def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
         id_rows[id_] = [row for row in rows if row[keys["date"][0]] is not None]
     states = features.update_from_dicts(
         dataset_path,
-        update_features=chain(*id_rows.values()),
+        field_names=keys["row"],
         # In tracking dataset, ID is ID + date_initiated.
         id_field_names=keys["id"] + keys["date"][:1],
-        field_names=keys["row"],
+        source_features=chain(*id_rows.values()),
         use_edit_session=kwargs.get("use_edit_session", False),
         log_level=logging.DEBUG,
     )
@@ -189,8 +189,8 @@ def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kw
     states.update(
         features.insert_from_iters(
             dataset_path,
-            insert_features=new_rows,
             field_names=keys["id"] + [field_name, keys["date"][0]],
+            source_features=new_rows,
             use_edit_session=kwargs.get("use_edit_session", False),
             log_level=logging.DEBUG,
         )
