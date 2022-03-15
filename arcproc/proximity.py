@@ -226,14 +226,14 @@ def dissolve_features(
         dissolve_field_names,
         output_path,
     )
+    states = Counter()
+    states["in original dataset"] = dataset.feature_count(dataset_path)
     view = DatasetView(
         dataset_path,
         field_names=dissolve_field_names,
         dataset_where_sql=dataset_where_sql,
     )
-    states = Counter()
     with view:
-        states["in original dataset"] = view.count
         arcpy.management.Dissolve(
             in_features=view.name,
             # ArcPy2.8.0: Convert path to str.
@@ -290,13 +290,13 @@ def erase_features(
         erase_dataset_path,
         output_path,
     )
+    states = Counter()
+    states["in original dataset"] = dataset.feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     erase_view = DatasetView(
         erase_dataset_path, field_names=[], dataset_where_sql=erase_where_sql
     )
-    states = Counter()
     with view, erase_view:
-        states["in original dataset"] = view.count
         arcpy.analysis.Erase(
             in_features=view.name,
             erase_features=erase_view.name,
