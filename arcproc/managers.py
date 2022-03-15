@@ -187,12 +187,13 @@ class Procedure(ContextDecorator):
             )["inserted"]
         # Load to a new dataset.
         else:
-            states["copied"] = dataset.copy(
+            _dataset = dataset.copy(
                 self.transform_path,
                 output_path=dataset_path,
                 dataset_where_sql=load_where_sql,
                 log_level=logging.DEBUG,
             )
+            states["copied"] = _dataset.feature_count
         log_entity_states("features", states, logger=LOG)
         LOG.info("End: Load.")
         return self
