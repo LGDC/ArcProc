@@ -464,7 +464,8 @@ def insert_from_path(
 
 def keep_by_location(
     dataset_path: Union[Path, str],
-    *location_path: Union[Path, str],
+    *,
+    location_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     location_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
