@@ -603,7 +603,7 @@ def update_by_joined_value(
     key_field_names = list(key_field_names)
     join_key_field_names = list(join_key_field_names)
     if len(key_field_names) != len(join_key_field_names):
-        raise AttributeError("id_field_names & join_id_field_names not same length.")
+        raise AttributeError("key_field_names & join_key_field_names not same length.")
 
     cursor = arcpy.da.SearchCursor(
         # ArcPy2.8.0: Convert to str.
