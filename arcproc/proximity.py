@@ -84,18 +84,16 @@ def buffer(
     dataset_path: Union[Path, str],
     output_path: Union[Path, str],
     distance: float,
-    dissolve_field_names: Iterable[str] = tuple(),
     *,
     dataset_where_sql: Optional[str] = None,
     log_level: int = logging.INFO,
 ) -> Counter:
-    """Buffer features a given distance & (optionally) dissolve on given fields.
+    """Buffer features a given distance.
 
     Args:
         dataset_path: Path to the dataset.
         output_path: Path to the output dataset.
         distance: Distance to buffer from feature, in the units of the dataset.
-        dissolve_field_names: Names of fields to dissolve on.
         dataset_where_sql: SQL where-clause for dataset subselection.
         log_level: Level to log the function at.
 
@@ -104,7 +102,6 @@ def buffer(
     """
     dataset_path = Path(dataset_path)
     output_path = Path(output_path)
-    dissolve_field_names = list(dissolve_field_names)
     LOG.log(
         log_level,
         "Start: Buffer features in `%s` into `%s`.",
@@ -119,12 +116,8 @@ def buffer(
             # ArcPy2.8.0: Convert to str.
             out_feature_class=str(output_path),
             buffer_distance_or_field=distance,
-            dissolve_option="LIST" if dissolve_field_names else "NONE",
-            dissolve_field=dissolve_field_names,
         )
         states["buffered"] = view.count
-    if dissolve_field_names:
-        states["remaining"] = dataset.feature_count(output_path)
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
         # ArcPy2.8.0: Convert to str.
         arcpy.management.DeleteField(in_table=str(output_path), drop_field=field_name)
