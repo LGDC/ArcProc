@@ -2,189 +2,180 @@
 from collections import Counter
 import logging
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, Optional, Union
+from typing import Any, Dict, Iterable, Iterator, Optional, Set, Tuple, Union
 
 import arcpy
 
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc import features
-from arcproc.helpers import contain, log_entity_states, unique_path
+from arcproc.helpers import log_entity_states, unique_path
 from arcproc.metadata import Dataset
 
 
-LOG = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: logging.Logger = logging.getLogger(__name__)
+"""Module-level logger."""
+
 
 arcpy.SetLogHistory(False)
 
 
-def adjacent_neighbors_map(dataset_path, id_field_names, **kwargs):
+def adjacent_neighbors_map(
+    dataset_path: Union[Path, str],
+    *,
+    id_field_names: Iterable[str],
+    dataset_where_sql: Optional[str] = None,
+    exclude_overlap: bool = False,
+    include_corner: bool = False,
+) -> Dict[Union[Tuple[Any], Any], Set[Union[Tuple[Any], Any]]]:
     """Return mapping of feature ID to set of adjacent feature IDs.
 
-    Only works for polygon geometries.
+    Notes:
+        Only works for polygon geometries.
+        If id_field_names only has one field name, feature IDs in the mapping will be
+            the single value of that field, not a tuple.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of dataset.
-        id_field_names (iter): Ordered collection of fields used to identify a feature.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection. Default is
-            None.
-        exclude_overlap (bool): Exclude features that overlap, but do not have adjacent
-            edges or nodes if True. Default is False.
-        include_corner (bool): Include features that have adjacent corner nodes, but no
-            adjacent edges. Default is False.
-        tolerance (float): Tolerance for coincidence, in units of the dataset.
-
-    Returns:
-        dict
+        dataset_path: Path to dataset.
+        id_field_names: Names of the feature ID fields.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        exclude_overlap: Exclude features that overlap, but do not have adjacent edges
+            or nodes if True.
+        include_corner: Include features that have adjacent corner nodes, but no
+            adjacent edges if True.
     """
     dataset_path = Path(dataset_path)
-    keys = {"id": list(contain(id_field_names))}
-    keys["id"] = [key.lower() for key in keys["id"]]
+    id_field_names = list(id_field_names)
+    # Lowercase to avoid casing mismatch.
+    # id_field_names = [name.lower() for name in id_field_names]
     view = DatasetView(
-        dataset_path,
-        field_names=keys["id"],
-        dataset_where_sql=kwargs.get("dataset_where_sql"),
+        dataset_path, field_names=id_field_names, dataset_where_sql=dataset_where_sql
     )
     with view:
-        temp_neighbor_path = unique_path("near")
+        temp_neighbor_path = unique_path("neighbor")
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.analysis.PolygonNeighbors(
             in_features=view.name,
-            # ArcPy2.8.0: Convert to str.
             out_table=str(temp_neighbor_path),
-            in_fields=keys["id"],
-            area_overlap=(not kwargs.get("exclude_overlap", False)),
+            in_fields=id_field_names,
+            area_overlap=not exclude_overlap,
             both_sides=True,
-            cluster_tolerance=kwargs.get("tolerance"),
         )
-    neighbors_map = {}
+    adjacent_neighbors = {}
     for row in features.as_dicts(temp_neighbor_path):
+        # Lowercase to avoid casing mismatch.
         row = {key.lower(): val for key, val in row.items()}
-        if len(keys["id"]) == 1:
-            source_id = row["src_" + keys["id"][0]]
-            neighbor_id = row["nbr_" + keys["id"][0]]
+        if len(id_field_names) == 1:
+            source_id = row[f"src_{id_field_names[0]}"]
+            neighbor_id = row[f"nbr_{id_field_names[0]}"]
         else:
-            source_id = tuple(row["src_" + key] for key in keys["id"])
-            neighbor_id = tuple(row["nbr_" + key] for key in keys["id"])
-        if source_id not in neighbors_map:
-            neighbors_map[source_id] = set()
-        if not kwargs.get("include_corner") and not row["length"] and not row["area"]:
+            source_id = tuple(row[f"src_{name}"] for name in id_field_names)
+            neighbor_id = tuple(row[f"nbr_{name}"] for name in id_field_names)
+        if source_id not in adjacent_neighbors:
+            adjacent_neighbors[source_id] = set()
+        if not include_corner and not row["length"] and not row["area"]:
             continue
 
-        neighbors_map[source_id].add(neighbor_id)
-    # ArcPy2.8.0: Convert to str.
-    arcpy.management.Delete(str(temp_neighbor_path))
-    return neighbors_map
+        adjacent_neighbors[source_id].add(neighbor_id)
+    dataset.delete(temp_neighbor_path)
+    return adjacent_neighbors
 
 
 def buffer(
     dataset_path: Union[Path, str],
-    output_path: Union[Path, str],
-    distance: float,
     *,
     dataset_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
+    distance: Union[float, int],
     log_level: int = logging.INFO,
 ) -> Counter:
-    """Buffer features a given distance.
+    """Buffer features a given distance & (optionally) dissolve on given fields.
 
     Args:
-        dataset_path: Path to the dataset.
-        output_path: Path to the output dataset.
-        distance: Distance to buffer from feature, in the units of the dataset.
+        dataset_path: Path to dataset.
         dataset_where_sql: SQL where-clause for dataset subselection.
+        output_path: Path to output dataset.
+        distance: Distance to buffer from feature, in the units of the dataset.
         log_level: Level to log the function at.
 
     Returns:
-        Counts of features for each buffer-state.
+        Feature counts for original and output datasets.
     """
     dataset_path = Path(dataset_path)
     output_path = Path(output_path)
-    LOG.log(
-        log_level,
-        "Start: Buffer features in `%s` into `%s`.",
-        dataset_path,
-        output_path,
-    )
+    LOG.log(log_level, "Start: Buffer features in `%s`.", dataset_path)
     states = Counter()
+    states["in original dataset"] = dataset.feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.analysis.Buffer(
             in_features=view.name,
-            # ArcPy2.8.0: Convert to str.
             out_feature_class=str(output_path),
             buffer_distance_or_field=distance,
         )
-        states["buffered"] = view.count
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
-        # ArcPy2.8.0: Convert to str.
-        arcpy.management.DeleteField(in_table=str(output_path), drop_field=field_name)
+        dataset.delete_field(output_path, field_name=field_name)
+    states["in output"] = dataset.feature_count(output_path)
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Buffer.")
     return states
 
 
-def clip(dataset_path, clip_dataset_path, output_path, **kwargs):
+def clip(
+    dataset_path: Union[Path, str],
+    *,
+    clip_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    clip_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
+    log_level: int = logging.INFO,
+) -> Counter:
     """Clip feature geometry where it overlaps clip-dataset geometry.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        clip_dataset_path (pathlib.Path, str): Path of dataset whose features define the
-            clip area.
-        output_path (pathlib.Path, str): Path of the output dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        clip_where_sql (str): SQL where-clause for clip dataset subselection.
-        tolerance (float): Tolerance for coincidence, in dataset's units.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        clip_path: Path to clip-dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        clip_where_sql: SQL where-clause for clip-dataset subselection.
+        output_path: Path to output dataset.
+        log_level: Level to log the function at.
 
     Returns:
-        collections.Counter: Counts of features for each clip-state.
+        Feature counts for original and output datasets.
     """
+    clip_path = Path(clip_path)
     dataset_path = Path(dataset_path)
-    clip_dataset_path = Path(clip_dataset_path)
     output_path = Path(output_path)
-    level = kwargs.get("log_level", logging.INFO)
     LOG.log(
-        level,
-        "Start: Clip features in `%s` where overlapping `%s` into `%s`.",
+        log_level,
+        "Start: Clip features in `%s` where overlapping `%s`.",
         dataset_path,
-        clip_dataset_path,
-        output_path,
+        clip_path,
     )
-    view = {
-        "clip": DatasetView(
-            clip_dataset_path, dataset_where_sql=kwargs.get("clip_where_sql")
-        ),
-        "dataset": DatasetView(
-            dataset_path, dataset_where_sql=kwargs.get("dataset_where_sql")
-        ),
-    }
-    with view["dataset"], view["clip"]:
+    states = Counter()
+    states["in original dataset"] = dataset.feature_count(dataset_path)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    clip_view = DatasetView(clip_path, dataset_where_sql=clip_where_sql)
+    with view, clip_view:
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.analysis.Clip(
-            in_features=view["dataset"].name,
-            clip_features=view["clip"].name,
-            # ArcPy2.8.0: Convert to str.
+            in_features=view.name,
+            clip_features=clip_view.name,
             out_feature_class=str(output_path),
-            cluster_tolerance=kwargs.get("tolerance"),
         )
-        states = Counter()
-        states["remaining"] = dataset.feature_count(output_path)
-        states["deleted"] = view["dataset"].count - states["remaining"]
-    log_entity_states("features", states, logger=LOG, log_level=level)
-    LOG.log(level, "End: Clip.")
+    states["in output"] = dataset.feature_count(output_path)
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Clip.")
     return states
 
 
 def dissolve_features(
     dataset_path: Union[Path, str],
     *,
+    dataset_where_sql: Optional[str] = None,
     output_path: Union[Path, str],
     dissolve_field_names: Optional[Iterable[str]] = None,
-    dataset_where_sql: Optional[str] = None,
     all_fields_in_output: bool = False,
     allow_multipart: bool = True,
     unsplit_lines: bool = False,
@@ -194,9 +185,9 @@ def dissolve_features(
 
     Args:
         dataset_path: Path to dataset.
-        output_path: Path to output dataset.
-        dissolve_field_names: Collection of field names to base dissolve on.
         dataset_where_sql: SQL where-clause for dataset subselection.
+        output_path: Path to output dataset.
+        dissolve_field_names: Names of fields to base dissolve on.
         all_fields_in_output: All fields in the dataset will persist in the output
             dataset if True. Otherwise, only the dissolve fields will persist. Non-
             dissolve fields will have default values, of course.
@@ -206,7 +197,7 @@ def dissolve_features(
         log_level: Level to log the function at.
 
     Returns:
-        Feature counts for before and after operation.
+        Feature counts for original and output datasets.
     """
     dataset_path = Path(dataset_path)
     output_path = Path(output_path)
@@ -214,10 +205,9 @@ def dissolve_features(
         dissolve_field_names = list(dissolve_field_names)
     LOG.log(
         log_level,
-        "Start: Dissolve features in `%s` on fields `%s`  into `%s`.",
+        "Start: Dissolve features in `%s` on fields `%s`.",
         dataset_path,
         dissolve_field_names,
-        output_path,
     )
     states = Counter()
     states["in original dataset"] = dataset.feature_count(dataset_path)
@@ -227,15 +217,14 @@ def dissolve_features(
         dataset_where_sql=dataset_where_sql,
     )
     with view:
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.management.Dissolve(
             in_features=view.name,
-            # ArcPy2.8.0: Convert path to str.
             out_feature_class=str(output_path),
             dissolve_field=dissolve_field_names,
             multi_part=allow_multipart,
             unsplit_lines=unsplit_lines,
         )
-    states["in output"] = dataset.feature_count(output_path)
     if all_fields_in_output:
         for _field in Dataset(dataset_path).user_fields:
             # Cannot add a non-nullable field to existing features.
@@ -246,6 +235,7 @@ def dissolve_features(
                 log_level=logging.DEBUG,
                 **_field.field_as_dict,
             )
+    states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Dissolve.")
     return states
@@ -254,46 +244,45 @@ def dissolve_features(
 def erase_features(
     dataset_path: Union[Path, str],
     *,
-    erase_dataset_path: Union[Path, str],
-    output_path: Union[Path, str],
+    erase_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     erase_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
     log_level: int = logging.INFO,
 ) -> Counter:
     """Erase feature geometry where it overlaps erase-dataset geometry.
 
     Args:
         dataset_path: Path to dataset.
-        erase_dataset_path: Path to erase-dataset.
-        output_path: Path to output dataset.
+        erase_path: Path to erase-dataset.
         dataset_where_sql: SQL where-clause for dataset subselection.
         erase_where_sql: SQL where-clause for erase-dataset subselection.
+        output_path: Path to output dataset.
         log_level: Level to log the function at.
 
     Returns:
-        Feature counts for before and after operation.
+        Feature counts for original and output datasets.
     """
     dataset_path = Path(dataset_path)
-    erase_dataset_path = Path(erase_dataset_path)
+    erase_path = Path(erase_path)
     output_path = Path(output_path)
     LOG.log(
         log_level,
-        "Start: Erase features in `%s` where overlapping features in `%s` into `%s`.",
+        "Start: Erase features in `%s` where overlapping features in `%s`.",
         dataset_path,
-        erase_dataset_path,
-        output_path,
+        erase_path,
     )
     states = Counter()
     states["in original dataset"] = dataset.feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     erase_view = DatasetView(
-        erase_dataset_path, field_names=[], dataset_where_sql=erase_where_sql
+        erase_path, field_names=[], dataset_where_sql=erase_where_sql
     )
     with view, erase_view:
+        # ArcPy2.8.0: Convert Path to str.
         arcpy.analysis.Erase(
             in_features=view.name,
             erase_features=erase_view.name,
-            # ArcPy2.8.0: Convert path to str.
             out_feature_class=str(output_path),
         )
     states["in output"] = dataset.feature_count(output_path)

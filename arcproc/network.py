@@ -92,7 +92,7 @@ def closest_facility_route(
             the network dataset.
 
     Yields:
-        Analysis result details of feature.
+        Closest facility route details.
         Keys:
             * dataset_id
             * facility_id
