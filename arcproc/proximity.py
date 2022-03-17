@@ -2,7 +2,7 @@
 from collections import Counter
 import logging
 from pathlib import Path
-from typing import Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Iterator, Optional, Union
 
 import arcpy
 
@@ -402,3 +402,74 @@ def id_near_info_map(
     # ArcPy2.8.0: Convert to str.
     arcpy.management.Delete(str(temp_near_path))
     return near_info_map
+
+
+def nearest_features(
+    dataset_path: Union[Path, str],
+    *,
+    id_field_name: str,
+    near_path: Union[Path, str],
+    near_id_field_name: str,
+    dataset_where_sql: Optional[str] = None,
+    near_where_sql: Optional[str] = None,
+    max_distance: Optional[Union[float, int]] = None,
+    near_rank: int = 1,
+) -> Iterator[Dict[str, Any]]:
+    """Generate info dictionaries for relationship with Nth-nearest near-feature.
+
+    Args:
+        dataset_path: Path to dataset.
+        id_field_name: Name of dataset ID field.
+        near_path: Path to near-dataset.
+        near_id_field_name: Name of the near-dataset ID field.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        near_where_sql: SQL where-clause for near-dataset subselection.
+        max_distance: Maximum distance to search for near-features, in units of the
+            dataset.
+        near_rank: Nearness rank of the feature to map info for (Nth-nearest).
+
+    Yields:
+        Nearest feature details.
+        Keys:
+            * dataset_id
+            * near_id
+            * angle: Angle from dataset feature & near-feature, in decimal degrees.
+            * distance: Distance between feature & near-feature, in units of the
+                dataset.
+    """
+    dataset_path = Path(dataset_path)
+    near_path = Path(near_path)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    near_view = DatasetView(near_path, dataset_where_sql=near_where_sql)
+    with view, near_view:
+        temp_near_path = unique_path("near")
+        # ArcPy2.8.0: Convert Path to str.
+        arcpy.analysis.GenerateNearTable(
+            in_features=view.name,
+            near_features=near_view.name,
+            out_table=str(temp_near_path),
+            search_radius=max_distance,
+            angle=True,
+            closest=(near_rank == 1),
+            closest_count=near_rank,
+        )
+        oid_id_map = dict(
+            features.as_tuples(view.name, field_names=["OID@", id_field_name])
+        )
+        near_oid_id_map = dict(
+            features.as_tuples(near_view.name, field_names=["OID@", near_id_field_name])
+        )
+    _features = features.as_dicts(
+        temp_near_path,
+        field_names=["IN_FID", "NEAR_FID", "NEAR_ANGLE", "NEAR_DIST"],
+        dataset_where_sql=f"near_rank = {near_rank}",
+    )
+    for feature in _features:
+        yield {
+            "dataset_id": oid_id_map[feature["IN_FID"]],
+            "near_id": near_oid_id_map[feature["NEAR_FID"]],
+            "angle": feature["NEAR_ANGLE"],
+            "distance": feature["NEAR_DIST"],
+        }
+
+    dataset.delete(temp_near_path)
