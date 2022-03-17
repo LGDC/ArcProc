@@ -3,7 +3,8 @@ from collections import Counter
 from copy import copy, deepcopy
 import logging
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union
+from types import FunctionType
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
 
 import arcpy
 
@@ -21,12 +22,10 @@ from arcproc.metadata import (
 from arcproc.workspace import Editing
 
 
-LOG = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: logging.Logger = logging.getLogger(__name__)
+"""Module-level logger."""
 
-UNIT_PLURAL = {"Foot": "Feet", "Meter": "Meters"}
-"""Mapping of singular unit to plural. Only need common ones from spatial references."""
-TYPE_ID_FUNCTION_MAP = {
+TYPE_ID_FUNCTION_MAP: Dict[str, FunctionType] = {
     "short": (lambda x: int(x.split(" : ")[0]) if x else None),
     "long": (lambda x: int(x.split(" : ")[0]) if x else None),
     "double": (lambda x: float(x.split(" : ")[0]) if x else None),
@@ -34,94 +33,88 @@ TYPE_ID_FUNCTION_MAP = {
     "string": (lambda x: x.split(" : ")[0] if x else None),
     "text": (lambda x: x.split(" : ")[0] if x else None),
 }
-"""dict: Mapping of ArcGIS field type to ID extract function."""
+"""Mapping of ArcGIS field type to ID extract function for network solution layer."""
+UNIT_PLURAL: Dict[str, str] = {"Foot": "Feet", "Meter": "Meters"}
+"""Mapping of singular unit to plural. Only need common ones from spatial references."""
 
 
 arcpy.SetLogHistory(False)
 
 
-def build_network(network_path, **kwargs):
+def build_network(
+    network_path: Union[Path, str], *, log_level: int = logging.INFO
+) -> Dataset:
     """Build network dataset.
 
     Args:
-        network_path (pathlib.Path, str): Path of the network dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        network_path: Path to network dataset.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the network dataset.
+        Dataset metadata instance for network dataset.
     """
     network_path = Path(network_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Build network `%s`.", network_path)
-    # ArcPy2.8.0: Convert to str.
+    LOG.log(log_level, "Start: Build network `%s`.", network_path)
+    # ArcPy2.8.0: Convert Path to str.
     arcpy.nax.BuildNetwork(in_network_dataset=str(network_path))
-    LOG.log(level, "End: Build.")
-    return network_path
+    LOG.log(log_level, "End: Build.")
+    return Dataset(network_path)
 
 
 def closest_facility_route(
-    dataset_path,
-    id_field_name,
-    facility_path,
-    facility_id_field_name,
-    network_path,
-    travel_mode,
-    **kwargs,
-):
+    dataset_path: Union[Path, str],
+    *,
+    id_field_name: str,
+    facility_path: Union[Path, str],
+    facility_id_field_name: str,
+    network_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    facility_where_sql: Optional[str] = None,
+    max_cost: Optional[Union[float, int]] = None,
+    travel_from_facility: bool = False,
+    travel_mode: str,
+) -> Iterator[Dict[str, Any]]:
     """Generate route info dictionaries for closest facility to each location feature.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        id_field_name (str): Name of the dataset ID field.
-        facility_path (pathlib.Path, str): Path of the facilities dataset.
-        facility_id_field_name (str): Name of the facility ID field.
-        network_path (pathlib.Path, str): Path of the network dataset.
-        travel_mode (str): Name of the network travel mode to use.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        facility_where_sql (str): SQL where-clause for facility subselection.
-        max_cost (float): Maximum travel cost the search will attempt, in the units of
-            the cost attribute.
-        travel_from_facility (bool): Flag to indicate performing the analysis
-            travelling from (True) or to (False) the facility. Default is False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        id_field_name: Name of dataset ID field.
+        facility_path: Path to facility dataset.
+        facility_id_field_name: Name of facility dataset ID field.
+        network_path: Path to network dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        facility_where_sql: SQL where-clause for the facility dataset subselection.
+        max_cost: Maximum travel cost the search will allow, in the units of the cost
+            attribute.
+        travel_from_facility: Perform the analysis travelling from the facility if True,
+            rather than toward the facility.
+        travel_mode: Name of the network travel mode to use. Travel mode must exist in
+            the network dataset.
 
     Yields:
-        dict: Analysis result details of feature.
-            Dictionary keys: "dataset_id", "facility_id", "cost", "geometry",
-            "cost" value (float) will match units of the travel mode impedance.
-            "geometry" (arcpy.Geometry) will match spatial reference to the dataset.
+        Analysis result details of feature.
+        Keys:
+            * dataset_id
+            * facility_id
+            * cost - Cost of route, in units of travel mode impedance.
+            * geometry - Route geometry, in spatial reference of dataset.
+
+    Raises:
+        RuntimeError: When analysis fails.
     """
     dataset_path = Path(dataset_path)
     facility_path = Path(facility_path)
     network_path = Path(network_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("facility_where_sql")
-    kwargs.setdefault("max_cost")
-    kwargs.setdefault("travel_from_facility", False)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(
-        level,
-        "Start: Generate closest facility in `%s` to locations in `%s`.",
-        facility_path,
-        dataset_path,
-    )
     analysis = arcpy.nax.ClosestFacility(network_path)
-    analysis.defaultImpedanceCutoff = kwargs["max_cost"]
+    analysis.defaultImpedanceCutoff = max_cost
     distance_units = UNIT_PLURAL[SpatialReference(dataset_path).linear_unit]
     analysis.distanceUnits = getattr(arcpy.nax.DistanceUnits, distance_units)
     analysis.ignoreInvalidLocations = True
-    if kwargs["travel_from_facility"]:
+    if travel_from_facility:
         analysis.travelDirection = arcpy.nax.TravelDirection.FromFacility
-    # ArcPy2.8.0: Convert to str.
+    # ArcPy2.8.0: Convert Path to str.
     analysis.travelMode = arcpy.nax.GetTravelModes(network_path)[travel_mode]
     # Load facilities.
-    input_type = arcpy.nax.ClosestFacilityInputDataType.Facilities
     field = Field(
         facility_path,
         Dataset(facility_path).oid_field_name
@@ -130,26 +123,28 @@ def closest_facility_route(
     )
     field_description = [
         "source_id",
-        field.type,
+        field.type if field.type != "OID" else "LONG",
         "#",
         field.length,
         "#",
         "#",
     ]
-    if field_description[1] == "OID":
-        field_description[1] = "LONG"
-    analysis.addFields(input_type, [field_description])
-    cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
-    rows = features.as_tuples(
+    analysis.addFields(
+        arcpy.nax.ClosestFacilityInputDataType.Facilities, [field_description]
+    )
+    cursor = analysis.insertCursor(
+        arcpy.nax.ClosestFacilityInputDataType.Facilities,
+        field_names=["source_id", "SHAPE@"],
+    )
+    _features = features.as_tuples(
         facility_path,
         field_names=[facility_id_field_name, "SHAPE@"],
-        dataset_where_sql=kwargs["facility_where_sql"],
+        dataset_where_sql=facility_where_sql,
     )
     with cursor:
-        for row in rows:
-            cursor.insertRow(row)
+        for feature in _features:
+            cursor.insertRow(feature)
     # Load dataset locations.
-    input_type = arcpy.nax.ClosestFacilityInputDataType.Incidents
     field = Field(
         dataset_path,
         Dataset(dataset_path).oid_field_name
@@ -158,24 +153,27 @@ def closest_facility_route(
     )
     field_description = [
         "source_id",
-        field.type,
+        field.type if field.type != "OID" else "LONG",
         "#",
         field.length,
         "#",
         "#",
     ]
-    if field_description[1] == "OID":
-        field_description[1] = "LONG"
-    analysis.addFields(input_type, [field_description])
-    cursor = analysis.insertCursor(input_type, field_names=["source_id", "SHAPE@"])
-    rows = features.as_tuples(
+    analysis.addFields(
+        arcpy.nax.ClosestFacilityInputDataType.Incidents, [field_description]
+    )
+    cursor = analysis.insertCursor(
+        arcpy.nax.ClosestFacilityInputDataType.Incidents,
+        field_names=["source_id", "SHAPE@"],
+    )
+    _features = features.as_tuples(
         dataset_path,
         field_names=[id_field_name, "SHAPE@"],
-        dataset_where_sql=kwargs["dataset_where_sql"],
+        dataset_where_sql=dataset_where_sql,
     )
     with cursor:
-        for row in rows:
-            cursor.insertRow(row)
+        for feature in _features:
+            cursor.insertRow(feature)
     # Solve & generate.
     result = analysis.solve()
     if not result.solveSucceeded:
@@ -183,18 +181,18 @@ def closest_facility_route(
             LOG.error(message)
         raise RuntimeError("Closest facility analysis failed")
 
-    oid_id = {
-        sublayer: dict(
-            result.searchCursor(
-                output_type=getattr(arcpy.nax.ClosestFacilityOutputDataType, sublayer),
-                field_names=[id_key, "source_id"],
-            )
+    facility_oid_id = dict(
+        result.searchCursor(
+            output_type=getattr(arcpy.nax.ClosestFacilityOutputDataType, "Facilities"),
+            field_names=["FacilityOID", "source_id"],
         )
-        for sublayer, id_key in [
-            ("Facilities", "FacilityOID"),
-            ("Incidents", "IncidentOID"),
-        ]
-    }
+    )
+    location_oid_id = dict(
+        result.searchCursor(
+            output_type=getattr(arcpy.nax.ClosestFacilityOutputDataType, "Incidents"),
+            field_names=["IncidentOID", "source_id"],
+        )
+    )
     keys = ["FacilityOID", "IncidentOID", f"Total_{distance_units}", "SHAPE@"]
     cursor = result.searchCursor(
         output_type=arcpy.nax.ClosestFacilityOutputDataType.Routes, field_names=keys
@@ -203,95 +201,87 @@ def closest_facility_route(
         for row in cursor:
             route = dict(zip(keys, row))
             yield {
-                "dataset_id": oid_id["Incidents"][route["IncidentOID"]],
-                "facility_id": oid_id["Facilities"][route["FacilityOID"]],
+                "dataset_id": location_oid_id[route["IncidentOID"]],
+                "facility_id": facility_oid_id[route["FacilityOID"]],
                 "cost": route[f"Total_{distance_units}"],
                 "geometry": route["SHAPE@"],
             }
-    LOG.log(level, "End: Generate.")
 
 
 def generate_service_areas(
-    dataset_path, output_path, network_path, cost_attribute, max_distance, **kwargs
-):
+    dataset_path: Union[Path, str],
+    *,
+    id_field_name: str,
+    network_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
+    cost_attribute: str,
+    detailed_features: bool = False,
+    max_distance: Union[float, int],
+    overlap_facilities: bool = True,
+    restriction_attributes: Optional[Iterable[str]] = None,
+    travel_from_facility: bool = False,
+    trim_value: Optional[Union[float, int]] = None,
+    log_level: int = logging.INFO,
+) -> Dataset:
     """Create network service area features.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        output_path (pathlib.Path, str): Path of the output service areas dataset.
-        network_path (pathlib.Path, str): Path of the network dataset.
-        cost_attribute (str): Name of the network cost attribute to use.
-        max_distance (float): Distance in travel from the facility the outer ring will
-            extend to, in the units of the dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        id_field_name (str): Name of facility ID field.
-        restriction_attributes (iter): Collection of network restriction attribute
-            names to use.
-        travel_from_facility (bool): Flag to indicate performing the analysis
-            travelling from (True) or to (False) the facility. Default is False.
-        detailed_features (bool): Flag to generate high-detail features. Default is
-            False.
-        overlap_facilities (bool): Flag to overlap different facility service areas.
-            Default is True.
-        trim_value (float): Dstance from the network features to trim service areas at.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        id_field_name: Name of dataset ID field.
+        network_path: Path to network dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        output_path: Path to output dataset.
+        cost_attribute: Name of network cost attribute to use.
+        detailed_features: Generate high-detail features if True.
+        max_distance: Distance in travel from the facility the outer ring will extend
+            to, in the units of the dataset.
+        overlap_facilities: Allow different facility service areas to overlap if True.
+        restriction_attributes: Names of network restriction attributes to use in
+            analysis.
+        travel_from_facility: Perform the analysis travelling from the facility if True,
+            rather than toward the facility.
+        trim_value: Disstance from network features to trim service areas at, in units
+            of the dataset.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the output service areas dataset.
+        Dataset metadata instance for output dataset.
     """
     dataset_path = Path(dataset_path)
-    output_path = Path(output_path)
     network_path = Path(network_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("id_field_name")
-    kwargs.setdefault("restriction_attributes")
-    kwargs.setdefault("travel_from_facility", False)
-    kwargs.setdefault("detailed_features", False)
-    kwargs.setdefault("overlap_facilities", True)
-    kwargs.setdefault("trim_value")
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Generate service areas for `%s`.", dataset_path)
-    # trim_value assumes meters if not input as linear_unit string.
-    if kwargs["trim_value"] is not None:
-        trim_value = (
-            f"""{kwargs["trim_value"]} {SpatialReference(dataset_path).linear_unit}"""
-        )
-    else:
-        trim_value = None
-    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
+    output_path = Path(output_path)
+    LOG.log(log_level, "Start: Generate service areas for `%s`.", dataset_path)
+    # `trim_value` assumes meters if not input as linear unit string.
+    if trim_value is not None:
+        trim_value = f"{trim_value} {SpatialReference(dataset_path).linear_unit}"
+    # ArcPy2.8.0: Convert Path to str.
     arcpy.na.MakeServiceAreaLayer(
-        # ArcPy2.8.0: Convert to str.
         in_network_dataset=str(network_path),
         out_network_analysis_layer="service_area",
         impedance_attribute=cost_attribute,
-        travel_from_to=(
-            "travel_from" if kwargs["travel_from_facility"] else "travel_to"
-        ),
-        default_break_values="{}".format(max_distance),
-        polygon_type=(
-            "detailed_polys" if kwargs["detailed_features"] else "simple_polys"
-        ),
-        merge=("no_merge" if kwargs["overlap_facilities"] else "no_overlap"),
-        nesting_type="disks",
-        UTurn_policy="allow_dead_ends_and_intersections_only",
-        restriction_attribute_name=kwargs["restriction_attributes"],
-        polygon_trim=(True if trim_value else False),
+        travel_from_to="TRAVEL_FROM" if travel_from_facility else "TRAVEL_TO",
+        default_break_values=f"{max_distance}",
+        polygon_type="DETAILED_POLYS" if detailed_features else "SIMPLE_POLYS",
+        merge="NO_MERGE" if overlap_facilities else "NO_OVERLAP",
+        nesting_type="DISKS",
+        UTurn_policy="ALLOW_DEAD_ENDS_AND_INTERSECTIONS_ONLY",
+        restriction_attribute_name=restriction_attributes,
+        polygon_trim=trim_value is not None,
         poly_trim_value=trim_value,
-        hierarchy="no_hierarchy",
+        hierarchy="NO_HIERARCHY",
     )
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         arcpy.na.AddLocations(
             in_network_analysis_layer="service_area",
             sub_layer="Facilities",
             in_table=view.name,
-            field_mappings="Name {} #".format(kwargs["id_field_name"]),
+            field_mappings=f"Name {id_field_name} #",
             search_tolerance=max_distance,
-            match_type="match_to_closest",
-            append="clear",
-            snap_to_position_along_network="no_snap",
+            match_type="MATCH_TO_CLOSEST",
+            append="CLEAR",
+            snap_to_position_along_network="NO_SNAP",
             exclude_restricted_elements=True,
         )
     arcpy.na.Solve(
@@ -303,114 +293,99 @@ def generate_service_areas(
         "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
     )
     arcpy.management.Delete("service_area")
-    if kwargs["id_field_name"]:
-        id_field = Field(dataset_path, kwargs["id_field_name"])
-        dataset.add_field(
-            output_path, log_level=logging.DEBUG, **id_field.field_as_dict
-        )
-        attributes.update_by_function(
-            output_path,
-            field_name=id_field.name,
-            function=TYPE_ID_FUNCTION_MAP[id_field.type],
-            field_as_first_arg=False,
-            arg_field_names=["Name"],
-            log_level=logging.DEBUG,
-        )
-    LOG.log(level, "End: Generate.")
-    return output_path
+    id_field = Field(dataset_path, id_field_name)
+    dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
+    attributes.update_by_function(
+        output_path,
+        field_name=id_field.name,
+        function=TYPE_ID_FUNCTION_MAP[id_field.type.lower()],
+        field_as_first_arg=False,
+        arg_field_names=["Name"],
+        log_level=logging.DEBUG,
+    )
+    LOG.log(log_level, "End: Generate.")
+    return Dataset(output_path)
 
 
 def generate_service_rings(
-    dataset_path,
-    output_path,
-    network_path,
-    cost_attribute,
-    ring_width,
-    max_distance,
-    **kwargs,
-):
+    dataset_path: Union[Path, str],
+    *,
+    id_field_name: str,
+    network_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
+    cost_attribute: str,
+    detailed_features: bool = False,
+    max_distance: Union[float, int],
+    overlap_facilities: bool = True,
+    restriction_attributes: Optional[Iterable[str]] = None,
+    ring_width: Union[float, int],
+    travel_from_facility: bool = False,
+    trim_value: Optional[Union[float, int]] = None,
+    log_level: int = logging.INFO,
+) -> Dataset:
     """Create facility service ring features using a network dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of the dataset.
-        output_path (pathlib.Path, str): Path of the output service rings dataset.
-        network_path (pathlib.Path, str): Path of the network dataset.
-        cost_attribute (str): Name of the network cost attribute to use.
-        ring_width (float): Distance a service ring represents in travel, in the
-            units of the dataset.
-        max_distance (float): Distance in travel from the facility the outer ring will
-            extend to, in the units of the dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        dataset_where_sql (str): SQL where-clause for dataset subselection.
-        id_field_name (str): Name of facility ID field.
-        restriction_attributes (iter): Collection of network restriction attribute
-            names to use.
-        travel_from_facility (bool): Flag to indicate performing the analysis
-            travelling from (True) or to (False) the facility. Default is False.
-        detailed_features (bool): Flag to generate high-detail features. Default is
-            False.
-        overlap_facilities (bool): Flag to overlap different facility service areas.
-            Default is True.
-        trim_value (float): Dstance from the network features to trim service areas at.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to dataset.
+        id_field_name: Name of dataset ID field.
+        network_path: Path to network dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        output_path: Path to output dataset.
+        cost_attribute: Name of network cost attribute to use.
+        detailed_features: Generate high-detail features if True.
+        max_distance: Distance in travel from the facility the outer ring will extend
+            to, in the units of the dataset.
+        overlap_facilities: Allow different facility service areas to overlap if True.
+        restriction_attributes: Names of network restriction attributes to use in
+            analysis.
+        ring_width: Distance a service ring represents in travel, in the units of the
+            dataset.
+        travel_from_facility: Perform the analysis travelling from the facility if True,
+            rather than toward the facility.
+        trim_value: Disstance from network features to trim service areas at, in units
+            of the dataset.
+        log_level: Level to log the function at.
 
     Returns:
-        pathlib.Path: Path of the output service rings dataset.
+        Dataset metadata instance for output dataset.
     """
     dataset_path = Path(dataset_path)
-    output_path = Path(output_path)
     network_path = Path(network_path)
-    kwargs.setdefault("dataset_where_sql")
-    kwargs.setdefault("id_field_name")
-    kwargs.setdefault("restriction_attributes")
-    kwargs.setdefault("travel_from_facility", False)
-    kwargs.setdefault("detailed_features", False)
-    kwargs.setdefault("overlap_facilities", True)
-    kwargs.setdefault("trim_value")
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Generate service rings for `%s`.", dataset_path)
-    # trim_value assumes meters if not input as linear_unit string.
-    if kwargs["trim_value"] is not None:
-        trim_value = (
-            f"""{kwargs["trim_value"]} {SpatialReference(dataset_path).linear_unit}"""
-        )
-    else:
-        trim_value = None
-    view = DatasetView(dataset_path, dataset_where_sql=kwargs["dataset_where_sql"])
+    output_path = Path(output_path)
+    LOG.log(log_level, "Start: Generate service rings for `%s`.", dataset_path)
+    # `trim_value` assumes meters if not input as linear unit string.
+    if trim_value is not None:
+        trim_value = f"{trim_value} {SpatialReference(dataset_path).linear_unit}"
+    # ArcPy2.8.0: Convert Path to str.
     arcpy.na.MakeServiceAreaLayer(
-        # ArcPy2.8.0: Convert to str.
         in_network_dataset=str(network_path),
         out_network_analysis_layer="service_area",
         impedance_attribute=cost_attribute,
-        travel_from_to=(
-            "travel_from" if kwargs["travel_from_facility"] else "travel_to"
-        ),
+        travel_from_to="TRAVEL_FROM" if travel_from_facility else "TRAVEL_TO",
         default_break_values=(
             " ".join(str(x) for x in range(ring_width, max_distance + 1, ring_width))
         ),
-        polygon_type=(
-            "detailed_polys" if kwargs["detailed_features"] else "simple_polys"
-        ),
-        merge=("no_merge" if kwargs["overlap_facilities"] else "no_overlap"),
-        nesting_type="rings",
-        UTurn_policy="allow_dead_ends_and_intersections_only",
-        restriction_attribute_name=kwargs["restriction_attributes"],
-        polygon_trim=(True if trim_value is not None else False),
+        polygon_type="DETAILED_POLYS" if detailed_features else "SIMPLE_POLYS",
+        merge="NO_MERGE" if overlap_facilities else "NO_OVERLAP",
+        nesting_type="RINGS",
+        UTurn_policy="ALLOW_DEAD_ENDS_AND_INTERSECTIONS_ONLY",
+        restriction_attribute_name=restriction_attributes,
+        polygon_trim=trim_value is not None,
         poly_trim_value=trim_value,
-        hierarchy="no_hierarchy",
+        hierarchy="NO_HIERARCHY",
     )
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         arcpy.na.AddLocations(
             in_network_analysis_layer="service_area",
             sub_layer="Facilities",
             in_table=view.name,
-            field_mappings="Name {} #".format(kwargs["id_field_name"]),
+            field_mappings=f"Name {id_field_name} #",
             search_tolerance=max_distance,
-            match_type="match_to_closest",
-            append="clear",
-            snap_to_position_along_network="no_snap",
+            match_type="MATCH_TO_CLOSEST",
+            append="CLEAR",
+            snap_to_position_along_network="NO_SNAP",
             exclude_restricted_elements=True,
         )
     arcpy.na.Solve(
@@ -422,37 +397,33 @@ def generate_service_rings(
         "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
     )
     arcpy.management.Delete("service_area")
-    if kwargs["id_field_name"]:
-        id_field = Field(dataset_path, kwargs["id_field_name"])
-        dataset.add_field(
-            output_path, log_level=logging.DEBUG, **id_field.field_as_dict
-        )
-        attributes.update_by_function(
-            output_path,
-            id_field.name,
-            function=TYPE_ID_FUNCTION_MAP[id_field.type],
-            field_as_first_arg=False,
-            arg_field_names=["Name"],
-            log_level=logging.DEBUG,
-        )
-    LOG.log(level, "End: Generate.")
-    return output_path
+    id_field = Field(dataset_path, id_field_name)
+    dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
+    attributes.update_by_function(
+        output_path,
+        field_name=id_field.name,
+        function=TYPE_ID_FUNCTION_MAP[id_field.type.lower()],
+        field_as_first_arg=False,
+        arg_field_names=["Name"],
+        log_level=logging.DEBUG,
+    )
+    LOG.log(log_level, "End: Generate.")
+    return Dataset(output_path)
 
 
 # Node functions.
 
 
 def _updated_coordinates_node_map(
-    coordinates_node: "dict[tuple, dict]",
+    coordinates_node: Dict[tuple, dict],
     node_id_data_type: Any,
     node_id_max_length: int,
-) -> "dict[tuple, dict]":
-    """Return updated mapping of coordinates to node info mapping.
+) -> Dict[Tuple[float], Dict[str, Any]]:
+    """Return updated mapping of coordinates pair to node info mapping.
 
     Args:
-        coordinates_node_map: Mapping of coordinates tuple to node information
-            dictionary.
-        node_id_type: Value type for node ID.
+        coordinates_node: Mapping of coordinates tuple to node information dictionary.
+        node_id_data_type: Value type for node ID.
         node_id_max_length: Maximum length for node ID, if ID data type is string.
     """
 
@@ -495,14 +466,14 @@ def _updated_coordinates_node_map(
 
 def coordinates_node_map(
     dataset_path: Union[Path, str],
+    *,
     from_id_field_name: str,
     to_id_field_name: str,
     id_field_names: Iterable[str] = ("OID@",),
-    update_nodes: bool = False,
-    *,
     dataset_where_sql: Optional[str] = None,
+    update_nodes: bool = False,
     spatial_reference_item: SpatialReferenceSourceItem = None,
-) -> "dict[tuple, dict]":
+) -> Dict[Tuple[float], Dict[str, Any]]:
     """Return mapping of coordinates to node info mapping for dataset.
 
     Notes:
@@ -511,14 +482,18 @@ def coordinates_node_map(
             `{(x, y): {"node_id": Any, "feature_ids": {"from": set, "to": set}}}`
 
     Args:
-        dataset_path: Path to the dataset.
-        from_id_field_name: Name of the from-node ID field.
-        to_id_field_name: Name of the to-node ID field.
+        dataset_path: Path to dataset.
+        from_id_field_name: Name of from-node ID field.
+        to_id_field_name: Name of to-node ID field.
         id_field_names: Names of the feature ID fields.
-        update_nodes: Update nodes based on feature geometries if True.
         dataset_where_sql: SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference of the output
-            coordinates will be derived.
+        update_nodes: Update nodes based on feature geometries if True.
+        spatial_reference_item: Item from which the spatial reference for any geometry
+            properties will be set to. If set to None, will use spatial reference of
+            the dataset.
+
+    Raises:
+        ValueError: If from- & to-node ID fields are not the same type.
     """
     dataset_path = Path(dataset_path)
     id_field_names = list(id_field_names)
@@ -529,7 +504,7 @@ def coordinates_node_map(
         if not node_id_data_type:
             node_id_data_type = python_type(field.type)
         elif python_type(field.type) != node_id_data_type:
-            raise ValueError("From- and to-node ID fields must be same type.")
+            raise ValueError("From- and to-node ID fields must be same type")
 
         if node_id_data_type == str:
             if not node_id_max_length or node_id_max_length > field.length:
@@ -574,13 +549,13 @@ def coordinates_node_map(
 
 def id_node_map(
     dataset_path: Union[Path, str],
+    *,
     from_id_field_name: str,
     to_id_field_name: str,
     id_field_names: Iterable[str] = ("OID@",),
-    update_nodes: bool = False,
-    *,
     dataset_where_sql: Optional[str] = None,
-) -> "dict[tuple, dict[str, Any]]":
+    update_nodes: bool = False,
+) -> Dict[Tuple[Any], Dict[str, Any]]:
     """Return mapping of feature ID to from- & to-node ID dictionary.
 
     Notes:
@@ -589,12 +564,12 @@ def id_node_map(
             `{feature_id: {"from": from_node_id, "to": to_node_id}}`
 
     Args:
-        dataset_path: Path to the dataset.
-        from_id_field_name: Name of the from-node ID field.
-        to_id_field_name: Name of the to-node ID field.
+        dataset_path: Path to dataset.
+        from_id_field_name: Name of from-node ID field.
+        to_id_field_name: Name of to-node ID field.
         id_field_names: Names of the feature ID fields.
-        update_nodes: Update nodes based on feature geometries if True.
         dataset_where_sql: SQL where-clause for dataset subselection.
+        update_nodes: Update nodes based on feature geometries if True.
     """
     dataset_path = Path(dataset_path)
     id_field_names = list(id_field_names)
@@ -602,10 +577,10 @@ def id_node_map(
     if update_nodes:
         coordinate_node = coordinates_node_map(
             dataset_path,
-            from_id_field_name,
-            to_id_field_name,
-            id_field_names,
-            update_nodes,
+            from_id_field_name=from_id_field_name,
+            to_id_field_name=to_id_field_name,
+            id_field_names=id_field_names,
+            update_nodes=update_nodes,
             dataset_where_sql=dataset_where_sql,
         )
         for node in coordinate_node.values():
@@ -634,9 +609,9 @@ def id_node_map(
 
 def update_node_ids(
     dataset_path: Union[Path, str],
+    *,
     from_id_field_name: str,
     to_id_field_name: str,
-    *,
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
     log_level: int = logging.INFO,
@@ -645,14 +620,14 @@ def update_node_ids(
 
     Args:
         dataset_path: Path to the dataset.
-        from_id_field_name: Name of the from-node ID field.
-        to_id_field_name: Name of the to-node ID field.
+        from_id_field_name: Name of from-node ID field.
+        to_id_field_name: Name of to-node ID field.
         dataset_where_sql: SQL where-clause for dataset subselection.
-        use_edit_session: Updates are done in an edit session if True.
+        use_edit_session: True if edits are to be made in an edit session.
         log_level: Level to log the function at.
 
     Returns:
-        Counts of features for each update-state.
+        Feature counts for each update-state.
     """
     dataset_path = Path(dataset_path)
     LOG.log(
@@ -669,15 +644,18 @@ def update_node_ids(
         where_clause=dataset_where_sql,
     )
     oid_node = id_node_map(
-        dataset_path, from_id_field_name, to_id_field_name, update_nodes=True
+        dataset_path,
+        from_id_field_name=from_id_field_name,
+        to_id_field_name=to_id_field_name,
+        update_nodes=True,
     )
     session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
-        for feature in cursor:
-            oid = feature[0]
+        for old_feature in cursor:
+            oid = old_feature[0]
             new_feature = (oid, oid_node[oid]["from"], oid_node[oid]["to"])
-            if same_feature(feature, new_feature):
+            if same_feature(old_feature, new_feature):
                 states["unchanged"] += 1
             else:
                 try:
@@ -685,7 +663,7 @@ def update_node_ids(
                     states["altered"] += 1
                 except RuntimeError as error:
                     raise RuntimeError(
-                        f"Update cursor failed: Offending row: `{new_feature}`"
+                        f"Row failed to update. Offending row: `{new_feature}`"
                     ) from error
 
     log_entity_states("attributes", states, logger=LOG, log_level=log_level)

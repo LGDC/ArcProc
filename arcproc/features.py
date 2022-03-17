@@ -151,7 +151,7 @@ def delete_by_id(
         dataset_path: Path to dataset.
         delete_ids: ID sequences for features to delete. If id_field_names contains only
             one field, IDs may be provided as non-sequence single-value.
-        id_field_names: Names of fields containing ID sequence.
+        id_field_names: Names of the feature ID fields.
         use_edit_session: True if edits are to be made in an edit session.
         log_level: Level to log the function at.
 
