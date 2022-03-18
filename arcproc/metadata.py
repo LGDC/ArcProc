@@ -18,6 +18,7 @@ __all__ = []
 LOG: logging.Logger = logging.getLogger(__name__)
 """Module-level logger."""
 
+
 arcpy.SetLogHistory(False)
 
 
@@ -51,7 +52,7 @@ class Domain:
     type: str = field(init=False)
     """Domain value type."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not any([self.geodatabase_path and self.name, self.object]):
             raise AttributeError("Must provide `geodatabase_path` + `name` or `object`")
 
@@ -113,7 +114,7 @@ class Field:
     type: str = field(init=False)
     "Field value type."
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not any([self.dataset_path and self.name, self.object]):
             raise AttributeError("Must provide `dataset_path` + `name` or `object`")
 
@@ -183,7 +184,7 @@ class SpatialReference:
     linear_unit: str = field(init=False)
     """Linear unit for the spatial reference."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.source_item, SpatialReference):
             self.object = self.source_item.object
         # WKID/factory code.
@@ -258,7 +259,7 @@ class Workspace:
     name: str = field(init=False)
     """Name of the workspace."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not any([self.path, self.object]):
             raise AttributeError("Must provide `path` or `object`")
 
@@ -353,7 +354,7 @@ class Dataset:
     workspace_path: Union[Path, str] = field(init=False)
     """Path to workspace for the dataset resides within."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not any([self.path, self.object]):
             raise AttributeError("Must provide `path` or `object`")
 

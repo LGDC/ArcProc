@@ -707,8 +707,8 @@ def update_from_path(
             datasets.
         source_path: Path to dataset for features from which to update.
         source_where_sql: SQL where-clause for source dataset subselection.
-        delete_missing_features: True if update should delete features missing
-            from source dataset.
+        delete_missing_features: True if update should delete features missing from
+            source dataset.
         use_edit_session: True if edits are to be made in an edit session.
         log_level: Level to log the function at.
 

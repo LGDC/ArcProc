@@ -48,10 +48,10 @@ class DatasetView(ContextDecorator):
         self,
         dataset_path: Union[Path, str],
         *,
-        name: Optional[str] = None,
         field_names: Optional[Iterable[str]] = None,
         dataset_where_sql: Optional[str] = None,
         force_nonspatial: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Initialize instance.
 
@@ -223,9 +223,9 @@ class TempDatasetCopy(ContextDecorator):
         self,
         dataset_path: Union[Path, str],
         *,
-        copy_path: Optional[Union[Path, str]] = None,
         field_names: Optional[Iterable[str]] = None,
         dataset_where_sql: Optional[str] = None,
+        copy_path: Optional[Union[Path, str]] = None,
         force_nonspatial: bool = False,
     ) -> None:
         """Initialize instance.
@@ -510,9 +510,9 @@ def compress(
 def copy(
     dataset_path: Union[Path, str],
     *,
-    output_path: Union[Path, str],
     field_names: Optional[Iterable[str]] = None,
     dataset_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
     overwrite: bool = False,
     schema_only: bool = False,
     log_level: int = logging.INFO,

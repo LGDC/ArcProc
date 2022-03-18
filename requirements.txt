@@ -1,6 +1,5 @@
 arcgis
 # Installed with app.
 #arcpy
-funcsigs
 more-itertools
 pint

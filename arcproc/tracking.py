@@ -1,200 +1,198 @@
 """Tracking operations."""
 from collections import Counter, defaultdict
-import datetime
+from datetime import date, datetime as _datetime
 from itertools import chain
 import logging
 from operator import itemgetter
 from pathlib import Path
+from typing import Iterable, Optional, Union
 
 import arcpy
 
 from arcproc import features
-from arcproc.helpers import contain, log_entity_states, same_value
+from arcproc.helpers import log_entity_states, same_value
 from arcproc.metadata import Dataset
 from arcproc.workspace import Editing
 
 
-LOG = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: logging.Logger = logging.getLogger(__name__)
+"""Module-level logger."""
+
 
 arcpy.SetLogHistory(False)
 
 
-def consolidate_rows(dataset_path, field_name, id_field_names, **kwargs):
-    """Consolidate tracking dataset rows where the value did not actually change.
+def consolidate_rows(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    id_field_names: Iterable[str],
+    date_initiated_field_name: str = "date_initiated",
+    date_expired_field_name: str = "date_expired",
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
+    """Consolidate tracking dataset rows where the value does not actually change.
 
     Useful for quick-loaded point-in-time values, or for processing hand-altered rows.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of tracking dataset.
-        field_name (str): Name of tracked field.
-        id_field_names (iter): Field names used to identify a feature.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        date_initiated_field_name (str): Name of tracking-row-inititated date field.
-            Default is "date_initiated".
-        date_expired_field_name (str): Name of tracking-row-expired date field. Default
-            is "date_expired".
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to tracking dataset.
+        field_name: Name of field with tracked attribute.
+        id_field_names: Names of the feature ID fields.
+        date_initiated_field_name: Name of tracking-row-inititated date field.
+        date_expired_field_name: Name of tracking-row-expired date field.
+        use_edit_session: True if edits are to be made in an edit session.
+        log_level: Level to log the function at.
 
     Returns:
-        collections.Counter: Counts of features for each update-state.
+        Feature counts for each update-state.
     """
     dataset_path = Path(dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
-    LOG.log(level, "Start: Consolidate tracking rows in `%s`.", dataset_path)
-    keys = {
-        "id": list(contain(id_field_names)),
-        "date": [
-            kwargs.get(key + "_field_name", key)
-            for key in ["date_initiated", "date_expired"]
-        ],
-    }
-    keys["row"] = keys["id"] + keys["date"] + [field_name]
+    LOG.log(log_level, "Start: Consolidate tracking rows in `%s`.", dataset_path)
+    id_field_names = list(id_field_names)
+    field_names = id_field_names + [
+        date_initiated_field_name,
+        date_expired_field_name,
+        field_name,
+    ]
     id_rows = defaultdict(list)
-    for row in features.as_dicts(dataset_path, field_names=keys["row"]):
-        id_ = tuple(row[key] for key in keys["id"])
-        id_rows[id_].append(row)
-    for id_ in list(id_rows):
-        rows = sorted(id_rows[id_], key=itemgetter(keys["date"][0]))
+    for row in features.as_dicts(dataset_path, field_names=field_names):
+        _id = tuple(row[name] for name in id_field_names)
+        id_rows[_id].append(row)
+    for _id in list(id_rows):
+        rows = sorted(id_rows[_id], key=itemgetter(date_initiated_field_name))
         for i, row in enumerate(rows):
-            if i == 0 or row[keys["date"][0]] is None:
+            if i == 0 or row[date_initiated_field_name] is None:
                 continue
 
+            date_initiated = row[date_initiated_field_name]
+            value = row[field_name]
             previous_row = rows[i - 1]
-            previous_value, value = (previous_row[field_name], row[field_name])
-            previous_date_expired, date_initiated = (
-                previous_row[keys["date"][1]],
-                row[keys["date"][0]],
-            )
+            previous_value = previous_row[field_name]
+            previous_date_expired = previous_row[date_expired_field_name]
             if same_value(value, previous_value) and same_value(
                 date_initiated, previous_date_expired
             ):
                 # Move previous row date initiated to current row & clear from previous.
-                row[keys["date"][0]] = previous_row[keys["date"][0]]
-                previous_row[keys["date"][0]] = None
-        id_rows[id_] = [row for row in rows if row[keys["date"][0]] is not None]
+                row[date_initiated_field_name] = previous_row[date_initiated_field_name]
+                previous_row[date_initiated_field_name] = None
+        id_rows[_id] = [
+            row for row in rows if row[date_initiated_field_name] is not None
+        ]
     states = features.update_from_dicts(
         dataset_path,
-        field_names=keys["row"],
+        field_names=field_names,
         # In tracking dataset, ID is ID + date_initiated.
-        id_field_names=keys["id"] + keys["date"][:1],
+        id_field_names=id_field_names + [date_initiated_field_name],
         source_features=chain(*id_rows.values()),
-        use_edit_session=kwargs.get("use_edit_session", False),
+        use_edit_session=use_edit_session,
         log_level=logging.DEBUG,
     )
-    log_entity_states("tracking rows", states, logger=LOG, log_level=level)
-    LOG.log(level, "End: Consolidate.")
+    log_entity_states("tracking rows", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Consolidate.")
     return states
 
 
-def update_rows(dataset_path, field_name, id_field_names, cmp_dataset_path, **kwargs):
+def update_rows(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    id_field_names: Iterable[str],
+    cmp_dataset_path: Union[Path, str],
+    cmp_field_name: Optional[str] = None,
+    cmp_id_field_names: Optional[Iterable[str]] = None,
+    cmp_date: Optional[Union[date, _datetime]] = None,
+    date_initiated_field_name: str = "date_initiated",
+    date_expired_field_name: str = "date_expired",
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
     """Add field value changes to tracking dataset from comparison dataset.
 
     Args:
-        dataset_path (pathlib.Path, str): Path of tracking dataset.
-        field_name (str): Name of tracked field.
-        id_field_names (iter): Field names used to identify a feature.
-        cmp_dataset_path (pathlib.Path, str): Path of comparison dataset.
-        **kwargs: Arbitrary keyword arguments. See below.
-
-    Keyword Args:
-        cmp_date (datetime.date, datetime.datetime): Date to mark comparison change.
-            Default is date of execution.
-        cmp_field_name (str): Name of tracked field in comparison dataset, if different
-            from field_name.
-        cmp_id_field_names (iter): Field names used to identify a feature in comparison
-            dataset, if different from id_field_name.
-        date_initiated_field_name (str): Name of tracking-row-inititated date field.
-            Default is "date_initiated".
-        date_expired_field_name (str): Name of tracking-row-expired date field. Default
-            is "date_expired".
-        use_edit_session (bool): Flag to perform updates in an edit session. Default is
-            False.
-        log_level (int): Level to log the function at. Default is 20 (logging.INFO).
+        dataset_path: Path to tracking dataset.
+        field_name: Name of field with tracked attribute.
+        id_field_names: Names of the feature ID fields.
+        cmp_dataset_path: Path to comparison dataset.
+        cmp_field_name: Name of field with tracked attribute in comparison dataset. If
+            set to None, will assume same as field_name.
+        cmp_id_field_names: Names of the feature ID fields in comparison dataset. If set
+            to None, will assume same as field_name.
+        cmp_date: Date to mark comparison change. If set to None, will set to the date
+            of execution.
+        date_initiated_field_name: Name of tracking-row-inititated date field.
+        date_expired_field_name: Name of tracking-row-expired date field.
+        use_edit_session: True if edits are to be made in an edit session.
+        log_level: Level to log the function at.
 
     Returns:
-        collections.Counter: Counts of features for each update-state.
+        Feature counts for each update-state.
     """
     dataset_path = Path(dataset_path)
     cmp_dataset_path = Path(cmp_dataset_path)
-    level = kwargs.get("log_level", logging.INFO)
     LOG.log(
-        level,
+        log_level,
         "Start: Update tracking rows in `%s` from `%s`.",
         dataset_path,
         cmp_dataset_path,
     )
-    if not kwargs.get("cmp_date"):
-        kwargs["cmp_date"] = datetime.date.today()
-    keys = {
-        "id": list(contain(id_field_names)),
-        "cmp_id": list(contain(kwargs.get("cmp_id_field_names", id_field_names))),
-        "date": [
-            kwargs.get(key + "_field_name", key)
-            for key in ["date_initiated", "date_expired"]
-        ],
-    }
-    current_where_sql = "{} IS NULL".format(keys["date"][1])
-    id_value = {}
-    id_value["current"] = {
+    id_field_names = list(id_field_names)
+    if cmp_field_name is None:
+        cmp_field_name = field_name
+    cmp_id_field_names = (
+        id_field_names if cmp_id_field_names is None else list(cmp_id_field_names)
+    )
+    if cmp_date is None:
+        cmp_date = date.today()
+    current_where_sql = f"{date_expired_field_name} IS NULL"
+    id_current_value = {
         row[:-1]: row[-1]
         for row in features.as_tuples(
             dataset_path,
-            field_names=keys["id"] + [field_name],
+            field_names=id_field_names + [field_name],
             dataset_where_sql=current_where_sql,
         )
     }
-    id_value["cmp"] = {
+    id_cmp_value = {
         row[:-1]: row[-1]
         for row in features.as_tuples(
-            cmp_dataset_path,
-            field_names=keys["cmp_id"] + [kwargs.get("cmp_field_name", field_name)],
+            cmp_dataset_path, field_names=cmp_id_field_names + [cmp_field_name]
         )
     }
-    ids = {
-        "changing": set(),
-        "expiring": {id_ for id_ in id_value["current"] if id_ not in id_value["cmp"]},
-    }
+    changed_ids = set()
+    expired_ids = {_id for _id in id_current_value if _id not in id_cmp_value}
     new_rows = []
-    for id_, value in id_value["cmp"].items():
-        if id_ not in id_value["current"]:
-            new_rows.append(id_ + (value, kwargs["cmp_date"]))
-        elif not same_value(value, id_value["current"][id_]):
-            ids["changing"].add(id_)
-            new_rows.append(id_ + (value, kwargs["cmp_date"]))
-    states = Counter()
-    # Could replace cursor with features.update_from_iters if that function adds a
-    # dataset_where_sql keyword argument.
-    session = Editing(
-        Dataset(dataset_path).workspace_path, kwargs.get("use_edit_session", False)
-    )
+    for _id, value in id_cmp_value.items():
+        if _id not in id_current_value:
+            new_rows.append(_id + (value, cmp_date))
+        elif not same_value(value, id_current_value[_id]):
+            changed_ids.add(_id)
+            new_rows.append(_id + (value, cmp_date))
+    # ArcPy2.8.0: Convert Path to str.
     cursor = arcpy.da.UpdateCursor(
-        # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
-        field_names=keys["id"] + [field_name, keys["date"][1]],
+        field_names=id_field_names + [field_name, date_expired_field_name],
         where_clause=current_where_sql,
     )
+    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    states = Counter()
     with session, cursor:
         for row in cursor:
-            id_ = tuple(row[: len(keys["id"])])
-            if id_ in ids["changing"] or id_ in ids["expiring"]:
-                cursor.updateRow(id_ + (row[-2], kwargs["cmp_date"]))
-                states["altered"] += 1
+            _id = tuple(row[: len(id_field_names)])
+            if _id in changed_ids or _id in expired_ids:
+                cursor.updateRow(_id + (row[-2], cmp_date))
             else:
                 states["unchanged"] += 1
-    states.update(
-        features.insert_from_iters(
-            dataset_path,
-            field_names=keys["id"] + [field_name, keys["date"][0]],
-            source_features=new_rows,
-            use_edit_session=kwargs.get("use_edit_session", False),
-            log_level=logging.DEBUG,
-        )
+    features.insert_from_iters(
+        dataset_path,
+        field_names=id_field_names + [field_name, date_initiated_field_name],
+        source_features=new_rows,
+        use_edit_session=use_edit_session,
+        log_level=logging.DEBUG,
     )
-    log_entity_states("tracking rows", states, logger=LOG, log_level=level)
-    LOG.log(level, "End: Update.")
+    states["changed"] = len(changed_ids)
+    states["expired"] = len(expired_ids)
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Update.")
     return states
