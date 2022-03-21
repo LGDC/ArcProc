@@ -349,7 +349,7 @@ def nearest_features(
     _features = features.as_dicts(
         temp_near_path,
         field_names=["IN_FID", "NEAR_FID", "NEAR_ANGLE", "NEAR_DIST"],
-        dataset_where_sql=f"near_rank = {near_rank}",
+        dataset_where_sql=f"NEAR_RANK = {near_rank}" if near_rank != 1 else None,
     )
     for feature in _features:
         yield {
