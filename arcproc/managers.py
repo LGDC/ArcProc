@@ -21,6 +21,7 @@ LOG: logging.Logger = logging.getLogger(__name__)
 
 # Py3.7: Can replace usage with `typing.Self` in Py3.11.
 TProcedure = TypeVar("TProcedure", bound="Procedure")
+"""Type variable to enable method return of self on Procedure."""
 
 
 arcpy.SetLogHistory(False)
