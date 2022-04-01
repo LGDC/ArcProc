@@ -58,27 +58,26 @@ def contain(obj: Any, *, nonetypes_as_empty: bool = True) -> Iterator[Any]:
 
 def elapsed(
     start_time: _datetime,
-    *,
     logger: Optional[logging.Logger] = None,
     log_level: int = logging.INFO,
 ) -> timedelta:
     """Return time-delta since start time.
 
     Args:
-        start_time (datetime.datetime): Start to measure time elapsed since.
-        logger (logging.Logger, None): If not None, logger to emit elapsed message.
-        log_level (int): Level to emit elapsed message at.
+        start_time: Starting point to measure time elapsed since.
+        logger: Logger to emit elapsed message.
+        log_level: Level to log elapsed message at.
     """
-    span = _datetime.now() - start_time
+    delta = _datetime.now() - start_time
     if logger:
         logger.log(
             log_level,
             "Elapsed: %s hrs, %s min, %s sec.",
-            (span.days * 24 + span.seconds // 3600),
-            ((span.seconds // 60) % 60),
-            (span.seconds % 60),
+            (delta.days * 24 + delta.seconds // 3600),
+            ((delta.seconds // 60) % 60),
+            (delta.seconds % 60),
         )
-    return span
+    return delta
 
 
 def freeze_values(*values: Any) -> Iterator[Any]:
@@ -100,7 +99,7 @@ def freeze_values(*values: Any) -> Iterator[Any]:
 
 
 def log_entity_states(
-    entity_type: str,
+    entity_label: str,
     states: Counter,
     *,
     logger: Optional[logging.Logger] = None,
@@ -110,7 +109,7 @@ def log_entity_states(
     """Log the counts for entities in each state from provided counter.
 
     Args:
-        entity_type: Label for the entity type whose states are counted. Preferably
+        entity_label: Label for the entity type whose states are counted. Preferably
             plural, e.g. "datasets".
         states: State-counts.
         logger: Logger to handle emitted loglines. If not specified, will use module
@@ -123,13 +122,13 @@ def log_entity_states(
     if not logger:
         logger = LOG
     if sum(states.values()) == 0:
-        logger.log(log_level, "No %s states to log.", entity_type)
+        logger.log(log_level, "No %s states to log.", entity_label)
     else:
         for state, count in sorted(states.items()):
             logger.log(
                 log_level,
                 logline_format.format(
-                    count=count, entity_type=entity_type, state=state
+                    count=count, entity_type=entity_label, state=state
                 ),
             )
 
