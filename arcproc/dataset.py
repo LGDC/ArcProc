@@ -97,7 +97,7 @@ class DatasetView(ContextDecorator):
         return self._dataset_where_sql
 
     @dataset_where_sql.setter
-    def dataset_where_sql(self, value):
+    def dataset_where_sql(self, value: str) -> None:
         if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name,
@@ -107,7 +107,7 @@ class DatasetView(ContextDecorator):
         self._dataset_where_sql = value
 
     @dataset_where_sql.deleter
-    def dataset_where_sql(self):
+    def dataset_where_sql(self) -> None:
         if self.exists:
             arcpy.management.SelectLayerByAttribute(
                 in_layer_or_view=self.name, selection_type="CLEAR_SELECTION"
