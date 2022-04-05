@@ -228,7 +228,7 @@ class Procedure(ContextDecorator):
 
     def transform(
         self, transformation: Union[FunctionType, MethodType], **kwargs: Any
-    ) -> TProcedure:
+    ) -> Any:
         """Run transform operation as defined in the workspace.
 
         Args:
@@ -237,7 +237,7 @@ class Procedure(ContextDecorator):
             **kwargs: Arbitrary keyword arguments; passed through to the transformation.
 
         Returns:
-            Reference to instance.
+            Return value of the transformation.
         """
         parameters = signature(transformation).parameters
         # Unless otherwise stated, dataset path is self.transform_path.
@@ -250,12 +250,12 @@ class Procedure(ContextDecorator):
             )
         else:
             output_path = self.transform_path
-        transformation(**kwargs)
+        result = transformation(**kwargs)
         if output_path != self.transform_path:
             if not self.keep_transforms and dataset.is_valid(self.transform_path):
                 dataset.delete(self.transform_path)
             self.transform_path = output_path
-        return self
+        return result
 
     def update(
         self,
