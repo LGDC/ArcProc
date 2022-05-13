@@ -4,7 +4,7 @@ from copy import copy, deepcopy
 import logging
 from pathlib import Path
 from types import FunctionType
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
 
 import arcpy
 
@@ -415,7 +415,7 @@ def generate_service_rings(
 
 
 def _updated_coordinates_node_map(
-    coordinates_node: Dict[tuple, dict],
+    coordinates_node: Mapping[tuple, Mapping],
     node_id_data_type: Any,
     node_id_max_length: int,
 ) -> Dict[Tuple[float], Dict[str, Any]]:
@@ -427,7 +427,7 @@ def _updated_coordinates_node_map(
         node_id_max_length: Maximum length for node ID, if ID data type is string.
     """
 
-    def _feature_count(node: dict) -> int:
+    def _feature_count(node: Mapping) -> int:
         """Return count of features associated with node."""
         return len(node["feature_ids"]["from"].union(node["feature_ids"]["to"]))
 
