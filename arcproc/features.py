@@ -214,7 +214,7 @@ def densify(
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Densify feature geometry in `%s`.", dataset_path)
     _dataset = Dataset(dataset_path)
-    # Densify method on geometry object assumes meters if distance not string-with-unit.
+    # Densify method on geometry object uses meters with geodesic densify method.
     if _dataset.spatial_reference.linear_unit != "Meter":
         distance_unit = getattr(UNIT, _dataset.spatial_reference.linear_unit.lower())
         distance_with_unit = (distance * distance_unit).to(UNIT.meter) / UNIT.meter
@@ -509,6 +509,61 @@ def keep_by_location(
         states["deleted"] = delete(view.name, log_level=logging.DEBUG)["deleted"]
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Keep.")
+    return states
+
+
+def replace_feature_true_curves(
+    dataset_path: Union[Path, str],
+    *,
+    dataset_where_sql: Optional[str] = None,
+    max_deviation: Union[float, int],
+    use_edit_session: bool = False,
+    log_level: int = logging.INFO,
+) -> Counter:
+    """Replace true cuves with extra vertices in features.
+
+    Args:
+        dataset_path: Path to dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        max_deviation: The maximum allowed distance of deviation from original curve.
+        use_edit_session: True if edits are to be made in an edit session.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for each replace-state.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(
+        log_level,
+        "Start: Replace true curves for feature geometry in `%s`.",
+        dataset_path,
+    )
+    _dataset = Dataset(dataset_path)
+    cursor = arcpy.da.UpdateCursor(
+        # ArcPy2.8.0: Convert Path to str.
+        in_table=str(dataset_path),
+        field_names=["SHAPE@"],
+        where_clause=dataset_where_sql,
+    )
+    session = Editing(_dataset.workspace_path, use_edit_session)
+    states = Counter()
+    with session, cursor:
+        for (old_geometry,) in cursor:
+            if old_geometry:
+                if not old_geometry.hasCurves:
+                    states["unchanged"] += 1
+                    continue
+
+                # Using very large distance so most non-curve segments add no vertices.
+                new_geometry = old_geometry.densify(
+                    method="DISTANCE", distance=100_000, deviation=max_deviation
+                )
+                cursor.updateRow((new_geometry,))
+                states["replaced"] += 1
+            else:
+                states["unchanged"] += 1
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Replace.")
     return states
 
 
