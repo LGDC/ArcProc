@@ -416,6 +416,18 @@ class Dataset:
         # ArcPy2.8.0: Convert to str.
         return int(arcpy.management.GetCount(str(self.path)).getOutput(0))
 
+    @property
+    def has_true_curves(self) -> bool:
+        """Return True if any present features have true curves."""
+        if self.is_spatial and not self.path.name.lower().endswith(".shp"):
+            cursor = arcpy.da.SearchCursor(str(self.path), field_names=["SHAPE@"])
+            with cursor:
+                for (geometry,) in cursor:
+                    if geometry is not None and geometry.hasCurves:
+                        return True
+
+        return False
+
 
 # Type aliases.
 
