@@ -36,14 +36,14 @@ LOG: Logger = getLogger(__name__)
 SetLogHistory(False)
 
 
-def as_value_count(
+def field_value_count(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = None,
 ) -> Counter:
-    """Return counter of attribute values.
+    """Return counter of field attribute values.
 
     Notes:
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
@@ -58,7 +58,7 @@ def as_value_count(
     """
     dataset_path = Path(dataset_path)
     return Counter(
-        as_values(
+        field_values(
             dataset_path,
             field_name,
             dataset_where_sql=dataset_where_sql,
@@ -67,14 +67,14 @@ def as_value_count(
     )
 
 
-def as_values(
+def field_values(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = None,
 ) -> Iterator[Any]:
-    """Generate attribute values.
+    """Generate field attribute values.
 
     Notes:
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
@@ -100,7 +100,7 @@ def as_values(
             yield value
 
 
-def update_by_central_overlay(
+def update_field_with_central_overlay(  # pylint: disable=invalid-name
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -112,7 +112,7 @@ def update_by_central_overlay(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by finding the central overlay feature value.
+    """Update field attribute values with the central overlay feature value.
 
     Notes:
         Since only one value will be selected in the overlay, operations with multiple
@@ -138,7 +138,7 @@ def update_by_central_overlay(
     overlay_dataset_path = Path(overlay_dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by central-overlay value in `%s.%s`.",
+        "Start: Update field `%s.%s` with central-overlay value in `%s.%s`.",
         dataset_path,
         field_name,
         overlay_dataset_path,
@@ -165,13 +165,13 @@ def update_by_central_overlay(
             match_option="HAVE_THEIR_CENTER_IN",
         )
     if replacement_value is not None:
-        update_by_function(
+        update_field_with_function(
             temp_output_path,
             overlay_field_name,
             function=lambda x: replacement_value if x else None,
             log_level=DEBUG,
         )
-    states = update_by_joined_value(
+    states = update_field_with_join(
         dataset_path,
         field_name,
         key_field_names=["OID@"],
@@ -189,7 +189,7 @@ def update_by_central_overlay(
     return states
 
 
-def update_by_dominant_overlay(
+def update_field_with_dominant_overlay(  # pylint: disable=invalid-name
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -201,7 +201,7 @@ def update_by_dominant_overlay(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by finding the dominant overlay feature value.
+    """Update field attribute values with the dominant overlay feature value.
     Args:
         dataset_path: Path to dataset.
         field_name: Name of field.
@@ -222,7 +222,7 @@ def update_by_dominant_overlay(
     overlay_dataset_path = Path(overlay_dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by dominant overlay value in `%s.%s`.",
+        "Start: Update field `%s.%s` with dominant overlay value in `%s.%s`.",
         dataset_path,
         field_name,
         overlay_dataset_path,
@@ -275,7 +275,7 @@ def update_by_dominant_overlay(
         oid: max(value_area.items(), key=itemgetter(1))[0]
         for oid, value_area in oid_value_area.items()
     }
-    states = update_by_mapping(
+    states = update_field_with_mapping(
         dataset_path,
         field_name,
         mapping=oid_dominant_value,
@@ -289,7 +289,7 @@ def update_by_dominant_overlay(
     return states
 
 
-def update_by_domain_code(
+def update_field_with_domain(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -300,7 +300,7 @@ def update_by_domain_code(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values using a coded-values domain.
+    """Update field attribute values with coded-values domain descriptions.
 
     Args:
         dataset_path: Path to dataset
@@ -318,13 +318,13 @@ def update_by_domain_code(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by domain code in `%s` using domain `%s`.",
+        "Start: Update field `%s.%s` from domain `%s` using code in field `%s`.",
         dataset_path,
         field_name,
-        code_field_name,
         domain_name,
+        code_field_name,
     )
-    states = update_by_mapping(
+    states = update_field_with_mapping(
         dataset_path,
         field_name,
         mapping=Domain(domain_workspace_path, domain_name).code_description,
@@ -338,7 +338,7 @@ def update_by_domain_code(
     return states
 
 
-def update_by_expression(
+def update_field_with_expression(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -348,7 +348,7 @@ def update_by_expression(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Field:
-    """Update attribute values using a (single) code-expression.
+    """Update field attribute values with a (single) code-expression.
 
     Wraps CalculateField from ArcPy.
 
@@ -374,7 +374,7 @@ def update_by_expression(
 
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by %s expression `%s`.",
+        "Start: Update field `%s.%s` with %s expression `%s`.",
         dataset_path,
         field_name,
         expression_type,
@@ -395,7 +395,7 @@ def update_by_expression(
     return Field(dataset_path, field_name)
 
 
-def update_by_field(
+def update_field_with_field(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -405,7 +405,7 @@ def update_by_field(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values with values from another field.
+    """Update field attribute values with values from another field.
 
     Args:
         dataset_path: Path to dataset.
@@ -427,7 +427,7 @@ def update_by_field(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by field `%s`.",
+        "Start: Update field `%s.%s` with field `%s`.",
         dataset_path,
         field_name,
         source_field_name,
@@ -459,7 +459,7 @@ def update_by_field(
     return states
 
 
-def update_by_function(
+def update_field_with_function(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -472,7 +472,7 @@ def update_by_function(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by passing them to a function.
+    """Update field attribute values with a function.
 
     Args:
         dataset_path: Path to dataset.
@@ -499,7 +499,7 @@ def update_by_function(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by `%s`.",
+        "Start: Update field `%s.%s` with `%s`.",
         dataset_path,
         field_name,
         # Partials show all the pre-loaded arg & kwarg values, which is cumbersome.
@@ -542,7 +542,7 @@ def update_by_function(
     return states
 
 
-def update_by_joined_value(
+def update_field_with_join(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -555,7 +555,7 @@ def update_by_joined_value(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by referencing a joinable field in another dataset.
+    """Update field attribute values with a join to a field in another dataset.
 
     key_field_names & join_key_field_names must be the same length & same order.
 
@@ -583,7 +583,7 @@ def update_by_joined_value(
     join_dataset_path = Path(join_dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by joined values in `%s.%s`.",
+        "Start: Update field `%s.%s` with join to `%s.%s`.",
         dataset_path,
         field_name,
         join_dataset_path,
@@ -630,7 +630,7 @@ def update_by_joined_value(
     return states
 
 
-def update_by_mapping(
+def update_field_with_mapping(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -641,7 +641,7 @@ def update_by_mapping(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by finding them in a mapping.
+    """Update field attribute values with a mapping.
 
     Notes:
         Mapping key must be a tuple if an iterable.
@@ -665,11 +665,7 @@ def update_by_mapping(
     dataset_path = Path(dataset_path)
     key_field_names = list(key_field_names)
     LOG.log(
-        log_level,
-        "Start: Update attributes in `%s.%s` by mapping with key in `%s`.",
-        dataset_path,
-        field_name,
-        key_field_names,
+        log_level, "Start: Update field `%s.%s` with mapping", dataset_path, field_name,
     )
     if isinstance(mapping, EXECUTABLE_TYPES):
         mapping = mapping()
@@ -702,7 +698,7 @@ def update_by_mapping(
     return states
 
 
-def update_by_overlay_count(
+def update_field_with_overlay_count(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -712,7 +708,7 @@ def update_by_overlay_count(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by count of overlay features.
+    """Update field attribute values with count of overlay features.
 
     Args:
         dataset_path: Path to dataset.
@@ -735,7 +731,7 @@ def update_by_overlay_count(
     overlay_dataset_path = Path(overlay_dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by overlay feature counts from `%s`.",
+        "Start: Update field `%s.%s` with overlay feature counts from `%s`.",
         dataset_path,
         field_name,
         overlay_dataset_path,
@@ -795,7 +791,7 @@ def update_by_overlay_count(
     return states
 
 
-def update_by_unique_id(
+def update_field_with_unique_id(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -805,7 +801,7 @@ def update_by_unique_id(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by assigning a unique ID.
+    """Update field attribute values with a unique ID.
 
     Existing IDs are preserved, if unique.
 
@@ -829,7 +825,7 @@ def update_by_unique_id(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by assigning unique IDs.",
+        "Start: Update field `%s.%s` with unique ID.",
         dataset_path,
         field_name,
     )
@@ -881,7 +877,7 @@ def update_by_unique_id(
     return states
 
 
-def update_by_value(
+def update_field_with_value(
     dataset_path: Union[Path, str],
     field_name: str,
     *,
@@ -890,7 +886,7 @@ def update_by_value(
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
-    """Update attribute values by assigning a given value.
+    """Update field attribute values with a given value.
 
     Args:
         dataset_path: Path to dataset.
@@ -909,7 +905,7 @@ def update_by_value(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by given value.",
+        "Start: Update field `%s.%s` with given value.",
         dataset_path,
         field_name,
     )

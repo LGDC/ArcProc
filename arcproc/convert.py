@@ -9,7 +9,7 @@ from typing import Iterable, Optional, Union
 
 import arcpy
 
-from arcproc import attributes
+from arcproc.attributes import update_field_with_join
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc import features
@@ -286,7 +286,7 @@ def polygons_to_lines(
                 dataset.add_field(
                     output_path, log_level=logging.DEBUG, **id_field.field_as_dict
                 )
-                attributes.update_by_joined_value(
+                update_field_with_join(
                     output_path,
                     field_name=id_field.name,
                     key_field_names=[oid_key],

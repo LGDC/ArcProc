@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Unio
 
 import arcpy
 
-from arcproc import attributes
+from arcproc.attributes import update_field_with_function
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc import features
@@ -295,7 +295,7 @@ def generate_service_areas(
     arcpy.management.Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
     dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
-    attributes.update_by_function(
+    update_field_with_function(
         output_path,
         field_name=id_field.name,
         function=TYPE_ID_FUNCTION_MAP[id_field.type.lower()],
@@ -399,7 +399,7 @@ def generate_service_rings(
     arcpy.management.Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
     dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
-    attributes.update_by_function(
+    update_field_with_function(
         output_path,
         field_name=id_field.name,
         function=TYPE_ID_FUNCTION_MAP[id_field.type.lower()],

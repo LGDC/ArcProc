@@ -6,7 +6,7 @@ from typing import Any, Optional, Union
 
 import arcpy
 
-from arcproc import attributes
+from arcproc.attributes import update_field_with_join, update_field_with_value
 from arcproc import dataset
 from arcproc.dataset import DatasetView
 from arcproc.helpers import log_entity_states
@@ -83,7 +83,7 @@ def identity(
         name for name in Dataset(output_path).field_names if name.startswith("FID_")
     ]
     if replacement_value is not None:
-        attributes.update_by_value(
+        update_field_with_value(
             output_path,
             field_name,
             value=replacement_value,
@@ -91,7 +91,7 @@ def identity(
             log_level=logging.DEBUG,
         )
     else:
-        attributes.update_by_joined_value(
+        update_field_with_join(
             output_path,
             field_name,
             key_field_names=[fid_field_names[-1]],
@@ -102,7 +102,7 @@ def identity(
             join_dataset_where_sql=identity_where_sql,
             log_level=logging.DEBUG,
         )
-    attributes.update_by_value(
+    update_field_with_value(
         output_path,
         field_name,
         value=None,
@@ -175,7 +175,7 @@ def spatial_join_by_center(
             match_option="HAVE_THEIR_CENTER_IN",
         )
     if replacement_value is not None:
-        attributes.update_by_value(
+        update_field_with_value(
             output_path,
             field_name,
             value=replacement_value,
@@ -183,7 +183,7 @@ def spatial_join_by_center(
             log_level=logging.DEBUG,
         )
     else:
-        attributes.update_by_joined_value(
+        update_field_with_join(
             output_path,
             field_name,
             key_field_names=["JOIN_FID"],
@@ -194,7 +194,7 @@ def spatial_join_by_center(
             join_dataset_where_sql=join_where_sql,
             log_level=logging.DEBUG,
         )
-    attributes.update_by_value(
+    update_field_with_value(
         output_path,
         field_name,
         value=None,
@@ -268,7 +268,7 @@ def union(
         name for name in Dataset(output_path).field_names if name.startswith("FID_")
     ]
     if replacement_value is not None:
-        attributes.update_by_value(
+        update_field_with_value(
             output_path,
             field_name,
             value=replacement_value,
@@ -276,7 +276,7 @@ def union(
             log_level=logging.DEBUG,
         )
     else:
-        attributes.update_by_joined_value(
+        update_field_with_join(
             output_path,
             field_name,
             key_field_names=[fid_field_names[-1]],
@@ -287,7 +287,7 @@ def union(
             join_dataset_where_sql=union_where_sql,
             log_level=logging.DEBUG,
         )
-    attributes.update_by_value(
+    update_field_with_value(
         output_path,
         field_name,
         value=None,
