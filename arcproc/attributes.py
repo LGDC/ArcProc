@@ -1,13 +1,16 @@
 """Attribute operations."""
 from collections import Counter, defaultdict
 from functools import partial
-import logging
+from logging import DEBUG, INFO, Logger, getLogger
 from operator import itemgetter
 from pathlib import Path
 from types import FunctionType
 from typing import Any, Iterable, Iterator, Mapping, Optional, Union
 
-import arcpy
+from arcpy import env, SetLogHistory
+from arcpy.analysis import Identity, SpatialJoin
+from arcpy.da import SearchCursor, UpdateCursor  # pylint: disable=no-name-in-module
+from arcpy.management import CalculateField, Delete
 from arcproc.dataset import DatasetView
 from arcproc.helpers import (
     EXECUTABLE_TYPES,
@@ -26,11 +29,11 @@ from arcproc.metadata import (
 )
 from arcproc.workspace import Editing
 
-LOG = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
 
+LOG: Logger = getLogger(__name__)
+"""Module-level logger."""
 
-arcpy.SetLogHistory(False)
+SetLogHistory(False)
 
 
 def as_value_count(
@@ -85,7 +88,7 @@ def as_values(
             the dataset.
     """
     dataset_path = Path(dataset_path)
-    cursor = arcpy.da.SearchCursor(
+    cursor = SearchCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=[field_name],
@@ -108,7 +111,7 @@ def update_by_central_overlay(
     replacement_value: Optional[Any] = None,
     tolerance: Optional[float] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by finding the central overlay feature value.
 
@@ -144,7 +147,7 @@ def update_by_central_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    original_tolerance = arcpy.env.XYTolerance
+    original_tolerance = env.XYTolerance
     # Do *not* include any fields here (avoids name collisions in temporary output).
     view = DatasetView(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
@@ -157,8 +160,8 @@ def update_by_central_overlay(
     with view, overlay_view:
         temp_output_path = unique_path("output")
         if tolerance is not None:
-            arcpy.env.XYTolerance = tolerance
-        arcpy.analysis.SpatialJoin(
+            env.XYTolerance = tolerance
+        SpatialJoin(
             target_features=view.name,
             join_features=overlay_view.name,
             # ArcPy2.8.0: Convert to str.
@@ -167,13 +170,13 @@ def update_by_central_overlay(
             join_type="KEEP_ALL",
             match_option="HAVE_THEIR_CENTER_IN",
         )
-    arcpy.env.XYTolerance = original_tolerance
+    env.XYTolerance = original_tolerance
     if replacement_value is not None:
         update_by_function(
             temp_output_path,
             overlay_field_name,
             function=lambda x: replacement_value if x else None,
-            log_level=logging.DEBUG,
+            log_level=DEBUG,
         )
     states = update_by_joined_value(
         dataset_path,
@@ -184,10 +187,10 @@ def update_by_central_overlay(
         join_key_field_names=["TARGET_FID"],
         dataset_where_sql=dataset_where_sql,
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Delete(str(temp_output_path))
+    Delete(str(temp_output_path))
     log_entity_states("attributes", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
     return states
@@ -204,7 +207,7 @@ def update_by_dominant_overlay(
     include_missing_area: bool = False,
     tolerance: Optional[float] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by finding the dominant overlay feature value.
     Args:
@@ -235,7 +238,7 @@ def update_by_dominant_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    original_tolerance = arcpy.env.XYTolerance
+    original_tolerance = env.XYTolerance
     # Do *not* include any fields here (avoids name collisions in temporary output).
     view = DatasetView(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
@@ -248,15 +251,15 @@ def update_by_dominant_overlay(
     with view, overlay_view:
         temp_output_path = unique_path("output")
         if tolerance is not None:
-            arcpy.env.XYTolerance = tolerance
-        arcpy.analysis.Identity(
+            env.XYTolerance = tolerance
+        Identity(
             in_features=view.name,
             identity_features=overlay_view.name,
             # ArcPy2.8.0: Convert to str.
             out_feature_class=str(temp_output_path),
             join_attributes="ALL",
         )
-    arcpy.env.XYTolerance = original_tolerance
+    env.XYTolerance = original_tolerance
     # Identity makes custom OID field names - in_features OID field comes first.
     oid_field_names = [
         field_name
@@ -264,7 +267,7 @@ def update_by_dominant_overlay(
         if field_name.startswith("FID_")
     ]
     oid_value_area = {}
-    cursor = arcpy.da.SearchCursor(
+    cursor = SearchCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(temp_output_path),
         field_names=oid_field_names + [overlay_field_name, "SHAPE@AREA"],
@@ -281,7 +284,7 @@ def update_by_dominant_overlay(
                 oid_value_area[oid] = defaultdict(float)
             oid_value_area[oid][value] += area
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Delete(str(temp_output_path))
+    Delete(str(temp_output_path))
     oid_dominant_value = {
         oid: max(value_area.items(), key=itemgetter(1))[0]
         for oid, value_area in oid_value_area.items()
@@ -293,7 +296,7 @@ def update_by_dominant_overlay(
         key_field_names=["OID@"],
         dataset_where_sql=dataset_where_sql,
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     log_entity_states("attributes", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
@@ -309,7 +312,7 @@ def update_by_domain_code(
     domain_workspace_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values using a coded-values domain.
 
@@ -342,7 +345,7 @@ def update_by_domain_code(
         key_field_names=[code_field_name],
         dataset_where_sql=dataset_where_sql,
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     log_entity_states("attributes", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
@@ -357,11 +360,11 @@ def update_by_expression(
     expression_type: str = "Python",
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Field:
     """Update attribute values using a (single) code-expression.
 
-    Wraps arcpy.management.CalculateField.
+    Wraps CalculateField from ArcPy.
 
     Args:
         dataset_path: Path to dataset.
@@ -396,7 +399,7 @@ def update_by_expression(
     session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with session, view:
-        arcpy.management.CalculateField(
+        CalculateField(
             in_table=view.name,
             field=field_name,
             expression=expression,
@@ -414,7 +417,7 @@ def update_by_field(
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values with values from another field.
 
@@ -443,7 +446,7 @@ def update_by_field(
         field_name,
         source_field_name,
     )
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=[field_name, source_field_name],
@@ -481,7 +484,7 @@ def update_by_function(
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by passing them to a function.
 
@@ -510,17 +513,17 @@ def update_by_function(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update attributes in `%s.%s` by function `%s`.",
+        "Start: Update attributes in `%s.%s` by `%s`.",
         dataset_path,
         field_name,
         # Partials show all the pre-loaded arg & kwarg values, which is cumbersome.
-        "partial version of function {}".format(function.func)
+        f"partial version of function `{function.func}`"
         if isinstance(function, partial)
-        else "function `{}`".format(function),
+        else f"function `{function}`",
     )
     arg_field_names = list(arg_field_names)
     kwarg_field_names = list(kwarg_field_names)
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=arg_field_names + kwarg_field_names + [field_name],
@@ -564,7 +567,7 @@ def update_by_joined_value(
     dataset_where_sql: Optional[str] = None,
     join_dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by referencing a joinable field in another dataset.
 
@@ -605,7 +608,7 @@ def update_by_joined_value(
     if len(key_field_names) != len(join_key_field_names):
         raise AttributeError("key_field_names & join_key_field_names not same length.")
 
-    cursor = arcpy.da.SearchCursor(
+    cursor = SearchCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(join_dataset_path),
         field_names=join_key_field_names + [join_field_name],
@@ -613,7 +616,7 @@ def update_by_joined_value(
     )
     with cursor:
         id_join_value = {feature[:-1]: feature[-1] for feature in cursor}
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=key_field_names + [field_name],
@@ -650,7 +653,7 @@ def update_by_mapping(
     dataset_where_sql: Optional[str] = None,
     default_value: Any = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by finding them in a mapping.
 
@@ -684,7 +687,7 @@ def update_by_mapping(
     )
     if isinstance(mapping, EXECUTABLE_TYPES):
         mapping = mapping()
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=key_field_names + [field_name],
@@ -722,7 +725,7 @@ def update_by_overlay_count(
     overlay_where_sql: Optional[str] = None,
     tolerance: Optional[float] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by count of overlay features.
 
@@ -754,7 +757,7 @@ def update_by_overlay_count(
         field_name,
         overlay_dataset_path,
     )
-    original_tolerance = arcpy.env.XYTolerance
+    original_tolerance = env.XYTolerance
     view = DatasetView(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
     )
@@ -763,9 +766,9 @@ def update_by_overlay_count(
     )
     with view, overlay_view:
         if tolerance is not None:
-            arcpy.env.XYTolerance = tolerance
+            env.XYTolerance = tolerance
         temp_output_path = unique_path("output")
-        arcpy.analysis.SpatialJoin(
+        SpatialJoin(
             target_features=view.name,
             join_features=overlay_view.name,
             # ArcPy2.8.0: Convert to str.
@@ -774,8 +777,8 @@ def update_by_overlay_count(
             join_type="KEEP_COMMON",
             match_option="INTERSECT",
         )
-    arcpy.env.XYTolerance = original_tolerance
-    cursor = arcpy.da.SearchCursor(
+    env.XYTolerance = original_tolerance
+    cursor = SearchCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(temp_output_path),
         field_names=["TARGET_FID", "Join_Count"],
@@ -783,8 +786,8 @@ def update_by_overlay_count(
     with cursor:
         oid_overlay_count = dict(cursor)
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Delete(str(temp_output_path))
-    cursor = arcpy.da.UpdateCursor(
+    Delete(str(temp_output_path))
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=["OID@", field_name],
@@ -821,7 +824,7 @@ def update_by_unique_id(
     initial_number: int = 1,
     start_after_max_number: bool = False,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by assigning a unique ID.
 
@@ -851,7 +854,7 @@ def update_by_unique_id(
         dataset_path,
         field_name,
     )
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=[field_name],
@@ -906,7 +909,7 @@ def update_by_value(
     value: Any,
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update attribute values by assigning a given value.
 
@@ -931,7 +934,7 @@ def update_by_value(
         dataset_path,
         field_name,
     )
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=[field_name],
