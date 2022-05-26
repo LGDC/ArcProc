@@ -7,7 +7,7 @@ from pathlib import Path
 from types import FunctionType
 from typing import Any, Iterable, Iterator, Mapping, Optional, Union
 
-from arcpy import env, SetLogHistory
+from arcpy import SetLogHistory
 from arcpy.analysis import Identity, SpatialJoin
 from arcpy.da import SearchCursor, UpdateCursor  # pylint: disable=no-name-in-module
 from arcpy.management import CalculateField, Delete
@@ -109,7 +109,6 @@ def update_by_central_overlay(
     dataset_where_sql: Optional[str] = None,
     overlay_where_sql: Optional[str] = None,
     replacement_value: Optional[Any] = None,
-    tolerance: Optional[float] = None,
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
@@ -129,8 +128,6 @@ def update_by_central_overlay(
         overlay_where_sql: SQL where-clause for overlay-dataset subselection.
         replacement_value: Value to replace a present overlay-field value with. If set
             to None, no replacement will occur.
-        tolerance: Tolerance for coincidence, in units of the dataset. If set to None,
-            will use the default tolerance for the workspace of the dataset.
         use_edit_session: True if edits are to be made in an edit session.
         log_level: Level to log the function at.
 
@@ -147,7 +144,6 @@ def update_by_central_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    original_tolerance = env.XYTolerance
     # Do *not* include any fields here (avoids name collisions in temporary output).
     view = DatasetView(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
@@ -159,8 +155,6 @@ def update_by_central_overlay(
     )
     with view, overlay_view:
         temp_output_path = unique_path("output")
-        if tolerance is not None:
-            env.XYTolerance = tolerance
         SpatialJoin(
             target_features=view.name,
             join_features=overlay_view.name,
@@ -170,7 +164,6 @@ def update_by_central_overlay(
             join_type="KEEP_ALL",
             match_option="HAVE_THEIR_CENTER_IN",
         )
-    env.XYTolerance = original_tolerance
     if replacement_value is not None:
         update_by_function(
             temp_output_path,
@@ -205,7 +198,6 @@ def update_by_dominant_overlay(
     dataset_where_sql: Optional[str] = None,
     overlay_where_sql: Optional[str] = None,
     include_missing_area: bool = False,
-    tolerance: Optional[float] = None,
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
@@ -220,8 +212,6 @@ def update_by_dominant_overlay(
         include_missing_area: If True, the collective area where no
             overlay value exists (i.e. no overlay geometry + overlay of NoneType value)
             is considered a valid candidate for the dominant overlay.
-        tolerance: Tolerance for coincidence, in units of the dataset. If set to None,
-            will use the default tolerance for the workspace of the dataset.
         use_edit_session: True if edits are to be made in an edit session.
         log_level: Level to log the function at.
 
@@ -238,7 +228,6 @@ def update_by_dominant_overlay(
         overlay_dataset_path,
         overlay_field_name,
     )
-    original_tolerance = env.XYTolerance
     # Do *not* include any fields here (avoids name collisions in temporary output).
     view = DatasetView(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
@@ -250,8 +239,6 @@ def update_by_dominant_overlay(
     )
     with view, overlay_view:
         temp_output_path = unique_path("output")
-        if tolerance is not None:
-            env.XYTolerance = tolerance
         Identity(
             in_features=view.name,
             identity_features=overlay_view.name,
@@ -259,7 +246,6 @@ def update_by_dominant_overlay(
             out_feature_class=str(temp_output_path),
             join_attributes="ALL",
         )
-    env.XYTolerance = original_tolerance
     # Identity makes custom OID field names - in_features OID field comes first.
     oid_field_names = [
         field_name
@@ -723,7 +709,6 @@ def update_by_overlay_count(
     overlay_dataset_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     overlay_where_sql: Optional[str] = None,
-    tolerance: Optional[float] = None,
     use_edit_session: bool = False,
     log_level: int = INFO,
 ) -> Counter:
@@ -737,8 +722,6 @@ def update_by_overlay_count(
     Keyword Args:
         dataset_where_sql: SQL where-clause for dataset subselection.
         overlay_where_sql: SQL where-clause for overlay-dataset subselection.
-        tolerance: Tolerance for coincidence, in units of the dataset. If set to None,
-            will use the default tolerance for the workspace of the dataset.
         use_edit_session: True if edits are to be made in an edit session.
         log_level: Level to log the function at.
 
@@ -757,7 +740,6 @@ def update_by_overlay_count(
         field_name,
         overlay_dataset_path,
     )
-    original_tolerance = env.XYTolerance
     view = DatasetView(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
     )
@@ -765,8 +747,6 @@ def update_by_overlay_count(
         overlay_dataset_path, field_names=[], dataset_where_sql=overlay_where_sql,
     )
     with view, overlay_view:
-        if tolerance is not None:
-            env.XYTolerance = tolerance
         temp_output_path = unique_path("output")
         SpatialJoin(
             target_features=view.name,
@@ -777,7 +757,6 @@ def update_by_overlay_count(
             join_type="KEEP_COMMON",
             match_option="INTERSECT",
         )
-    env.XYTolerance = original_tolerance
     cursor = SearchCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(temp_output_path),
