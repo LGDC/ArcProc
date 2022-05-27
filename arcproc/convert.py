@@ -77,53 +77,6 @@ def convert_lines_to_vertex_points(
     return states
 
 
-def convert_to_planar_lines(
-    dataset_path: Union[Path, str],
-    *,
-    output_path: Union[Path, str],
-    dataset_where_sql: Optional[str] = None,
-    log_level: int = INFO,
-) -> Counter:
-    """Convert feature geometry to planar lines.
-
-    Note:
-        This method does not make topological linework. However it does carry all
-        attributes with it, rather than just an ID attribute.
-
-        Since this method breaks the new line geometry at intersections, it can be
-        useful to break line geometry features that cross.
-
-    Args:
-        dataset_path: Path to dataset.
-        output_path: Path to output dataset.
-        dataset_where_sql: SQL where-clause for dataset subselection.
-        log_level: Level to log the function at.
-
-    Returns:
-        Feature counts for original and output datasets.
-    """
-    dataset_path = Path(dataset_path)
-    output_path = Path(output_path)
-    LOG.log(
-        log_level,
-        "Start: Covnert geometry in `%s` to planar lines in output `%s`.",
-        dataset_path,
-        output_path,
-    )
-    states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
-    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
-    with view:
-        # ArcPy2.8.0: Convert Path to str.
-        FeatureToLine(
-            in_features=view.name, out_feature_class=str(output_path), attributes=True
-        )
-    states["in output"] = dataset.feature_count(output_path)
-    log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Convert.")
-    return states
-
-
 def convert_points_to_multipoints(
     dataset_path: Union[Path, str],
     *,
@@ -417,47 +370,6 @@ def convert_rows_to_csvfile(
     return states
 
 
-def split_lines_at_vertices(
-    dataset_path: Union[Path, str],
-    *,
-    output_path: Union[Path, str],
-    dataset_where_sql: Optional[str] = None,
-    log_level: int = INFO,
-) -> Counter:
-    """Split lines into smaller lines between vertices.
-
-    The original datasets can be lines or polygons. Polygons will be split along their
-    rings.
-
-    Args:
-        dataset_path: Path to dataset.
-        output_path: Path to output dataset.
-        dataset_where_sql: SQL where-clause for dataset subselection.
-        log_level: Level to log the function at.
-
-    Returns:
-        Feature counts for original and output datasets.
-    """
-    dataset_path = Path(dataset_path)
-    output_path = Path(output_path)
-    LOG.log(
-        log_level,
-        "Start: Split line geometry in `%s` into lines between vertices in output `%s`.",
-        dataset_path,
-        output_path,
-    )
-    states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
-    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
-    with view:
-        # ArcPy2.8.0: Convert Path to str.
-        SplitLine(in_features=view.name, out_feature_class=str(output_path))
-    states["in output"] = dataset.feature_count(output_path)
-    log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Split.")
-    return states
-
-
 def convert_table_to_points(
     dataset_path: Union[Path, str],
     *,
@@ -510,4 +422,92 @@ def convert_table_to_points(
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
+    return states
+
+
+def convert_to_planar_lines(
+    dataset_path: Union[Path, str],
+    *,
+    output_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    log_level: int = INFO,
+) -> Counter:
+    """Convert feature geometry to planar lines.
+
+    Note:
+        This method does not make topological linework. However it does carry all
+        attributes with it, rather than just an ID attribute.
+
+        Since this method breaks the new line geometry at intersections, it can be
+        useful to break line geometry features that cross.
+
+    Args:
+        dataset_path: Path to dataset.
+        output_path: Path to output dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for original and output datasets.
+    """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    LOG.log(
+        log_level,
+        "Start: Covnert geometry in `%s` to planar lines in output `%s`.",
+        dataset_path,
+        output_path,
+    )
+    states = Counter()
+    states["in original dataset"] = dataset.feature_count(dataset_path)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    with view:
+        # ArcPy2.8.0: Convert Path to str.
+        FeatureToLine(
+            in_features=view.name, out_feature_class=str(output_path), attributes=True
+        )
+    states["in output"] = dataset.feature_count(output_path)
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Convert.")
+    return states
+
+
+def split_lines_at_vertices(
+    dataset_path: Union[Path, str],
+    *,
+    output_path: Union[Path, str],
+    dataset_where_sql: Optional[str] = None,
+    log_level: int = INFO,
+) -> Counter:
+    """Split lines into smaller lines between vertices.
+
+    The original datasets can be lines or polygons. Polygons will be split along their
+    rings.
+
+    Args:
+        dataset_path: Path to dataset.
+        output_path: Path to output dataset.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for original and output datasets.
+    """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    LOG.log(
+        log_level,
+        "Start: Split line geometry in `%s` into lines between vertices in output `%s`.",
+        dataset_path,
+        output_path,
+    )
+    states = Counter()
+    states["in original dataset"] = dataset.feature_count(dataset_path)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    with view:
+        # ArcPy2.8.0: Convert Path to str.
+        SplitLine(in_features=view.name, out_feature_class=str(output_path))
+    states["in output"] = dataset.feature_count(output_path)
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Split.")
     return states
