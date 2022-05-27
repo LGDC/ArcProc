@@ -1,14 +1,13 @@
 """Proximity-related operations."""
-from collections import Counter
 import logging
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional, Set, Tuple, Union
 
 import arcpy
 
-from arcproc import dataset
+from arcproc import dataset, features
 from arcproc.dataset import DatasetView
-from arcproc import features
 from arcproc.helpers import log_entity_states, unique_path
 from arcproc.metadata import Dataset
 

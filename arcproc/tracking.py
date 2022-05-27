@@ -1,8 +1,9 @@
 """Tracking operations."""
-from collections import Counter, defaultdict
-from datetime import date, datetime as _datetime
-from itertools import chain
 import logging
+from collections import Counter, defaultdict
+from datetime import date
+from datetime import datetime as _datetime
+from itertools import chain
 from operator import itemgetter
 from pathlib import Path
 from typing import Iterable, Optional, Union

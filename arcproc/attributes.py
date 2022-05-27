@@ -11,6 +11,7 @@ from arcpy import SetLogHistory
 from arcpy.analysis import Identity, SpatialJoin
 from arcpy.da import SearchCursor, UpdateCursor  # pylint: disable=no-name-in-module
 from arcpy.management import CalculateField, Delete
+
 from arcproc.dataset import DatasetView
 from arcproc.helpers import (
     EXECUTABLE_TYPES,
@@ -665,7 +666,7 @@ def update_field_with_mapping(
     dataset_path = Path(dataset_path)
     key_field_names = list(key_field_names)
     LOG.log(
-        log_level, "Start: Update field `%s.%s` with mapping", dataset_path, field_name,
+        log_level, "Start: Update field `%s.%s` with mapping", dataset_path, field_name
     )
     if isinstance(mapping, EXECUTABLE_TYPES):
         mapping = mapping()
@@ -740,7 +741,7 @@ def update_field_with_overlay_count(
         dataset_path, field_names=[], dataset_where_sql=dataset_where_sql
     )
     overlay_view = DatasetView(
-        overlay_dataset_path, field_names=[], dataset_where_sql=overlay_where_sql,
+        overlay_dataset_path, field_names=[], dataset_where_sql=overlay_where_sql
     )
     with view, overlay_view:
         temp_output_path = unique_path("output")

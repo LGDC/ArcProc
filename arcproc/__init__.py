@@ -1,10 +1,22 @@
 """Processing framework library based on ArcGIS/ArcPy."""
+import arcproc.convert
+import arcproc.dataset
+import arcproc.features
+import arcproc.geometry
+import arcproc.geoset
+import arcproc.helpers
+import arcproc.managers
+import arcproc.network
+import arcproc.proximity
+import arcproc.services
+import arcproc.tracking
+import arcproc.workspace  # noqa: F401
 from arcproc.attributes import (
     field_value_count,
     field_values,
     update_field_with_central_overlay,
-    update_field_with_dominant_overlay,
     update_field_with_domain,
+    update_field_with_dominant_overlay,
     update_field_with_expression,
     update_field_with_field,
     update_field_with_function,
@@ -14,18 +26,6 @@ from arcproc.attributes import (
     update_field_with_unique_id,
     update_field_with_value,
 )
-import arcproc.convert
-import arcproc.dataset
-import arcproc.managers
-import arcproc.features
-import arcproc.geometry
-import arcproc.geoset
-import arcproc.helpers
-import arcproc.network
-import arcproc.proximity
-import arcproc.services
-import arcproc.tracking
-import arcproc.workspace  # noqa: F401
 
 
 __all__ = [

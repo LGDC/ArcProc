@@ -1,18 +1,16 @@
 """Conversion operations."""
-from collections import Counter
-
-from collections.abc import Sequence
 import csv
 import logging
+from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
 import arcpy
 
+from arcproc import dataset, features
 from arcproc.attributes import update_field_with_join
-from arcproc import dataset
 from arcproc.dataset import DatasetView
-from arcproc import features
 from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 

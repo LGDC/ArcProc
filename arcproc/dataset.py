@@ -1,7 +1,7 @@
 """Dataset operations."""
+import logging
 from contextlib import ContextDecorator
 from functools import partial
-import logging
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Iterable, Iterator, List, Optional, Type, TypeVar, Union
@@ -604,7 +604,7 @@ def create(
     else:
         # ArcPy2.8.0: Convert Path to str.
         arcpy.management.CreateTable(
-            out_path=str(dataset_path.parent), out_name=dataset_path.name,
+            out_path=str(dataset_path.parent), out_name=dataset_path.name
         )
     if field_metadata_list:
         for field_metadata in field_metadata_list:

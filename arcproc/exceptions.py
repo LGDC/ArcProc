@@ -43,7 +43,7 @@ class FieldNotFoundError(Exception):
     """Exception raised when field not found on given dataset."""
 
     def __init__(
-        self, dataset_path: Path, field_name: str, message: str = "Field not found",
+        self, dataset_path: Path, field_name: str, message: str = "Field not found"
     ) -> None:
         self.dataset_path = dataset_path
         """Path to dataset expected to carry the field."""

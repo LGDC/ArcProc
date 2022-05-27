@@ -1,13 +1,13 @@
 """Set-theoretic geometry operations."""
-from collections import Counter
 import logging
+from collections import Counter
 from pathlib import Path
 from typing import Any, Optional, Union
 
 import arcpy
 
-from arcproc.attributes import update_field_with_join, update_field_with_value
 from arcproc import dataset
+from arcproc.attributes import update_field_with_join, update_field_with_value
 from arcproc.dataset import DatasetView
 from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset

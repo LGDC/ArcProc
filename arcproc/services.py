@@ -3,7 +3,6 @@ import logging
 from typing import Iterable, Iterator, Optional
 
 import arcgis
-
 import arcpy
 
 from arcproc.metadata import SpatialReference, SpatialReferenceSourceItem

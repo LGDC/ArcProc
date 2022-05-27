@@ -1,14 +1,13 @@
 """Feature operations."""
-from collections import Counter
 import inspect
-from itertools import chain
 import logging
+from collections import Counter
+from itertools import chain
 from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional, Sequence, Union
 
-import pint
-
 import arcpy
+import pint
 
 from arcproc import dataset
 from arcproc.dataset import DatasetView

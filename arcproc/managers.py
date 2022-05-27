@@ -1,17 +1,16 @@
 """Process manager objects."""
+import logging
 from collections import Counter
 from contextlib import ContextDecorator
 from datetime import datetime as _datetime
 from inspect import signature
-import logging
 from pathlib import Path
 from types import FunctionType, MethodType, TracebackType
 from typing import Any, Iterable, Optional, Type, TypeVar, Union
 
 import arcpy
 
-from arcproc import dataset
-from arcproc import features
+from arcproc import dataset, features
 from arcproc.helpers import elapsed, log_entity_states, slugify, unique_path
 from arcproc.metadata import Field, SpatialReferenceSourceItem
 

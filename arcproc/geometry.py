@@ -3,10 +3,8 @@ import logging
 from math import pi, sqrt
 from typing import Sequence, Union
 
-# Py3.7: pairwise added to standard library itertools in 3.10.
-from more_itertools import pairwise
-
 import arcpy
+from more_itertools import pairwise
 
 
 LOG: logging.Logger = logging.getLogger(__name__)

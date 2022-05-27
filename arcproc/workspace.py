@@ -1,9 +1,9 @@
 """Workspace operations."""
-from contextlib import ContextDecorator
 import logging
+from contextlib import ContextDecorator
 from pathlib import Path
 from types import FunctionType, TracebackType
-from typing import Iterator, Optional, Union, Type, TypeVar
+from typing import Iterator, Optional, Type, TypeVar, Union
 
 import arcpy
 

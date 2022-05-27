@@ -1,17 +1,16 @@
 """Network analysis operations."""
+import logging
 from collections import Counter
 from copy import copy, deepcopy
-import logging
 from pathlib import Path
 from types import FunctionType
 from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
 
 import arcpy
 
+from arcproc import dataset, features
 from arcproc.attributes import update_field_with_function
-from arcproc import dataset
 from arcproc.dataset import DatasetView
-from arcproc import features
 from arcproc.helpers import log_entity_states, python_type, same_feature, unique_ids
 from arcproc.metadata import (
     Dataset,
