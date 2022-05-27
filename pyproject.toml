@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "ArcGIS/ArcPy-based processing framework"
 license = "MIT"
 authors = [
-    { name = "Jacob Blair", email = "jblair@lcog.org" }
+    { name = "Jacob Blair", email = "jblairpdx@gmail.com" }
 ]
 readme = "README.md"
 repository = "https://github.com/LGDC/ArcProc"
