@@ -1,0 +1,18 @@
+[project]
+name = "ArcProc"
+version = "0.1.0"
+description = "ArcGIS/ArcPy-based processing framework"
+license = "MIT"
+authors = [
+    { name = "Jacob Blair", email = "jblair@lcog.org" }
+]
+readme = "README.md"
+repository = "https://github.com/LGDC/ArcProc"
+
+[tool.black]
+
+[tool.isort]
+include_trailing_comma = "True"
+lines_after_imports = 2
+line_length = 88
+multi_line_output = 3
