@@ -1,12 +1,23 @@
 """Conversion operations."""
-import csv
-import logging
 from collections import Counter
 from collections.abc import Sequence
+from csv import DictWriter, writer
+from logging import DEBUG, INFO, Logger, getLogger
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
-import arcpy
+from arcpy import Multipoint, SetLogHistory
+from arcpy.analysis import CreateThiessenPolygons
+from arcpy.da import InsertCursor, SearchCursor  # pylint: disable=no-name-in-module
+from arcpy.management import (
+    CreateFeatureclass,
+    Delete,
+    FeatureToLine,
+    FeatureVerticesToPoints,
+    MakeXYEventLayer,
+    PolygonToLine,
+    SplitLine,
+)
 
 from arcproc import dataset, features
 from arcproc.attributes import update_field_with_join
@@ -15,22 +26,21 @@ from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
+SetLogHistory(False)
 
-arcpy.SetLogHistory(False)
 
-
-def lines_to_vertex_points(
+def convert_lines_to_vertex_points(
     dataset_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     endpoints_only: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Convert geometry from lines to points at every vertex.
+    """Convert line features to points at every vertex.
 
     Args:
         dataset_path: Path to dataset.
@@ -54,27 +64,27 @@ def lines_to_vertex_points(
     states["in original dataset"] = dataset.feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
-        arcpy.management.FeatureVerticesToPoints(
+        FeatureVerticesToPoints(
             in_features=view.name,
             # ArcPy2.8.0: Convert Path to str.
             out_feature_class=str(output_path),
             point_location="ALL" if not endpoints_only else "BOTH_ENDS",
         )
-    dataset.delete_field(output_path, field_name="ORIG_FID", log_level=logging.DEBUG)
+    dataset.delete_field(output_path, field_name="ORIG_FID", log_level=DEBUG)
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
 
 
-def planarize(
+def convert_to_planar_lines(
     dataset_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Planarize feature geometry into lines.
+    """Convert feature geometry to planar lines.
 
     Note:
         This method does not make topological linework. However it does carry all
@@ -96,7 +106,7 @@ def planarize(
     output_path = Path(output_path)
     LOG.log(
         log_level,
-        "Start: Planarize geometry in `%s` to lines in output `%s`.",
+        "Start: Covnert geometry in `%s` to planar lines in output `%s`.",
         dataset_path,
         output_path,
     )
@@ -105,23 +115,23 @@ def planarize(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.management.FeatureToLine(
+        FeatureToLine(
             in_features=view.name, out_feature_class=str(output_path), attributes=True
         )
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Planarize.")
+    LOG.log(log_level, "End: Convert.")
     return states
 
 
-def points_to_multipoints(
+def convert_points_to_multipoints(
     dataset_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Convert geometry from points to multipoints.
+    """Convert point features to multipoints.
 
     Args:
         dataset_path: Path to dataset.
@@ -142,7 +152,7 @@ def points_to_multipoints(
     )
     _dataset = Dataset(dataset_path)
     # ArcPy2.8.0: Convert Path to str (2x).
-    arcpy.management.CreateFeatureclass(
+    CreateFeatureclass(
         out_path=str(output_path.parent),
         out_name=output_path.name,
         geometry_type="MULTIPOINT",
@@ -151,11 +161,9 @@ def points_to_multipoints(
     )
     field_names = _dataset.user_field_names + ["SHAPE@"]
     # ArcPy2.8.0: Convert Path to str.
-    multipoint_cursor = arcpy.da.InsertCursor(
-        in_table=str(output_path), field_names=field_names
-    )
+    multipoint_cursor = InsertCursor(in_table=str(output_path), field_names=field_names)
     # ArcPy2.8.0: Convert Path to str.
-    point_cursor = arcpy.da.SearchCursor(
+    point_cursor = SearchCursor(
         in_table=str(dataset_path),
         field_names=field_names,
         where_clause=dataset_where_sql,
@@ -164,7 +172,7 @@ def points_to_multipoints(
     states["in original dataset"] = dataset.feature_count(dataset_path)
     with multipoint_cursor, point_cursor:
         for point_feature in point_cursor:
-            multipoint_geometry = arcpy.Multipoint(point_feature[-1].firstPoint)
+            multipoint_geometry = Multipoint(point_feature[-1].firstPoint)
             multipoint_feature = point_feature[:-1] + (multipoint_geometry,)
             multipoint_cursor.insertRow(multipoint_feature)
     states["in output"] = dataset.feature_count(output_path)
@@ -173,14 +181,14 @@ def points_to_multipoints(
     return states
 
 
-def points_to_thiessen_polygons(
+def convert_points_to_thiessen_polygons(  # pylint: disable=invalid-name
     dataset_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Convert geometry from points to Thiessen polygons.
+    """Convert point features to Thiessen polygons.
 
     Args:
         dataset_path: Path to dataset.
@@ -204,7 +212,7 @@ def points_to_thiessen_polygons(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.analysis.CreateThiessenPolygons(
+        CreateThiessenPolygons(
             in_features=view.name,
             out_feature_class=str(output_path),
             fields_to_copy="ALL",
@@ -215,16 +223,16 @@ def points_to_thiessen_polygons(
     return states
 
 
-def polygons_to_lines(
+def convert_polygons_to_lines(
     dataset_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     id_field_name: Optional[str] = None,
     make_topological: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Convert geometry from polygons to lines.
+    """Convert polygon features to lines.
 
     Note:
         If `make_topological` is set to True, shared outlines will be a single, separate
@@ -260,7 +268,7 @@ def polygons_to_lines(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.management.PolygonToLine(
+        PolygonToLine(
             in_features=view.name,
             out_feature_class=str(output_path),
             neighbor_option=(
@@ -282,7 +290,7 @@ def polygons_to_lines(
                 if id_field.type.upper() == "OID":
                     id_field.type = "LONG"
                 dataset.add_field(
-                    output_path, log_level=logging.DEBUG, **id_field.field_as_dict
+                    output_path, log_level=DEBUG, **id_field.field_as_dict
                 )
                 update_field_with_join(
                     output_path,
@@ -291,30 +299,26 @@ def polygons_to_lines(
                     join_dataset_path=dataset_path,
                     join_field_name=id_field_name,
                     join_key_field_names=[_dataset.oid_field_name],
-                    log_level=logging.DEBUG,
+                    log_level=DEBUG,
                 )
-            dataset.delete_field(
-                output_path, field_name=oid_key, log_level=logging.DEBUG
-            )
+            dataset.delete_field(output_path, field_name=oid_key, log_level=DEBUG)
     else:
-        dataset.delete_field(
-            output_path, field_name="ORIG_FID", log_level=logging.DEBUG
-        )
+        dataset.delete_field(output_path, field_name="ORIG_FID", log_level=DEBUG)
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
 
 
-def project(
+def convert_projection(
     dataset_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = 4326,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Project dataset features to a new dataset.
+    """Convert projection of features.
 
     Args:
         dataset_path: Path to dataset.
@@ -332,7 +336,7 @@ def project(
     spatial_reference = SpatialReference(spatial_reference_item)
     LOG.log(
         log_level,
-        "Start: Project `%s` to %s in output `%s`.",
+        "Start: Convert projection in `%s` to %s in output `%s`.",
         dataset_path,
         spatial_reference.name,
         output_path,
@@ -346,30 +350,30 @@ def project(
         field_metadata_list=_dataset.user_fields,
         geometry_type=_dataset.geometry_type,
         spatial_reference_item=spatial_reference,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     features.insert_from_path(
         output_path,
         field_names=_dataset.user_field_names,
         source_path=dataset_path,
         source_where_sql=dataset_where_sql,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Project.")
+    LOG.log(log_level, "End: Convert.")
     return states
 
 
-def rows_to_csvfile(
+def convert_rows_to_csvfile(
     rows: Iterable[Union[dict, Sequence]],
     *field_names: Iterable[str],
     output_path: Union[Path, str],
     file_mode: str = "wb",
     include_header: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Write collection of rows to a CSV file.
+    """Convert sequence of row objects to a CSV file.
 
     Args:
         rows: Rows to store.
@@ -388,7 +392,7 @@ def rows_to_csvfile(
         TypeError: If any rows are not a dictionary or sequence.
     """
     output_path = Path(output_path)
-    LOG.log(log_level, "Start: Write rows to CSV file `%s`.", output_path)
+    LOG.log(log_level, "Start: Convert rows to CSVfile `%s`.", output_path)
     field_names = list(field_names)
     csvfile = output_path.open(mode=file_mode)
     states = Counter()
@@ -397,19 +401,19 @@ def rows_to_csvfile(
             states["in original rows"] += 1
             if index == 0:
                 if isinstance(row, dict):
-                    writer = csv.DictWriter(csvfile, fieldnames=field_names)
+                    the_writer = DictWriter(csvfile, fieldnames=field_names)
                     if include_header:
-                        writer.writeheader()
+                        the_writer.writeheader()
                 elif isinstance(row, Sequence):
-                    writer = csv.writer(csvfile)
+                    the_writer = writer(csvfile)
                     if include_header:
-                        writer.writerow(field_names)
+                        the_writer.writerow(field_names)
                 else:
                     raise TypeError("Rows must be dictionaries or sequences.")
 
-            writer.writerow(row)
+            the_writer.writerow(row)
             states["in output"] += 1
-    LOG.log(log_level, "End: Write.")
+    LOG.log(log_level, "End: Convert.")
     return states
 
 
@@ -418,7 +422,7 @@ def split_lines_at_vertices(
     *,
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Split lines into smaller lines between vertices.
 
@@ -447,16 +451,14 @@ def split_lines_at_vertices(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.management.SplitLine(
-            in_features=view.name, out_feature_class=str(output_path)
-        )
+        SplitLine(in_features=view.name, out_feature_class=str(output_path))
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Split.")
     return states
 
 
-def table_to_points(
+def convert_table_to_points(
     dataset_path: Union[Path, str],
     *,
     x_field_name: str,
@@ -465,9 +467,9 @@ def table_to_points(
     output_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = 4326,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Convert coordinate table to a new point dataset.
+    """Convert coordinate table rows to a point features dataset.
 
     Args:
         dataset_path: Path to dataset.
@@ -487,7 +489,7 @@ def table_to_points(
     output_path = Path(output_path)
     LOG.log(
         log_level,
-        "Start: Convert table rows `%s` to points in output `%s`.",
+        "Start: Convert table `%s` to points in output `%s`.",
         dataset_path,
         output_path,
     )
@@ -495,7 +497,7 @@ def table_to_points(
     states = Counter()
     states["in original dataset"] = dataset.feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
-    arcpy.management.MakeXYEventLayer(
+    MakeXYEventLayer(
         table=view.name,
         out_layer=layer_name,
         in_x_field=x_field_name,
@@ -503,8 +505,8 @@ def table_to_points(
         in_z_field=z_field_name,
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    dataset.copy(layer_name, output_path=output_path, log_level=logging.DEBUG)
-    arcpy.management.Delete(layer_name)
+    dataset.copy(layer_name, output_path=output_path, log_level=DEBUG)
+    Delete(layer_name)
     states["in output"] = dataset.feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
