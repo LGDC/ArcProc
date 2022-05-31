@@ -19,9 +19,16 @@ from arcpy.management import (
     SplitLine,
 )
 
-from arcproc import dataset, features
 from arcproc.attributes import update_field_with_join
-from arcproc.dataset import DatasetView
+from arcproc.dataset import (
+    DatasetView,
+    add_field,
+    copy_dataset,
+    create_dataset,
+    dataset_feature_count,
+    delete_field,
+)
+from arcproc.features import insert_from_path as insert_features_from_path
 from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 
@@ -61,7 +68,7 @@ def convert_lines_to_vertex_points(
         output_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         FeatureVerticesToPoints(
@@ -70,8 +77,8 @@ def convert_lines_to_vertex_points(
             out_feature_class=str(output_path),
             point_location="ALL" if not endpoints_only else "BOTH_ENDS",
         )
-    dataset.delete_field(output_path, field_name="ORIG_FID", log_level=DEBUG)
-    states["in output"] = dataset.feature_count(output_path)
+    delete_field(output_path, field_name="ORIG_FID", log_level=DEBUG)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -122,13 +129,13 @@ def convert_points_to_multipoints(
         where_clause=dataset_where_sql,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     with multipoint_cursor, point_cursor:
         for point_feature in point_cursor:
             multipoint_geometry = Multipoint(point_feature[-1].firstPoint)
             multipoint_feature = point_feature[:-1] + (multipoint_geometry,)
             multipoint_cursor.insertRow(multipoint_feature)
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -161,7 +168,7 @@ def convert_points_to_thiessen_polygons(  # pylint: disable=invalid-name
         output_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
@@ -170,7 +177,7 @@ def convert_points_to_thiessen_polygons(  # pylint: disable=invalid-name
             out_feature_class=str(output_path),
             fields_to_copy="ALL",
         )
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -217,7 +224,7 @@ def convert_polygons_to_lines(
         output_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
@@ -242,9 +249,7 @@ def convert_polygons_to_lines(
                 # Cannot create an OID-type field, so force to long.
                 if id_field.type.upper() == "OID":
                     id_field.type = "LONG"
-                dataset.add_field(
-                    output_path, log_level=DEBUG, **id_field.field_as_dict
-                )
+                add_field(output_path, log_level=DEBUG, **id_field.field_as_dict)
                 update_field_with_join(
                     output_path,
                     field_name=id_field.name,
@@ -254,10 +259,10 @@ def convert_polygons_to_lines(
                     join_key_field_names=[_dataset.oid_field_name],
                     log_level=DEBUG,
                 )
-            dataset.delete_field(output_path, field_name=oid_key, log_level=DEBUG)
+            delete_field(output_path, field_name=oid_key, log_level=DEBUG)
     else:
-        dataset.delete_field(output_path, field_name="ORIG_FID", log_level=DEBUG)
-    states["in output"] = dataset.feature_count(output_path)
+        delete_field(output_path, field_name="ORIG_FID", log_level=DEBUG)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -296,23 +301,23 @@ def convert_projection(
     )
     _dataset = Dataset(dataset_path)
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     # Project tool ignores view selections, so we create empty output & insert features.
-    dataset.create(
+    create_dataset(
         dataset_path=output_path,
         field_metadata_list=_dataset.user_fields,
         geometry_type=_dataset.geometry_type,
         spatial_reference_item=spatial_reference,
         log_level=DEBUG,
     )
-    features.insert_from_path(
+    insert_features_from_path(
         output_path,
         field_names=_dataset.user_field_names,
         source_path=dataset_path,
         source_where_sql=dataset_where_sql,
         log_level=DEBUG,
     )
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -407,7 +412,7 @@ def convert_table_to_points(
     )
     layer_name = unique_name()
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     MakeXYEventLayer(
         table=view.name,
@@ -417,9 +422,9 @@ def convert_table_to_points(
         in_z_field=z_field_name,
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    dataset.copy(layer_name, output_path=output_path, log_level=DEBUG)
+    copy_dataset(layer_name, output_path=output_path, log_level=DEBUG)
     Delete(layer_name)
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -459,14 +464,14 @@ def convert_to_planar_lines(
         output_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
         FeatureToLine(
             in_features=view.name, out_feature_class=str(output_path), attributes=True
         )
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Convert.")
     return states
@@ -502,12 +507,12 @@ def split_lines_at_vertices(
         output_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
         SplitLine(in_features=view.name, out_feature_class=str(output_path))
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Split.")
     return states

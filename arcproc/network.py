@@ -8,9 +8,10 @@ from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Unio
 
 import arcpy
 
-from arcproc import dataset, features
 from arcproc.attributes import update_field_with_function
-from arcproc.dataset import DatasetView
+from arcproc.dataset import DatasetView, add_field, copy_dataset
+from arcproc.features import as_dicts as features_as_dicts
+from arcproc.features import as_tuples as features_as_tuples
 from arcproc.helpers import log_entity_states, python_type, same_feature, unique_ids
 from arcproc.metadata import (
     Dataset,
@@ -135,7 +136,7 @@ def closest_facility_route(
         arcpy.nax.ClosestFacilityInputDataType.Facilities,
         field_names=["source_id", "SHAPE@"],
     )
-    _features = features.as_tuples(
+    _features = features_as_tuples(
         facility_path,
         field_names=[facility_id_field_name, "SHAPE@"],
         dataset_where_sql=facility_where_sql,
@@ -165,7 +166,7 @@ def closest_facility_route(
         arcpy.nax.ClosestFacilityInputDataType.Incidents,
         field_names=["source_id", "SHAPE@"],
     )
-    _features = features.as_tuples(
+    _features = features_as_tuples(
         dataset_path,
         field_names=[id_field_name, "SHAPE@"],
         dataset_where_sql=dataset_where_sql,
@@ -288,12 +289,12 @@ def generate_service_areas(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy(
+    copy_dataset(
         "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
     )
     arcpy.management.Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
-    dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
+    add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
     update_field_with_function(
         output_path,
         field_name=id_field.name,
@@ -392,12 +393,12 @@ def generate_service_rings(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    dataset.copy(
+    copy_dataset(
         "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
     )
     arcpy.management.Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
-    dataset.add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
+    add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
     update_field_with_function(
         output_path,
         field_name=id_field.name,
@@ -509,7 +510,7 @@ def coordinates_node_map(
             if not node_id_max_length or node_id_max_length > field.length:
                 node_id_max_length = field.length
     coordinate_node = {}
-    for feature in features.as_dicts(
+    for feature in features_as_dicts(
         dataset_path,
         field_names=id_field_names + [from_id_field_name, to_id_field_name, "SHAPE@"],
         dataset_where_sql=dataset_where_sql,
@@ -590,7 +591,7 @@ def id_node_map(
                         id_node[feature_id] = {}
                     id_node[feature_id][end] = node["node_id"]
     else:
-        for feature in features.as_dicts(
+        for feature in features_as_dicts(
             dataset_path,
             field_names=id_field_names + [from_id_field_name, to_id_field_name],
             dataset_where_sql=dataset_where_sql,

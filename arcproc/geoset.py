@@ -6,9 +6,8 @@ from typing import Any, Optional, Union
 
 import arcpy
 
-from arcproc import dataset
 from arcproc.attributes import update_field_with_join, update_field_with_value
-from arcproc.dataset import DatasetView
+from arcproc.dataset import DatasetView, dataset_feature_count, delete_field
 from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
 
@@ -64,7 +63,7 @@ def identity(
         identity_field_name,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     # Do not include any field names - we do not want them added to output.
     identity_view = DatasetView(
@@ -110,8 +109,8 @@ def identity(
         log_level=logging.DEBUG,
     )
     for name in fid_field_names:
-        dataset.delete_field(output_path, field_name=name, log_level=logging.DEBUG)
-    states["in output"] = dataset.feature_count(output_path)
+        delete_field(output_path, field_name=name, log_level=logging.DEBUG)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Identity.")
     return states
@@ -160,7 +159,7 @@ def spatial_join_by_center(
         join_field_name,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     # Do not include any field names - we do not want them added to output.
     join_view = DatasetView(join_path, field_names=[], dataset_where_sql=join_where_sql)
@@ -202,8 +201,8 @@ def spatial_join_by_center(
         log_level=logging.DEBUG,
     )
     for name in ["Join_Count", "TARGET_FID", "JOIN_FID"]:
-        dataset.delete_field(output_path, field_name=name, log_level=logging.DEBUG)
-    states["in output"] = dataset.feature_count(output_path)
+        delete_field(output_path, field_name=name, log_level=logging.DEBUG)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Join.")
     return states
@@ -251,7 +250,7 @@ def union(
         union_field_name,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     # Do not include any field names - we do not want them added to output.
     union_view = DatasetView(
@@ -295,8 +294,8 @@ def union(
         log_level=logging.DEBUG,
     )
     for name in fid_field_names:
-        dataset.delete_field(output_path, field_name=name, log_level=logging.DEBUG)
-    states["in output"] = dataset.feature_count(output_path)
+        delete_field(output_path, field_name=name, log_level=logging.DEBUG)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Union.")
     return states

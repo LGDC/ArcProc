@@ -6,8 +6,15 @@ from typing import Any, Dict, Iterable, Iterator, Optional, Set, Tuple, Union
 
 import arcpy
 
-from arcproc import dataset, features
-from arcproc.dataset import DatasetView
+from arcproc.dataset import (
+    DatasetView,
+    add_field,
+    dataset_feature_count,
+    delete_dataset,
+    delete_field,
+)
+from arcproc.features import as_dicts as features_as_dicts
+from arcproc.features import as_tuples as features_as_tuples
 from arcproc.helpers import log_entity_states, unique_path
 from arcproc.metadata import Dataset
 
@@ -61,7 +68,7 @@ def adjacent_neighbors_map(
             both_sides=True,
         )
     adjacent_neighbors = {}
-    for row in features.as_dicts(temp_neighbor_path):
+    for row in features_as_dicts(temp_neighbor_path):
         # Lowercase to avoid casing mismatch.
         row = {key.lower(): val for key, val in row.items()}
         if len(id_field_names) == 1:
@@ -76,7 +83,7 @@ def adjacent_neighbors_map(
             continue
 
         adjacent_neighbors[source_id].add(neighbor_id)
-    dataset.delete(temp_neighbor_path)
+    delete_dataset(temp_neighbor_path)
     return adjacent_neighbors
 
 
@@ -104,7 +111,7 @@ def buffer(
     output_path = Path(output_path)
     LOG.log(log_level, "Start: Buffer features in `%s`.", dataset_path)
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
@@ -114,8 +121,8 @@ def buffer(
             buffer_distance_or_field=distance,
         )
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
-        dataset.delete_field(output_path, field_name=field_name)
-    states["in output"] = dataset.feature_count(output_path)
+        delete_field(output_path, field_name=field_name)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Buffer.")
     return states
@@ -153,7 +160,7 @@ def clip(
         clip_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     clip_view = DatasetView(clip_path, dataset_where_sql=clip_where_sql)
     with view, clip_view:
@@ -163,7 +170,7 @@ def clip(
             clip_features=clip_view.name,
             out_feature_class=str(output_path),
         )
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Clip.")
     return states
@@ -209,7 +216,7 @@ def dissolve_features(
         dissolve_field_names,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(
         dataset_path,
         field_names=dissolve_field_names,
@@ -228,13 +235,13 @@ def dissolve_features(
         for _field in Dataset(dataset_path).user_fields:
             # Cannot add a non-nullable field to existing features.
             _field.is_nullable = True
-            dataset.add_field(
+            add_field(
                 output_path,
                 exist_ok=True,
                 log_level=logging.DEBUG,
                 **_field.field_as_dict,
             )
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Dissolve.")
     return states
@@ -272,7 +279,7 @@ def erase_features(
         erase_path,
     )
     states = Counter()
-    states["in original dataset"] = dataset.feature_count(dataset_path)
+    states["in original dataset"] = dataset_feature_count(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     erase_view = DatasetView(
         erase_path, field_names=[], dataset_where_sql=erase_where_sql
@@ -284,7 +291,7 @@ def erase_features(
             erase_features=erase_view.name,
             out_feature_class=str(output_path),
         )
-    states["in output"] = dataset.feature_count(output_path)
+    states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Erase.")
     return states
@@ -340,12 +347,12 @@ def nearest_features(
             closest_count=near_rank,
         )
         oid_id_map = dict(
-            features.as_tuples(view.name, field_names=["OID@", id_field_name])
+            features_as_tuples(view.name, field_names=["OID@", id_field_name])
         )
         near_oid_id_map = dict(
-            features.as_tuples(near_view.name, field_names=["OID@", near_id_field_name])
+            features_as_tuples(near_view.name, field_names=["OID@", near_id_field_name])
         )
-    _features = features.as_dicts(
+    _features = features_as_dicts(
         temp_near_path,
         field_names=["IN_FID", "NEAR_FID", "NEAR_ANGLE", "NEAR_DIST"],
         dataset_where_sql=f"NEAR_RANK = {near_rank}" if near_rank != 1 else None,
@@ -358,4 +365,4 @@ def nearest_features(
             "distance": feature["NEAR_DIST"],
         }
 
-    dataset.delete(temp_near_path)
+    delete_dataset(temp_near_path)

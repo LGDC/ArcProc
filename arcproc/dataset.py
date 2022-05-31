@@ -1,12 +1,39 @@
 """Dataset operations."""
-import logging
 from contextlib import ContextDecorator
 from functools import partial
+from logging import DEBUG, INFO, Logger, getLogger
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 
-import arcpy
+from arcpy import (
+    ExecuteError,
+    Exists,
+    FeatureSet,
+    FieldInfo,
+    ListFields,
+    RecordSet,
+    SetLogHistory,
+)
+from arcpy.da import ListSubtypes, SearchCursor  # pylint: disable=no-name-in-module
+from arcpy.management import (
+    AddField,
+    AddIndex,
+    AddSpatialIndex,
+    AlterField,
+    AssignDefaultToField,
+    CompressFileGeodatabaseData,
+    CopyFeatures,
+    CopyRows,
+    CreateFeatureclass,
+    CreateTable,
+    Delete,
+    DeleteField,
+    GetCount,
+    MakeFeatureLayer,
+    MakeTableView,
+    SelectLayerByAttribute,
+)
 
 from arcproc.helpers import unique_name, unique_path
 from arcproc.metadata import (
@@ -17,8 +44,10 @@ from arcproc.metadata import (
 )
 
 
-LOG = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: Logger = getLogger(__name__)
+"""Module-level logger."""
+
+SetLogHistory(False)
 
 # Py3.7: Can replace usage with `typing.Self` in Py3.11.
 TDatasetView = TypeVar("TDatasetView", bound="DatasetView")
@@ -26,8 +55,6 @@ TDatasetView = TypeVar("TDatasetView", bound="DatasetView")
 # Py3.7: Can replace usage with `typing.Self` in Py3.11.
 TTempDatasetCopy = TypeVar("TTempDatasetCopy", bound="TempDatasetCopy")
 """Type variable to enable method return of self on TempDatasetCopy."""
-
-arcpy.SetLogHistory(False)
 
 
 class DatasetView(ContextDecorator):
@@ -86,7 +113,7 @@ class DatasetView(ContextDecorator):
     @property
     def count(self) -> int:
         """Number of features in view."""
-        return int(arcpy.management.GetCount(self.name).getOutput(0))
+        return int(GetCount(self.name).getOutput(0))
 
     @property
     def dataset_where_sql(self) -> str:
@@ -99,7 +126,7 @@ class DatasetView(ContextDecorator):
     @dataset_where_sql.setter
     def dataset_where_sql(self, value: str) -> None:
         if self.exists:
-            arcpy.management.SelectLayerByAttribute(
+            SelectLayerByAttribute(
                 in_layer_or_view=self.name,
                 selection_type="NEW_SELECTION",
                 where_clause=value,
@@ -109,7 +136,7 @@ class DatasetView(ContextDecorator):
     @dataset_where_sql.deleter
     def dataset_where_sql(self) -> None:
         if self.exists:
-            arcpy.management.SelectLayerByAttribute(
+            SelectLayerByAttribute(
                 in_layer_or_view=self.name, selection_type="CLEAR_SELECTION"
             )
         self._dataset_where_sql = None
@@ -117,13 +144,13 @@ class DatasetView(ContextDecorator):
     @property
     def exists(self) -> bool:
         """True if view currently exists, False otherwise."""
-        return arcpy.Exists(self.name)
+        return Exists(self.name)
 
     @property
-    def field_info(self) -> arcpy.FieldInfo:
+    def field_info(self) -> FieldInfo:
         """Field information object of field settings for the view."""
         cmp_field_names = [name.lower() for name in self.field_names]
-        field_info = arcpy.FieldInfo()
+        field_info = FieldInfo()
         split_rule = "NONE"
         for field_name in self.dataset.field_names:
             visible = "VISIBLE" if field_name.lower() in cmp_field_names else "HIDDEN"
@@ -147,7 +174,7 @@ class DatasetView(ContextDecorator):
             where_sql_template += f" AND ({self._dataset_where_sql})"
         # Get iterable of all object IDs in dataset.
         # ArcPy2.8.0: Convert to str.
-        cursor = arcpy.da.SearchCursor(
+        cursor = SearchCursor(
             in_table=str(self.dataset_path),
             field_names=["OID@"],
             where_clause=self._dataset_where_sql,
@@ -177,14 +204,14 @@ class DatasetView(ContextDecorator):
             "field_info": self.field_info,
         }
         if self.is_spatial:
-            arcpy.management.MakeFeatureLayer(
+            MakeFeatureLayer(
                 # ArcPy2.8.0: Convert to str.
                 in_features=str(self.dataset_path),
                 out_layer=self.name,
                 **kwargs,
             )
         else:
-            arcpy.management.MakeTableView(
+            MakeTableView(
                 # ArcPy2.8.0: Convert to str.
                 in_table=str(self.dataset_path),
                 out_view=self.name,
@@ -199,7 +226,7 @@ class DatasetView(ContextDecorator):
             True if view discarded, False otherwise.
         """
         if self.exists:
-            arcpy.management.Delete(self.name)
+            Delete(self.name)
         return not self.exists
 
 
@@ -267,7 +294,7 @@ class TempDatasetCopy(ContextDecorator):
     @property
     def exists(self) -> bool:
         """True if copy dataset currently exists, False otherwise."""
-        return arcpy.Exists(self.copy_path)
+        return Exists(self.copy_path)
 
     def create(self) -> TTempDatasetCopy:
         """Create copy dataset."""
@@ -280,14 +307,12 @@ class TempDatasetCopy(ContextDecorator):
         with view:
             if self.is_spatial:
                 # ArcPy2.8.0: Convert to str.
-                arcpy.management.CopyFeatures(
+                CopyFeatures(
                     in_features=view.name, out_feature_class=str(self.copy_path)
                 )
             else:
                 # ArcPy2.8.0: Convert to str.
-                arcpy.management.CopyRows(
-                    in_rows=view.name, out_table=str(self.copy_path)
-                )
+                CopyRows(in_rows=view.name, out_table=str(self.copy_path))
         return self
 
     def discard(self) -> bool:
@@ -298,7 +323,7 @@ class TempDatasetCopy(ContextDecorator):
         """
         if self.exists:
             # ArcPy2.8.0: Convert to str.
-            arcpy.management.Delete(str(self.copy_path))
+            Delete(str(self.copy_path))
         return not self.exists
 
 
@@ -314,7 +339,7 @@ def add_field(
     is_nullable: bool = True,
     is_required: bool = False,
     exist_ok: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Field:
     """Add field to dataset.
 
@@ -340,14 +365,14 @@ def add_field(
     """
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Add field `%s` on `%s`.", name, dataset_path)
-    if arcpy.ListFields(dataset_path, wild_card=name):
+    if ListFields(dataset_path, wild_card=name):
         LOG.log(log_level, "Field already exists.")
         if not exist_ok:
             raise RuntimeError("Cannot add existing field (exist_ok=False).")
 
     else:
         # ArcPy2.8.0: Convert to str.
-        arcpy.management.AddField(
+        AddField(
             in_table=str(dataset_path),
             field_name=name,
             field_type=type,
@@ -370,7 +395,7 @@ def add_index(
     is_ascending: bool = False,
     is_unique: bool = False,
     fail_on_lock_ok: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> List[Field]:
     """Add index to dataset fields.
 
@@ -412,10 +437,10 @@ def add_index(
             raise RuntimeError("Cannot create a composite spatial index.")
 
         # ArcPy2.8.0: Convert to str.
-        func = partial(arcpy.management.AddSpatialIndex, in_features=str(dataset_path))
+        func = partial(AddSpatialIndex, in_features=str(dataset_path))
     else:
         func = partial(
-            arcpy.management.AddIndex,
+            AddIndex,
             # ArcPy2.8.0: Convert to str.
             in_table=str(dataset_path),
             fields=field_names,
@@ -425,7 +450,7 @@ def add_index(
         )
     try:
         func()
-    except arcpy.ExecuteError as error:
+    except ExecuteError as error:
         if error.message.startswith("ERROR 000464"):
             LOG.warning("Lock on `%s` prevents adding index.", dataset_path)
             if not fail_on_lock_ok:
@@ -435,13 +460,13 @@ def add_index(
     return [Field(dataset_path, field_name) for field_name in field_names]
 
 
-def as_feature_set(
+def dataset_as_feature_set(
     dataset_path: Union[Path, str],
     *,
     field_names: Optional[Iterable[str]] = None,
     dataset_where_sql: Optional[str] = None,
     force_record_set: bool = False,
-) -> arcpy.FeatureSet:
+) -> Union[FeatureSet, RecordSet]:
     """Return dataset as feature set.
 
     Args:
@@ -460,16 +485,16 @@ def as_feature_set(
     )
     with view:
         if force_record_set or not view.is_spatial:
-            return arcpy.RecordSet(table=view.name)
+            return RecordSet(table=view.name)
 
-        return arcpy.FeatureSet(table=view.name)
+        return FeatureSet(table=view.name)
 
 
-def compress(
+def compress_dataset(
     dataset_path: Union[Path, str],
     *,
     bad_allocation_ok: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Dataset:
     """Compress dataset.
 
@@ -488,8 +513,8 @@ def compress(
     LOG.log(log_level, "Start: Compress dataset `%s`.", dataset_path)
     try:
         # ArcPy2.8.0: Convert to str.
-        arcpy.management.CompressFileGeodatabaseData(in_data=str(dataset_path))
-    except arcpy.ExecuteError as error:
+        CompressFileGeodatabaseData(in_data=str(dataset_path))
+    except ExecuteError as error:
         # Bad allocation error just means the dataset is too big to compress.
         if str(error) == (
             "bad allocation\nFailed to execute (CompressFileGeodatabaseData).\n"
@@ -507,7 +532,7 @@ def compress(
     return Dataset(dataset_path)
 
 
-def copy(
+def copy_dataset(
     dataset_path: Union[Path, str],
     *,
     field_names: Optional[Iterable[str]] = None,
@@ -515,9 +540,9 @@ def copy(
     output_path: Union[Path, str],
     overwrite: bool = False,
     schema_only: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Dataset:
-    """Copy features into a new dataset.
+    """Copy dataset as a new dataset.
 
     Args:
         dataset_path: Path to dataset.
@@ -541,7 +566,7 @@ def copy(
         field_names = list(field_names)
     else:
         field_names = Dataset(dataset_path).user_field_names
-    LOG.log(log_level, "Start: Copy dataset `%s` to `%s`.", dataset_path, output_path)
+    LOG.log(log_level, "Start: Copy dataset `%s` as `%s`.", dataset_path, output_path)
     _dataset = Dataset(dataset_path)
     view = DatasetView(
         dataset_path,
@@ -549,16 +574,14 @@ def copy(
         dataset_where_sql=dataset_where_sql if not schema_only else "0 = 1",
     )
     with view:
-        if overwrite and arcpy.Exists(output_path):
-            delete(output_path, log_level=logging.DEBUG)
+        if overwrite and Exists(output_path):
+            delete_dataset(output_path, log_level=DEBUG)
         if _dataset.is_spatial:
             # ArcPy2.8.0: Convert to str.
-            arcpy.management.CopyFeatures(
-                in_features=view.name, out_feature_class=str(output_path)
-            )
+            CopyFeatures(in_features=view.name, out_feature_class=str(output_path))
         elif _dataset.is_table:
             # ArcPy2.8.0: Convert to str.
-            arcpy.management.CopyRows(in_rows=view.name, out_table=str(output_path))
+            CopyRows(in_rows=view.name, out_table=str(output_path))
         else:
             raise ValueError(f"`{dataset_path}` unsupported dataset type.")
 
@@ -566,13 +589,13 @@ def copy(
     return Dataset(output_path)
 
 
-def create(
+def create_dataset(
     dataset_path: Union[Path, str],
     *,
     field_metadata_list: Optional[Iterable[Union[Field, dict]]] = None,
     geometry_type: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = 4326,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Dataset:
     """Create new dataset.
 
@@ -594,7 +617,7 @@ def create(
         if spatial_reference_item is None:
             spatial_reference_item = 4326
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.management.CreateFeatureclass(
+        CreateFeatureclass(
             out_path=str(dataset_path.parent),
             out_name=dataset_path.name,
             geometry_type=geometry_type,
@@ -603,19 +626,17 @@ def create(
         )
     else:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.management.CreateTable(
-            out_path=str(dataset_path.parent), out_name=dataset_path.name
-        )
+        CreateTable(out_path=str(dataset_path.parent), out_name=dataset_path.name)
     if field_metadata_list:
         for field_metadata in field_metadata_list:
             if isinstance(field_metadata, Field):
                 field_metadata = field_metadata.field_as_dict
-            add_field(dataset_path, log_level=logging.DEBUG, **field_metadata)
+            add_field(dataset_path, log_level=DEBUG, **field_metadata)
     LOG.log(log_level, "End: Create.")
     return Dataset(dataset_path)
 
 
-def delete(dataset_path: Union[Path, str], *, log_level: int = logging.INFO) -> Dataset:
+def delete_dataset(dataset_path: Union[Path, str], *, log_level: int = INFO) -> Dataset:
     """Delete dataset.
 
     Args:
@@ -629,13 +650,13 @@ def delete(dataset_path: Union[Path, str], *, log_level: int = logging.INFO) -> 
     LOG.log(log_level, "Start: Delete dataset `%s`.", dataset_path)
     _dataset = Dataset(dataset_path)
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Delete(in_data=str(dataset_path))
+    Delete(in_data=str(dataset_path))
     LOG.log(log_level, "End: Delete.")
     return _dataset
 
 
 def delete_field(
-    dataset_path: Union[Path, str], *, field_name: str, log_level: int = logging.INFO
+    dataset_path: Union[Path, str], *, field_name: str, log_level: int = INFO
 ) -> Field:
     """Delete field from dataset.
 
@@ -653,7 +674,7 @@ def delete_field(
     )
     field = Field(dataset_path, name=field_name)
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.DeleteField(in_table=str(dataset_path), drop_field=field_name)
+    DeleteField(in_table=str(dataset_path), drop_field=field_name)
     LOG.log(log_level, "End: Delete.")
     return field
 
@@ -663,9 +684,9 @@ def duplicate_field(
     *,
     field_name: str,
     new_field_name: str,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Field:
-    """Create new field as a duplicate of another.
+    """Create new field on dataset as a duplicate of another.
 
     Note: This does *not* duplicate the values of the original field; only the schema.
 
@@ -691,13 +712,13 @@ def duplicate_field(
     # Cannot add another OID-type field, so change to long.
     if field.type.upper() == "OID":
         field.type = "LONG"
-    add_field(dataset_path, log_level=logging.DEBUG, **field.field_as_dict)
+    add_field(dataset_path, log_level=DEBUG, **field.field_as_dict)
     LOG.log(log_level, "End: Duplicate.")
     # Make new Field instance to update the `object` property.
     return Field(dataset_path, new_field_name)
 
 
-def feature_count(
+def dataset_feature_count(
     dataset_path: Union[Path, str], *, dataset_where_sql: Optional[str] = None
 ) -> int:
     """Return number of features in dataset.
@@ -712,14 +733,14 @@ def feature_count(
         return view.count
 
 
-def is_valid(dataset_path: Union[Path, str]) -> bool:
+def is_valid_dataset(dataset_path: Union[Path, str]) -> bool:
     """Return True if dataset is extant & valid.
 
     Args:
         dataset_path: Path to dataset.
     """
     dataset_path = Path(dataset_path)
-    exists = dataset_path and arcpy.Exists(dataset=dataset_path)
+    exists = dataset_path and Exists(dataset=dataset_path)
     if exists:
         try:
             valid = Dataset(dataset_path).is_table
@@ -731,7 +752,7 @@ def is_valid(dataset_path: Union[Path, str]) -> bool:
 
 
 def remove_all_default_field_values(
-    dataset_path: Union[Path, str], *, log_level: int = logging.INFO
+    dataset_path: Union[Path, str], *, log_level: int = INFO
 ) -> Dataset:
     """Remove all default field values in dataset.
 
@@ -750,7 +771,7 @@ def remove_all_default_field_values(
     )
     subtype_codes = [
         code
-        for code, _property in arcpy.da.ListSubtypes(dataset_path).items()
+        for code, _property in ListSubtypes(dataset_path).items()
         if _property["SubtypeField"]
     ]
     for field in Dataset(dataset_path).fields:
@@ -763,7 +784,7 @@ def remove_all_default_field_values(
             field_name=field.name,
             value=None,
             subtype_codes=subtype_codes,
-            log_level=logging.DEBUG,
+            log_level=DEBUG,
         )
     LOG.log(log_level, "End: Remove.")
     # Make new Dataset instance to update the field information.
@@ -775,9 +796,9 @@ def rename_field(
     *,
     field_name: str,
     new_field_name: str,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Field:
-    """Rename field.
+    """Rename field on dataset.
 
     Args:
         dataset_path: Path to dataset.
@@ -797,7 +818,7 @@ def rename_field(
         new_field_name,
     )
     # ArcPy2.8.0: Convert Path to str.
-    arcpy.management.AlterField(
+    AlterField(
         in_table=str(dataset_path), field=field_name, new_field_name=new_field_name
     )
     LOG.log(log_level, "End: Rename.")
@@ -810,9 +831,9 @@ def set_default_field_value(
     field_name: str,
     value: Any = None,
     subtype_codes: Optional[Iterable[int]] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Field:
-    """Set default value for field.
+    """Set default value for field on dataset.
 
     Args:
         dataset_path: Path to dataset.
@@ -839,7 +860,7 @@ def set_default_field_value(
         raise OSError("Cannot change field default in `in_memory` workspace")
 
     # ArcPy2.8.0: Convert Path to str.
-    arcpy.management.AssignDefaultToField(
+    AssignDefaultToField(
         in_table=str(dataset_path),
         field_name=field_name,
         default_value=value if value is not None else "",

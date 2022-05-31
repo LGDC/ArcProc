@@ -10,7 +10,14 @@ from typing import Any, Iterable, Optional, Type, TypeVar, Union
 
 import arcpy
 
-from arcproc import dataset, features
+from arcproc import features
+from arcproc.dataset import (
+    copy_dataset,
+    create_dataset,
+    delete_dataset,
+    is_valid_dataset,
+    remove_all_default_field_values,
+)
 from arcproc.helpers import elapsed, log_entity_states, slugify, unique_path
 from arcproc.metadata import Field, SpatialReferenceSourceItem
 
@@ -74,7 +81,7 @@ class Procedure(ContextDecorator):
     def available_transform_path(self) -> Path:
         """Path in transformation workspace available for use as dataset."""
         path = unique_path(prefix=self.slug + "_", workspace_path=self.workspace_path)
-        while dataset.is_valid(path):
+        while is_valid_dataset(path):
             path = self.available_transform_path
         return path
 
@@ -87,8 +94,8 @@ class Procedure(ContextDecorator):
         """Clean up instance."""
         LOG.info("""Ending procedure for "%s".""", self.name)
         if not self.keep_transforms:
-            if self.transform_path and dataset.is_valid(self.transform_path):
-                dataset.delete(self.transform_path)
+            if self.transform_path and is_valid_dataset(self.transform_path):
+                delete_dataset(self.transform_path)
                 self.transform_path = None
         elapsed(self.time_started, logger=LOG)
         LOG.info("Ended.")
@@ -115,7 +122,7 @@ class Procedure(ContextDecorator):
         LOG.info("Start: Extract `%s`.", dataset_path)
         self.transform_path = self.available_transform_path
         states = Counter()
-        states["extracted"] = dataset.copy(
+        states["extracted"] = copy_dataset(
             dataset_path,
             field_names=field_names,
             dataset_where_sql=dataset_where_sql,
@@ -123,9 +130,7 @@ class Procedure(ContextDecorator):
             log_level=logging.DEBUG,
         ).feature_count
         # ArcPy 2.8.0: Workaround for BUG-000091314.
-        dataset.remove_all_default_field_values(
-            self.transform_path, log_level=logging.DEBUG
-        )
+        remove_all_default_field_values(self.transform_path, log_level=logging.DEBUG)
         log_entity_states("features", states, logger=LOG)
         LOG.info("End: Extract.")
         return self
@@ -160,18 +165,18 @@ class Procedure(ContextDecorator):
         self.transform_path = self.available_transform_path
         if template_path:
             template_path = Path(template_path)
-            dataset.copy(
+            copy_dataset(
                 template_path,
                 output_path=self.transform_path,
                 schema_only=True,
                 log_level=logging.DEBUG,
             )
             # ArcPy 2.8.0: Workaround for BUG-000091314.
-            dataset.remove_all_default_field_values(
+            remove_all_default_field_values(
                 self.transform_path, log_level=logging.DEBUG
             )
         else:
-            dataset.create(
+            create_dataset(
                 self.transform_path,
                 field_metadata_list=field_metadata_list,
                 geometry_type=geometry_type,
@@ -203,7 +208,7 @@ class Procedure(ContextDecorator):
         LOG.info("Start: Load `%s`.", dataset_path)
         states = Counter()
         # Load to an existing dataset.
-        if dataset.is_valid(dataset_path):
+        if is_valid_dataset(dataset_path):
             if not preserve_features:
                 states["deleted"] = features.delete(
                     dataset_path,
@@ -218,7 +223,7 @@ class Procedure(ContextDecorator):
             )["inserted"]
         # Load to a new dataset.
         else:
-            states["copied"] = dataset.copy(
+            states["copied"] = copy_dataset(
                 self.transform_path, output_path=dataset_path, log_level=logging.DEBUG
             ).feature_count
         log_entity_states("features", states, logger=LOG)
@@ -251,8 +256,8 @@ class Procedure(ContextDecorator):
             output_path = self.transform_path
         result = transformation(**kwargs)
         if output_path != self.transform_path:
-            if not self.keep_transforms and dataset.is_valid(self.transform_path):
-                dataset.delete(self.transform_path)
+            if not self.keep_transforms and is_valid_dataset(self.transform_path):
+                delete_dataset(self.transform_path)
             self.transform_path = output_path
         return result
 

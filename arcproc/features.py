@@ -9,8 +9,7 @@ from typing import Any, Iterable, Iterator, List, Optional, Sequence, Union
 import arcpy
 import pint
 
-from arcproc import dataset
-from arcproc.dataset import DatasetView
+from arcproc.dataset import DatasetView, dataset_feature_count
 from arcproc.helpers import freeze_values, log_entity_states, same_feature, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 from arcproc.workspace import Editing
@@ -127,7 +126,7 @@ def delete(
     with view, session:
         states["deleted"] = view.count
         arcpy.management.DeleteRows(in_rows=view.name)
-        states["remaining"] = dataset.feature_count(dataset_path)
+        states["remaining"] = dataset_feature_count(dataset_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Delete.")
     return states
@@ -182,7 +181,7 @@ def delete_by_id(
     else:
         LOG.log(log_level, "No IDs provided.")
         states["deleted"] = 0
-    states["unchanged"] = dataset.feature_count(dataset_path)
+    states["unchanged"] = dataset_feature_count(dataset_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Delete.")
     return states
