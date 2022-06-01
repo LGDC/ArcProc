@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.helpers
 import arcproc.managers
 import arcproc.network
 import arcproc.proximity

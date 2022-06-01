@@ -1,24 +1,25 @@
 """Internal module helper objects."""
-import logging
-import math
-import random
-import string
 from collections import Counter
-from datetime import datetime as _datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import partial
+from logging import INFO, Logger, getLogger
+from math import isclose
+from random import choice
+from string import ascii_letters, digits, punctuation, whitespace
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
-from typing import Any, Iterator, Optional, Sequence, Union
+from typing import Any, Iterator, Optional, Sequence, Tuple, Union
 from uuid import UUID, uuid4
 
-import arcpy
+from arcpy import Geometry, Point, SetLogHistory
 from more_itertools import pairwise
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: Logger = getLogger(__name__)
+"""Module-level logger."""
 
-EXECUTABLE_TYPES: tuple = (
+SetLogHistory(False)
+
+EXECUTABLE_TYPES: Tuple[type] = (
     BuiltinFunctionType,
     BuiltinMethodType,
     FunctionType,
@@ -28,22 +29,19 @@ EXECUTABLE_TYPES: tuple = (
 """Executable object types. Useful for determining if an object can be executed."""
 
 
-arcpy.SetLogHistory(False)
-
-
-def elapsed(
-    start_time: _datetime,
-    logger: Optional[logging.Logger] = None,
-    log_level: int = logging.INFO,
+def time_elapsed(
+    start_time: datetime,
+    logger: Optional[Logger] = None,
+    log_level: int = INFO,
 ) -> timedelta:
-    """Return time-delta since start time.
+    """Return time-elapsed delta since start time.
 
     Args:
         start_time: Starting point to measure time elapsed since.
         logger: Logger to emit elapsed message.
         log_level: Level to log elapsed message at.
     """
-    delta = _datetime.now() - start_time
+    delta = datetime.now() - start_time
     if logger:
         logger.log(
             log_level,
@@ -77,8 +75,8 @@ def log_entity_states(
     entity_label: str,
     states: Counter,
     *,
-    logger: Optional[logging.Logger] = None,
-    log_level: int = logging.INFO,
+    logger: Optional[Logger] = None,
+    log_level: int = INFO,
     logline_format: str = "{count:,} {entity_type} {state}.",
 ) -> None:
     """Log the counts for entities in each state from provided counter.
@@ -108,23 +106,23 @@ def log_entity_states(
             )
 
 
-def python_type(
+def python_type_constructor(
     type_description: str,
-) -> Union[_datetime, float, int, str, UUID, arcpy.Geometry]:
+) -> Union[datetime, float, int, str, UUID, Geometry]:
     """Return object constructor representing the Python type.
 
     Args:
         type_description: Arc-style type description/code.
     """
     instance = {
-        "date": _datetime,
+        "date": datetime,
         "double": float,
         "single": float,
         "integer": int,
         "long": int,
         "short": int,
         "smallinteger": int,
-        "geometry": arcpy.Geometry,
+        "geometry": Geometry,
         "guid": UUID,
         "string": str,
         "text": str,
@@ -172,18 +170,16 @@ def same_value(*values: Any) -> bool:
     """
     if not all(isinstance(value, type(values[0])) for value in values[1:]):
         same = False
-    elif isinstance(values[0], _datetime):
+    elif isinstance(values[0], datetime):
         same = all(
             getattr(value, attr) == getattr(cmp_value, attr)
             for value, cmp_value in pairwise(values)
             for attr in ["year", "month", "day", "hour", "minute", "second"]
         )
     elif isinstance(values[0], float):
-        same = all(
-            math.isclose(value, cmp_value) for value, cmp_value in pairwise(values)
-        )
+        same = all(isclose(value, cmp_value) for value, cmp_value in pairwise(values))
     # Geometry equality has extra considerations.
-    elif isinstance(values[0], (arcpy.Geometry, arcpy.Point)):
+    elif isinstance(values[0], (Geometry, Point)):
         same = all(value.equals(cmp_value) for value, cmp_value in pairwise(values))
     else:
         same = all(value == cmp_value for value, cmp_value in pairwise(values))
@@ -198,7 +194,7 @@ def slugify(text: str, *, separator: str = "-", force_lowercase: bool = True) ->
         separator: Separator to replace punctuation & whitespace.
     """
     slug = text.lower() if force_lowercase else text
-    for char in string.punctuation + string.whitespace:
+    for char in punctuation + whitespace:
         slug = slug.replace(char, separator)
     while separator * 2 in slug:
         slug = slug.replace(separator * 2, separator)
@@ -232,10 +228,10 @@ def unique_ids(
             yield "{" + str(uuid4()) + "}"
 
     elif data_type == str:
-        seed = string.ascii_letters + string.digits
+        seed = ascii_letters + digits
         used_ids = set()
         while True:
-            unique_id = "".join(random.choice(seed) for _ in range(string_length))
+            unique_id = "".join(choice(seed) for _ in range(string_length))
             if unique_id in used_ids:
                 continue
 

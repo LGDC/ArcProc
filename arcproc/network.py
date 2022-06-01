@@ -11,7 +11,12 @@ import arcpy
 from arcproc.attributes import update_field_with_function
 from arcproc.dataset import DatasetView, add_field, copy_dataset
 from arcproc.features import features_as_dicts, features_as_tuples
-from arcproc.helpers import log_entity_states, python_type, same_feature, unique_ids
+from arcproc.helpers import (
+    log_entity_states,
+    python_type_constructor,
+    same_feature,
+    unique_ids,
+)
 from arcproc.metadata import (
     Dataset,
     Field,
@@ -501,8 +506,8 @@ def coordinates_node_map(
     for node_id_field_name in [from_id_field_name, to_id_field_name]:
         field = Field(dataset_path, node_id_field_name)
         if not node_id_data_type:
-            node_id_data_type = python_type(field.type)
-        elif python_type(field.type) != node_id_data_type:
+            node_id_data_type = python_type_constructor(field.type)
+        elif python_type_constructor(field.type) != node_id_data_type:
             raise ValueError("From- and to-node ID fields must be same type")
 
         if node_id_data_type == str:

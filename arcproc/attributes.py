@@ -16,7 +16,7 @@ from arcproc.dataset import DatasetView, unique_dataset_path
 from arcproc.helpers import (
     EXECUTABLE_TYPES,
     log_entity_states,
-    python_type,
+    python_type_constructor,
     same_value,
     unique_ids,
 )
@@ -847,7 +847,7 @@ def update_field_with_unique_id(
                 used_ids.add(id_value)
         _field = Field(dataset_path, field_name)
         id_pool = unique_ids(
-            data_type=python_type(_field.type),
+            data_type=python_type_constructor(_field.type),
             string_length=_field.length,
             initial_number=(
                 max(used_ids) + 1 if start_after_max_number else initial_number

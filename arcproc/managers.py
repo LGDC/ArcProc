@@ -23,7 +23,7 @@ from arcproc.features import (
     insert_features_from_dataset,
     update_features_from_dataset,
 )
-from arcproc.helpers import elapsed, log_entity_states, slugify
+from arcproc.helpers import log_entity_states, slugify, time_elapsed
 from arcproc.metadata import Field, SpatialReferenceSourceItem
 
 
@@ -101,7 +101,7 @@ class Procedure(ContextDecorator):
             if self.transform_path and is_valid_dataset(self.transform_path):
                 delete_dataset(self.transform_path)
                 self.transform_path = None
-        elapsed(self.time_started, logger=LOG)
+        time_elapsed(self.time_started, logger=LOG)
         LOG.info("Ended.")
 
     def extract(
