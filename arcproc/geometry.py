@@ -12,7 +12,7 @@ LOG: Logger = getLogger(__name__)
 
 SetLogHistory(False)
 
-RATIO: Dict[str, Dict[str, float]] = {
+MEASURE_RATIO: Dict[str, Dict[str, float]] = {
     "meter": {
         "foot": 0.3048,
         "feet": 0.3048,
@@ -33,8 +33,11 @@ RATIO: Dict[str, Dict[str, float]] = {
 }
 """Two-level mapping of ratio between two types of measure.
 
-Usage: `RATIO[to_measure][from_measure]`
+Usage: `MEASURE_RATIO[to_measure][from_measure]`
 """
+MEASURE_RATIO = {key.lower(): value for key, value in MEASURE_RATIO.items()}
+for key, value in MEASURE_RATIO.items():
+    MEASURE_RATIO[key.upper()] = MEASURE_RATIO[key.title()] = MEASURE_RATIO[key]
 
 
 def compactness_ratio(
@@ -65,7 +68,7 @@ def compactness_ratio(
 
 
 def convex_hull(*geometries: Union[Geometry, None]) -> Polygon:
-    """Return convex hull polygon covering given geometries.
+    """Return convex hull polygon geometry covering given geometries.
 
     Args:
         *geometries: Feature geometries in displacement order. NoneType geometries are
@@ -127,17 +130,17 @@ def line_between_centroids(*geometries: Geometry) -> Polyline:
     return line
 
 
-def sexagesimal_angle_to_decimal(
+def angle_as_decimal(
     degrees: int, minutes: int = 0, seconds: int = 0, thirds: int = 0, fourths: int = 0
 ) -> float:
     """Convert sexagesimal-parsed angles to an angle in decimal degrees.
 
     Args:
-        degrees (int): Angle degrees count.
-        minutes (int): Angle minutes count.
-        seconds (int): Angle seconds count.
-        thirds (int): Angle thirds count.
-        fourths (int): Angle fourths count.
+        degrees: Angle degrees count.
+        minutes: Angle minutes count.
+        seconds: Angle seconds count.
+        thirds: Angle thirds count.
+        fourths: Angle fourths count.
     """
     # Degrees must be absolute or it will not sum right with subdivisions.
     absolute_decimal = abs(float(degrees))

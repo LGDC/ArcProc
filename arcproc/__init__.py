@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.geometry
 import arcproc.geoset
 import arcproc.helpers
 import arcproc.managers
@@ -74,6 +73,15 @@ from arcproc.features import (
     update_features_from_mappings,
     update_features_from_sequences,
 )
+from arcproc.geometry import (
+    MEASURE_RATIO,
+    angle_as_decimal,
+    compactness_ratio,
+    convex_hull,
+    coordinate_distance,
+    geometry_axis_bound,
+    line_between_centroids,
+)
 
 
 __all__ = [
@@ -138,4 +146,12 @@ __all__ = [
     "update_features_from_dataset",
     "update_features_from_mappings",
     "update_features_from_sequences",
+    # Geometry.
+    "MEASURE_RATIO",
+    "angle_as_decimal",
+    "compactness_ratio",
+    "convex_hull",
+    "coordinate_distance",
+    "geometry_axis_bound",
+    "line_between_centroids",
 ]
