@@ -460,36 +460,6 @@ def add_index(
     return [Field(dataset_path, field_name) for field_name in field_names]
 
 
-def dataset_as_feature_set(
-    dataset_path: Union[Path, str],
-    *,
-    field_names: Optional[Iterable[str]] = None,
-    dataset_where_sql: Optional[str] = None,
-    force_record_set: bool = False,
-) -> Union[FeatureSet, RecordSet]:
-    """Return dataset as feature set.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_names: Collection of field names to include in output. If set to None, all
-            fields will be included.
-        dataset_where_sql: SQL where-clause property for dataset subselection.
-        force_record_set: If True, return record set. If False, return feature set if
-            spatial dataset & record set if non-spatial.
-    """
-    dataset_path = Path(dataset_path)
-    if field_names is not None:
-        field_names = list(field_names)
-    view = DatasetView(
-        dataset_path, field_names=field_names, dataset_where_sql=dataset_where_sql
-    )
-    with view:
-        if force_record_set or not view.is_spatial:
-            return RecordSet(table=view.name)
-
-        return FeatureSet(table=view.name)
-
-
 def compress_dataset(
     dataset_path: Union[Path, str],
     *,
@@ -636,6 +606,51 @@ def create_dataset(
     return Dataset(dataset_path)
 
 
+def dataset_as_feature_set(
+    dataset_path: Union[Path, str],
+    *,
+    field_names: Optional[Iterable[str]] = None,
+    dataset_where_sql: Optional[str] = None,
+    force_record_set: bool = False,
+) -> Union[FeatureSet, RecordSet]:
+    """Return dataset as feature set.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_names: Collection of field names to include in output. If set to None, all
+            fields will be included.
+        dataset_where_sql: SQL where-clause property for dataset subselection.
+        force_record_set: If True, return record set. If False, return feature set if
+            spatial dataset & record set if non-spatial.
+    """
+    dataset_path = Path(dataset_path)
+    if field_names is not None:
+        field_names = list(field_names)
+    view = DatasetView(
+        dataset_path, field_names=field_names, dataset_where_sql=dataset_where_sql
+    )
+    with view:
+        if force_record_set or not view.is_spatial:
+            return RecordSet(table=view.name)
+
+        return FeatureSet(table=view.name)
+
+
+def dataset_feature_count(
+    dataset_path: Union[Path, str], *, dataset_where_sql: Optional[str] = None
+) -> int:
+    """Return number of features in dataset.
+
+    Args:
+        dataset_path: Path to dataset.
+        dataset_where_sql: SQL where-clause property for dataset subselection.
+    """
+    dataset_path = Path(dataset_path)
+    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
+    with view:
+        return view.count
+
+
 def delete_dataset(dataset_path: Union[Path, str], *, log_level: int = INFO) -> Dataset:
     """Delete dataset.
 
@@ -716,21 +731,6 @@ def duplicate_field(
     LOG.log(log_level, "End: Duplicate.")
     # Make new Field instance to update the `object` property.
     return Field(dataset_path, new_field_name)
-
-
-def dataset_feature_count(
-    dataset_path: Union[Path, str], *, dataset_where_sql: Optional[str] = None
-) -> int:
-    """Return number of features in dataset.
-
-    Args:
-        dataset_path: Path to dataset.
-        dataset_where_sql: SQL where-clause property for dataset subselection.
-    """
-    dataset_path = Path(dataset_path)
-    view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
-    with view:
-        return view.count
 
 
 def is_valid_dataset(dataset_path: Union[Path, str]) -> bool:

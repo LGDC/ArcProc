@@ -40,6 +40,35 @@ for key, value in MEASURE_RATIO.items():
     MEASURE_RATIO[key.upper()] = MEASURE_RATIO[key.title()] = MEASURE_RATIO[key]
 
 
+def angle_as_decimal(
+    degrees: int, minutes: int = 0, seconds: int = 0, thirds: int = 0, fourths: int = 0
+) -> float:
+    """Convert sexagesimal-parsed angles to an angle in decimal degrees.
+
+    Args:
+        degrees: Angle degrees count.
+        minutes: Angle minutes count.
+        seconds: Angle seconds count.
+        thirds: Angle thirds count.
+        fourths: Angle fourths count.
+    """
+    # Degrees must be absolute or it will not sum right with subdivisions.
+    absolute_decimal = abs(float(degrees))
+    try:
+        sign_multiplier = abs(float(degrees)) / float(degrees)
+    except ZeroDivisionError:
+        sign_multiplier = 1
+    for count, divisor in [
+        (minutes, 60),
+        (seconds, 3600),
+        (thirds, 216000),
+        (fourths, 12960000),
+    ]:
+        if count:
+            absolute_decimal += float(count) / divisor
+    return absolute_decimal * sign_multiplier
+
+
 def compactness_ratio(
     geometry: Optional[Geometry] = None,
     *,
@@ -128,32 +157,3 @@ def line_between_centroids(*geometries: Geometry) -> Polyline:
     points = [geometry.centroid for geometry in geometries]
     line = Polyline(Array(points), geometries[0].spatialReference)
     return line
-
-
-def angle_as_decimal(
-    degrees: int, minutes: int = 0, seconds: int = 0, thirds: int = 0, fourths: int = 0
-) -> float:
-    """Convert sexagesimal-parsed angles to an angle in decimal degrees.
-
-    Args:
-        degrees: Angle degrees count.
-        minutes: Angle minutes count.
-        seconds: Angle seconds count.
-        thirds: Angle thirds count.
-        fourths: Angle fourths count.
-    """
-    # Degrees must be absolute or it will not sum right with subdivisions.
-    absolute_decimal = abs(float(degrees))
-    try:
-        sign_multiplier = abs(float(degrees)) / float(degrees)
-    except ZeroDivisionError:
-        sign_multiplier = 1
-    for count, divisor in [
-        (minutes, 60),
-        (seconds, 3600),
-        (thirds, 216000),
-        (fourths, 12960000),
-    ]:
-        if count:
-            absolute_decimal += float(count) / divisor
-    return absolute_decimal * sign_multiplier

@@ -43,79 +43,6 @@ FEATURE_UPDATE_TYPES: List[str] = ["deleted", "inserted", "altered", "unchanged"
 """Types of feature updates commonly associated wtth update counters."""
 
 
-def features_as_dicts(
-    dataset_path: Union[Path, str],
-    field_names: Optional[Iterable[str]] = None,
-    *,
-    dataset_where_sql: Optional[str] = None,
-    spatial_reference_item: SpatialReferenceSourceItem = None,
-) -> Iterator[Dict[str, Any]]:
-    """Generate features as dictionaries of attribute name to value.
-
-    Notes:
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_names: Names of fields to include in generated dictionary. Names will be
-            the keys in the dictionary mapping to their attributes values. If set to
-            None, all fields will be included.
-        dataset_where_sql: SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference for any geometry
-            properties will be set to. If set to None, will use spatial reference of
-            the dataset.
-    """
-    dataset_path = Path(dataset_path)
-    if field_names:
-        field_names = list(field_names)
-    else:
-        field_names = Dataset(dataset_path).field_names_tokenized
-    cursor = SearchCursor(
-        # ArcPy2.8.0: Convert Path to str.
-        in_table=str(dataset_path),
-        field_names=field_names,
-        where_clause=dataset_where_sql,
-        spatial_reference=SpatialReference(spatial_reference_item).object,
-    )
-    with cursor:
-        for feature in cursor:
-            yield dict(zip(cursor.fields, feature))
-
-
-def features_as_tuples(
-    dataset_path: Union[Path, str],
-    field_names: Iterable[str],
-    *,
-    dataset_where_sql: Optional[str] = None,
-    spatial_reference_item: SpatialReferenceSourceItem = None,
-) -> Iterator[Tuple[Any]]:
-    """Generate features as tuples of attribute values.
-
-    Notes:
-        Use ArcPy cursor token names for object IDs and geometry objects/properties.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_names: Names of fields to include in generated dictionary. Attributes will
-            be in the tuple index that matches their field name here.
-        dataset_where_sql: SQL where-clause for dataset subselection.
-        spatial_reference_item: Item from which the spatial reference for any geometry
-            properties will be set to. If set to None, will use spatial reference of
-            the dataset.
-    """
-    field_names = list(field_names)
-    dataset_path = Path(dataset_path)
-    cursor = SearchCursor(
-        # ArcPy2.8.0: Convert Path to str.
-        in_table=str(dataset_path),
-        field_names=field_names,
-        where_clause=dataset_where_sql,
-        spatial_reference=SpatialReference(spatial_reference_item).object,
-    )
-    with cursor:
-        yield from cursor
-
-
 def delete_features(
     dataset_path: Union[Path, str],
     *,
@@ -313,84 +240,77 @@ def eliminate_feature_inner_rings(
     return states
 
 
-def insert_features_from_mappings(
+def features_as_dicts(
     dataset_path: Union[Path, str],
-    field_names: Iterable[str],
+    field_names: Optional[Iterable[str]] = None,
     *,
-    source_features: Iterable[Mapping[str, Any]],
-    use_edit_session: bool = False,
-    log_level: int = INFO,
-) -> Counter:
-    """Insert features into dataset from mappings.
+    dataset_where_sql: Optional[str] = None,
+    spatial_reference_item: SpatialReferenceSourceItem = None,
+) -> Iterator[Dict[str, Any]]:
+    """Generate features as dictionaries of attribute name to value.
+
+    Notes:
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
         dataset_path: Path to dataset.
-        field_names: Names of fields for insert. Names must be present keys in
-            `source_features` elements.
-        source_features: Features to insert.
-        use_edit_session: True if edits are to be made in an edit session.
-        log_level: Level to log the function at.
-
-    Returns:
-        Feature counts for each insert-state.
+        field_names: Names of fields to include in generated dictionary. Names will be
+            the keys in the dictionary mapping to their attributes values. If set to
+            None, all fields will be included.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference for any geometry
+            properties will be set to. If set to None, will use spatial reference of
+            the dataset.
     """
     dataset_path = Path(dataset_path)
-    LOG.log(log_level, "Start: Insert features into `%s` from mappings.", dataset_path)
-    field_names = list(field_names)
-    if isgeneratorfunction(source_features):
-        source_features = source_features()
-    states = insert_features_from_sequences(
-        dataset_path,
-        field_names,
-        source_features=(
-            (feature[field_name] for field_name in field_names)
-            for feature in source_features
-        ),
-        use_edit_session=use_edit_session,
-        log_level=DEBUG,
+    if field_names:
+        field_names = list(field_names)
+    else:
+        field_names = Dataset(dataset_path).field_names_tokenized
+    cursor = SearchCursor(
+        # ArcPy2.8.0: Convert Path to str.
+        in_table=str(dataset_path),
+        field_names=field_names,
+        where_clause=dataset_where_sql,
+        spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Insert.")
-    return states
+    with cursor:
+        for feature in cursor:
+            yield dict(zip(cursor.fields, feature))
 
 
-def insert_features_from_sequences(
+def features_as_tuples(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
     *,
-    source_features: Iterable[Sequence[Any]],
-    use_edit_session: bool = False,
-    log_level: int = INFO,
-) -> Counter:
-    """Insert features into dataset from sequences.
+    dataset_where_sql: Optional[str] = None,
+    spatial_reference_item: SpatialReferenceSourceItem = None,
+) -> Iterator[Tuple[Any]]:
+    """Generate features as tuples of attribute values.
+
+    Notes:
+        Use ArcPy cursor token names for object IDs and geometry objects/properties.
 
     Args:
         dataset_path: Path to dataset.
-        field_names: Names of fields for insert. Names must be in the same order as
-            their corresponding attributes in `source_features` elements.
-        source_features: Features to insert.
-        use_edit_session: True if edits are to be made in an edit session.
-        log_level: Level to log the function at.
-
-    Returns:
-        Feature counts for each insert-state.
+        field_names: Names of fields to include in generated dictionary. Attributes will
+            be in the tuple index that matches their field name here.
+        dataset_where_sql: SQL where-clause for dataset subselection.
+        spatial_reference_item: Item from which the spatial reference for any geometry
+            properties will be set to. If set to None, will use spatial reference of
+            the dataset.
     """
-    dataset_path = Path(dataset_path)
-    LOG.log(log_level, "Start: Insert features into `%s` from sequences.", dataset_path)
     field_names = list(field_names)
-    if isgeneratorfunction(source_features):
-        source_features = source_features()
-    # ArcPy2.8.0: Convert Path to str.
-    cursor = InsertCursor(in_table=str(dataset_path), field_names=field_names)
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
-    states = Counter()
-    with session, cursor:
-        for row in source_features:
-            cursor.insertRow(tuple(row))
-            states["inserted"] += 1
-    log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Insert.")
-    return states
+    dataset_path = Path(dataset_path)
+    cursor = SearchCursor(
+        # ArcPy2.8.0: Convert Path to str.
+        in_table=str(dataset_path),
+        field_names=field_names,
+        where_clause=dataset_where_sql,
+        spatial_reference=SpatialReference(spatial_reference_item).object,
+    )
+    with cursor:
+        yield from cursor
 
 
 def insert_features_from_dataset(
@@ -469,6 +389,86 @@ def insert_features_from_dataset(
             field_mapping=field_mapping,
         )
         states["inserted"] = view.count
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Insert.")
+    return states
+
+
+def insert_features_from_mappings(
+    dataset_path: Union[Path, str],
+    field_names: Iterable[str],
+    *,
+    source_features: Iterable[Mapping[str, Any]],
+    use_edit_session: bool = False,
+    log_level: int = INFO,
+) -> Counter:
+    """Insert features into dataset from mappings.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_names: Names of fields for insert. Names must be present keys in
+            `source_features` elements.
+        source_features: Features to insert.
+        use_edit_session: True if edits are to be made in an edit session.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for each insert-state.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(log_level, "Start: Insert features into `%s` from mappings.", dataset_path)
+    field_names = list(field_names)
+    if isgeneratorfunction(source_features):
+        source_features = source_features()
+    states = insert_features_from_sequences(
+        dataset_path,
+        field_names,
+        source_features=(
+            (feature[field_name] for field_name in field_names)
+            for feature in source_features
+        ),
+        use_edit_session=use_edit_session,
+        log_level=DEBUG,
+    )
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Insert.")
+    return states
+
+
+def insert_features_from_sequences(
+    dataset_path: Union[Path, str],
+    field_names: Iterable[str],
+    *,
+    source_features: Iterable[Sequence[Any]],
+    use_edit_session: bool = False,
+    log_level: int = INFO,
+) -> Counter:
+    """Insert features into dataset from sequences.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_names: Names of fields for insert. Names must be in the same order as
+            their corresponding attributes in `source_features` elements.
+        source_features: Features to insert.
+        use_edit_session: True if edits are to be made in an edit session.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for each insert-state.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(log_level, "Start: Insert features into `%s` from sequences.", dataset_path)
+    field_names = list(field_names)
+    if isgeneratorfunction(source_features):
+        source_features = source_features()
+    # ArcPy2.8.0: Convert Path to str.
+    cursor = InsertCursor(in_table=str(dataset_path), field_names=field_names)
+    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    states = Counter()
+    with session, cursor:
+        for row in source_features:
+            cursor.insertRow(tuple(row))
+            states["inserted"] += 1
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Insert.")
     return states
@@ -574,6 +574,76 @@ def replace_feature_true_curves(
                 states["unchanged"] += 1
     log_entity_states("feature geometries", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Replace.")
+    return states
+
+
+def update_features_from_dataset(
+    dataset_path: Union[Path, str],
+    field_names: Optional[Iterable[str]] = None,
+    *,
+    id_field_names: Iterable[str],
+    source_path: Union[Path, str],
+    source_where_sql: Optional[str] = None,
+    delete_missing_features: bool = True,
+    use_edit_session: bool = False,
+    log_level: int = INFO,
+) -> Counter:
+    """Update features in dataset from another dataset.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_names: Names of fields for update. Fields must exist in both datasets. If
+            set to None, all user fields present in both datasets will be updated,
+            along with the geometry field (if present).
+        id_field_names: Names of the feature ID fields. Fields must exist in both
+            datasets.
+        source_path: Path to dataset for features from which to update.
+        source_where_sql: SQL where-clause for source dataset subselection.
+        delete_missing_features: True if update should delete features missing from
+            source dataset.
+        use_edit_session: True if edits are to be made in an edit session.
+        log_level: Level to log the function at.
+
+    Returns:
+        Feature counts for each update-state.
+    """
+    dataset_path = Path(dataset_path)
+    source_path = Path(source_path)
+    LOG.log(
+        log_level,
+        "Start: Update features in `%s` from dataset `%s`.",
+        dataset_path,
+        source_path,
+    )
+    _dataset = Dataset(dataset_path)
+    source_dataset = Dataset(source_path)
+    if field_names is None:
+        field_names = set(
+            name.lower() for name in _dataset.field_names_tokenized
+        ) & set(name.lower() for name in source_dataset.field_names_tokenized)
+    else:
+        field_names = set(name.lower() for name in field_names)
+    # OIDs & area/length "fields" have no business being part of an update.
+    for field_token in ["OID@", "SHAPE@AREA", "SHAPE@LENGTH"]:
+        field_names.discard(field_token.lower())
+    field_names = list(field_names)
+    id_field_names = list(id_field_names)
+    source_features = features_as_tuples(
+        source_path,
+        field_names=id_field_names + field_names,
+        dataset_where_sql=source_where_sql,
+    )
+    states = update_features_from_sequences(
+        dataset_path,
+        field_names=id_field_names + field_names,
+        id_field_names=id_field_names,
+        source_features=source_features,
+        delete_missing_features=delete_missing_features,
+        use_edit_session=use_edit_session,
+        log_level=DEBUG,
+    )
+    log_entity_states("features", states, logger=LOG, log_level=log_level)
+    LOG.log(log_level, "End: Update.")
     return states
 
 
@@ -742,76 +812,6 @@ def update_features_from_sequences(
                     ) from error
 
                 states["inserted"] += 1
-    log_entity_states("features", states, logger=LOG, log_level=log_level)
-    LOG.log(log_level, "End: Update.")
-    return states
-
-
-def update_features_from_dataset(
-    dataset_path: Union[Path, str],
-    field_names: Optional[Iterable[str]] = None,
-    *,
-    id_field_names: Iterable[str],
-    source_path: Union[Path, str],
-    source_where_sql: Optional[str] = None,
-    delete_missing_features: bool = True,
-    use_edit_session: bool = False,
-    log_level: int = INFO,
-) -> Counter:
-    """Update features in dataset from another dataset.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_names: Names of fields for update. Fields must exist in both datasets. If
-            set to None, all user fields present in both datasets will be updated,
-            along with the geometry field (if present).
-        id_field_names: Names of the feature ID fields. Fields must exist in both
-            datasets.
-        source_path: Path to dataset for features from which to update.
-        source_where_sql: SQL where-clause for source dataset subselection.
-        delete_missing_features: True if update should delete features missing from
-            source dataset.
-        use_edit_session: True if edits are to be made in an edit session.
-        log_level: Level to log the function at.
-
-    Returns:
-        Feature counts for each update-state.
-    """
-    dataset_path = Path(dataset_path)
-    source_path = Path(source_path)
-    LOG.log(
-        log_level,
-        "Start: Update features in `%s` from dataset `%s`.",
-        dataset_path,
-        source_path,
-    )
-    _dataset = Dataset(dataset_path)
-    source_dataset = Dataset(source_path)
-    if field_names is None:
-        field_names = set(
-            name.lower() for name in _dataset.field_names_tokenized
-        ) & set(name.lower() for name in source_dataset.field_names_tokenized)
-    else:
-        field_names = set(name.lower() for name in field_names)
-    # OIDs & area/length "fields" have no business being part of an update.
-    for field_token in ["OID@", "SHAPE@AREA", "SHAPE@LENGTH"]:
-        field_names.discard(field_token.lower())
-    field_names = list(field_names)
-    id_field_names = list(id_field_names)
-    source_features = features_as_tuples(
-        source_path,
-        field_names=id_field_names + field_names,
-        dataset_where_sql=source_where_sql,
-    )
-    states = update_features_from_sequences(
-        dataset_path,
-        field_names=id_field_names + field_names,
-        id_field_names=id_field_names,
-        source_features=source_features,
-        delete_missing_features=delete_missing_features,
-        use_edit_session=use_edit_session,
-        log_level=DEBUG,
-    )
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
     return states
