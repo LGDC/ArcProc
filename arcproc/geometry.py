@@ -1,16 +1,18 @@
 """Geometry-related objects."""
-import logging
+from logging import Logger, getLogger
 from math import pi, sqrt
-from typing import Sequence, Union
+from typing import Dict, Optional, Sequence, Union
 
-import arcpy
+from arcpy import Array, Geometry, PointGeometry, Polygon, Polyline, SetLogHistory
 from more_itertools import pairwise
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
-"""logging.Logger: Module-level logger."""
+LOG: Logger = getLogger(__name__)
+"""Module-level logger."""
 
-RATIO: "dict[str, dict[str, float]]" = {
+SetLogHistory(False)
+
+RATIO: Dict[str, Dict[str, float]] = {
     "meter": {
         "foot": 0.3048,
         "feet": 0.3048,
@@ -34,41 +36,35 @@ RATIO: "dict[str, dict[str, float]]" = {
 Usage: `RATIO[to_measure][from_measure]`
 """
 
-arcpy.SetLogHistory(False)
-
 
 def compactness_ratio(
-    area: Union[float, int, None], perimeter: Union[float, int, None]
+    geometry: Optional[Geometry] = None,
+    *,
+    area: Optional[Union[float, int]] = None,
+    perimeter: Optional[Union[float, int]] = None
 ) -> Union[float, None]:
-    """Return compactness ratio (4pi * area / perimeter ** 2) result.
+    """Return compactness ratio for geometry: 4pi * area / perimeter ** 2.
 
-    If one of the area & perimeter keyword arguments are zero or None, will return None.
+    Notes:
+        If geometry is None, will use area & perimeter arguments.
+        If geometry is None & one of the area & perimeter arguments are zero or None,
+            will return None.
 
     Args:
+        geometry: Geometry to evaluate.
         area: Area of geometry to evaluate.
         perimeter: Perimeter of geometry to evaluate.
     """
+    if geometry is not None:
+        area = geometry.area
+        perimeter = geometry.length
     if not area or not perimeter:
         return None
 
     return (4.0 * pi * float(area)) / (float(perimeter) ** 2.0)
 
 
-def compactness_ratio_by_geometry(
-    geometry: Union[arcpy.Geometry, None]
-) -> Union[float, None]:
-    """Return compactness ratio (4pi * area / perimeter ** 2) result using geometry.
-
-    Args:
-        geometry: Geometry to evaluate. A NoneType geometry is accepted & returns None.
-    """
-    if not geometry or not geometry.area or not geometry.length:
-        return None
-
-    return compactness_ratio(geometry.area, geometry.length)
-
-
-def convex_hull(*geometries: Union[arcpy.Geometry, None]) -> arcpy.Polygon:
+def convex_hull(*geometries: Union[Geometry, None]) -> Polygon:
     """Return convex hull polygon covering given geometries.
 
     Args:
@@ -81,9 +77,7 @@ def convex_hull(*geometries: Union[arcpy.Geometry, None]) -> arcpy.Polygon:
             hull_geometry = geometry
         elif geometry:
             hull_geometry = hull_geometry.union(geometry).convexHull()
-    if hull_geometry and isinstance(
-        hull_geometry, (arcpy.PointGeometry, arcpy.Polyline)
-    ):
+    if hull_geometry and isinstance(hull_geometry, (PointGeometry, Polyline)):
         hull_geometry = hull_geometry.buffer(1)
     return hull_geometry
 
@@ -105,7 +99,7 @@ def coordinate_distance(*coordinates: Sequence[int]) -> float:
 
 
 def geometry_axis_bound(
-    geometry: Union[arcpy.Geometry, None], axis: str, bound: str
+    geometry: Union[Geometry, None], axis: str, bound: str
 ) -> float:
     """Return value of axis-bound for given geometry.
 
@@ -122,14 +116,14 @@ def geometry_axis_bound(
     return getattr(geometry.extent, axis.upper() + bound.title())
 
 
-def line_between_centroids(*geometries: arcpy.Geometry) -> arcpy.Polyline:
+def line_between_centroids(*geometries: Geometry) -> Polyline:
     """Return line geometry connecting given geometry centroids.
 
     Args:
         *geometries: Feature geometries in drawing order.
     """
     points = [geometry.centroid for geometry in geometries]
-    line = arcpy.Polyline(arcpy.Array(points), geometries[0].spatialReference)
+    line = Polyline(Array(points), geometries[0].spatialReference)
     return line
 
 
