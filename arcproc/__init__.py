@@ -82,6 +82,14 @@ from arcproc.geometry import (
 )
 from arcproc.geoset import identity_features, join_features_at_center, union_features
 from arcproc.managers import Procedure
+from arcproc.metadata import (
+    Dataset,
+    Domain,
+    Field,
+    SpatialReference,
+    SpatialReferenceSourceItem,
+    Workspace,
+)
 
 
 __all__ = [
@@ -161,4 +169,11 @@ __all__ = [
     "union_features",
     # Managers.
     "Procedure",
+    # Metadata.
+    "Dataset",
+    "Domain",
+    "Field",
+    "SpatialReference",
+    "SpatialReferenceSourceItem",
+    "Workspace",
 ]

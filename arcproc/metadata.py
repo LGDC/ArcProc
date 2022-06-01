@@ -1,10 +1,16 @@
 """Metadata objects."""
-import logging
 from dataclasses import dataclass, field, fields
+from logging import Logger, getLogger
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import arcpy
+from arcpy import Describe, Exists
+from arcpy import Field as ArcField
+from arcpy import Geometry, ListFields, SetLogHistory
+from arcpy import SpatialReference as ArcSpatialReference
+from arcpy.da import Domain as ArcDomain  # pylint: disable=no-name-in-module
+from arcpy.da import ListDomains, SearchCursor  # pylint: disable=no-name-in-module
+from arcpy.management import GetCount
 
 from arcproc.exceptions import (
     DatasetNotFoundError,
@@ -15,11 +21,11 @@ from arcproc.exceptions import (
 
 __all__ = []
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
 
-arcpy.SetLogHistory(False)
+SetLogHistory(False)
 
 
 @dataclass
@@ -30,7 +36,7 @@ class Domain:
     """Path to geodatabase the domain resides within."""
     name: Optional[str] = None
     """Name of the domain."""
-    object: Optional[arcpy.da.Domain] = None
+    object: Optional[ArcDomain] = None
     """ArcPy domain object."""
 
     code_description: "Union[dict[str, str], None]" = field(init=False)
@@ -58,7 +64,7 @@ class Domain:
 
         if self.geodatabase_path and self.name:
             self.geodatabase_path = Path(self.geodatabase_path)
-            for domain in arcpy.da.ListDomains(self.geodatabase_path):
+            for domain in ListDomains(self.geodatabase_path):
                 if domain.name.lower() == self.name.lower():
                     self.object = domain
                     break
@@ -92,7 +98,7 @@ class Field:
     """Path to dataset the field resides within."""
     name: Optional[str] = None
     """Name of the field."""
-    object: Optional[arcpy.Field] = None
+    object: Optional[ArcField] = None
     """ArcPy field object."""
 
     alias: str = field(init=False)
@@ -120,7 +126,7 @@ class Field:
 
         if self.dataset_path and self.name:
             self.dataset_path = Path(self.dataset_path)
-            for _field in arcpy.ListFields(self.dataset_path, wild_card=self.name):
+            for _field in ListFields(self.dataset_path, wild_card=self.name):
                 if _field.name.lower() == self.name.lower():
                     self.object = _field
                     break
@@ -168,10 +174,10 @@ class Field:
 class SpatialReference:
     """Representation of spatial reference information."""
 
-    source_item: Union[int, arcpy.Geometry, arcpy.SpatialReference, Path, str, None]
+    source_item: Union[int, Geometry, ArcSpatialReference, Path, str, None]
     """Source item to construct spatial reference object from."""
 
-    object: arcpy.SpatialReference = field(init=False)
+    object: ArcSpatialReference = field(init=False)
     """ArcPy spatial reference object."""
     name: str = field(init=False)
     """Name of the spatial reference."""
@@ -189,16 +195,16 @@ class SpatialReference:
             self.object = self.source_item.object
         # WKID/factory code.
         elif isinstance(self.source_item, int):
-            self.object = arcpy.SpatialReference(self.source_item)
-        elif isinstance(self.source_item, arcpy.Geometry):
+            self.object = ArcSpatialReference(self.source_item)
+        elif isinstance(self.source_item, Geometry):
             self.object = self.source_item.spatialReference
-        elif isinstance(self.source_item, arcpy.SpatialReference):
+        elif isinstance(self.source_item, ArcSpatialReference):
             self.object = self.source_item
         elif isinstance(self.source_item, (Path, str)):
-            # Describe-able object. spatialReference != arcpy.SpatialReference.
-            self.object = arcpy.SpatialReference(
+            # Describe-able object. spatialReference != ArcSpatialReference.
+            self.object = ArcSpatialReference(
                 # ArcPy2.8.0: Convert Path to str.
-                arcpy.Describe(str(self.source_item)).spatialReference.factoryCode
+                Describe(str(self.source_item)).spatialReference.factoryCode
             )
         # Allowing NoneType objects just tells ArcPy SR arguments to use dataset SR.
         if self.source_item is None:
@@ -265,7 +271,7 @@ class Workspace:
 
         if self.path:
             # ArcPy 2.8.0: Convert to str.
-            self.object = arcpy.Describe(str(self.path))
+            self.object = Describe(str(self.path))
 
         self.can_copy = self.can_move = self.object.workspaceType in [
             "FileSystem",
@@ -359,11 +365,11 @@ class Dataset:
             raise AttributeError("Must provide `path` or `object`")
 
         if self.path:
-            if not arcpy.Exists(self.path):
+            if not Exists(self.path):
                 raise DatasetNotFoundError(self.path)
 
             # ArcPy2.8.0: Convert to str.
-            self.object = arcpy.Describe(str(self.path))
+            self.object = Describe(str(self.path))
         self.area_field_name = getattr(self.object, "areaFieldName", "")
         self.geometry_field_name = getattr(self.object, "shapeFieldName", "")
         self.geometry_type = getattr(self.object, "shapeType", "")
@@ -414,13 +420,13 @@ class Dataset:
     def feature_count(self) -> int:
         """Number of features in dataset."""
         # ArcPy2.8.0: Convert to str.
-        return int(arcpy.management.GetCount(str(self.path)).getOutput(0))
+        return int(GetCount(str(self.path)).getOutput(0))
 
     @property
     def has_true_curves(self) -> bool:
         """Return True if any present features have true curves."""
         if self.is_spatial and not self.path.name.lower().endswith(".shp"):
-            cursor = arcpy.da.SearchCursor(str(self.path), field_names=["SHAPE@"])
+            cursor = SearchCursor(str(self.path), field_names=["SHAPE@"])
             with cursor:
                 for (geometry,) in cursor:
                     if geometry is not None and geometry.hasCurves:
@@ -433,6 +439,6 @@ class Dataset:
 
 
 SpatialReferenceSourceItem = Union[
-    SpatialReference, int, arcpy.Geometry, arcpy.SpatialReference, Path, str, None
+    SpatialReference, int, Geometry, SpatialReference, Path, str, None
 ]
 """Type alias for allowable SpatialReference source items."""
