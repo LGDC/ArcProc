@@ -1,11 +1,9 @@
 """Internal module helper objects."""
-import inspect
 import logging
 import math
 import random
 import string
 from collections import Counter
-from collections.abc import Iterable
 from datetime import datetime as _datetime
 from datetime import timedelta
 from functools import partial
@@ -32,26 +30,6 @@ EXECUTABLE_TYPES: tuple = (
 
 
 arcpy.SetLogHistory(False)
-
-
-def contain(obj: Any, *, nonetypes_as_empty: bool = True) -> Iterator[Any]:
-    """Generate contained items if a collection, otherwise generate object.
-
-    Args:
-        obj: Any object, collection or otherwise.
-        nontypes_as_empty: `None` obj values will be  treated as an empty collection if
-            True. If False, they will be treated as an object to yield.
-    """
-    if nonetypes_as_empty and obj is None:
-        return
-
-    if inspect.isgeneratorfunction(obj):
-        obj = obj()
-    if isinstance(obj, Iterable) and not isinstance(obj, (bytes, str)):
-        yield from obj
-
-    else:
-        yield obj
 
 
 def elapsed(
