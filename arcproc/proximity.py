@@ -12,9 +12,10 @@ from arcproc.dataset import (
     dataset_feature_count,
     delete_dataset,
     delete_field,
+    unique_dataset_path,
 )
 from arcproc.features import features_as_dicts, features_as_tuples
-from arcproc.helpers import log_entity_states, unique_path
+from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
 
 
@@ -57,7 +58,7 @@ def adjacent_neighbors_map(
         dataset_path, field_names=id_field_names, dataset_where_sql=dataset_where_sql
     )
     with view:
-        temp_neighbor_path = unique_path("neighbor")
+        temp_neighbor_path = unique_dataset_path("neighbor")
         # ArcPy2.8.0: Convert Path to str.
         arcpy.analysis.PolygonNeighbors(
             in_features=view.name,
@@ -334,7 +335,7 @@ def nearest_features(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     near_view = DatasetView(near_path, dataset_where_sql=near_where_sql)
     with view, near_view:
-        temp_near_path = unique_path("near")
+        temp_near_path = unique_dataset_path("near")
         # ArcPy2.8.0: Convert Path to str.
         arcpy.analysis.GenerateNearTable(
             in_features=view.name,

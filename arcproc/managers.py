@@ -16,13 +16,14 @@ from arcproc.dataset import (
     delete_dataset,
     is_valid_dataset,
     remove_all_default_field_values,
+    unique_dataset_path,
 )
 from arcproc.features import (
     delete_features,
     insert_features_from_dataset,
     update_features_from_dataset,
 )
-from arcproc.helpers import elapsed, log_entity_states, slugify, unique_path
+from arcproc.helpers import elapsed, log_entity_states, slugify
 from arcproc.metadata import Field, SpatialReferenceSourceItem
 
 
@@ -84,10 +85,9 @@ class Procedure(ContextDecorator):
     @property
     def available_transform_path(self) -> Path:
         """Path in transformation workspace available for use as dataset."""
-        path = unique_path(prefix=self.slug + "_", workspace_path=self.workspace_path)
-        while is_valid_dataset(path):
-            path = self.available_transform_path
-        return path
+        return unique_dataset_path(
+            prefix=self.slug + "_", workspace_path=self.workspace_path
+        )
 
     @property
     def slug(self) -> str:

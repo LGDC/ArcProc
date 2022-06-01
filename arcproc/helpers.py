@@ -7,7 +7,6 @@ from collections import Counter
 from datetime import datetime as _datetime
 from datetime import timedelta
 from functools import partial
-from pathlib import Path
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 from typing import Any, Iterator, Optional, Sequence, Union
 from uuid import UUID, uuid4
@@ -271,25 +270,3 @@ def unique_name(
             allow_initial_digit=allow_initial_digit,
         )
     return name
-
-
-def unique_path(
-    prefix: str = "",
-    suffix: str = "",
-    *,
-    unique_length: int = 4,
-    workspace_path: Union[Path, str] = Path("memory"),
-) -> Path:
-    """Return unique path in the given workspace.
-
-    Args:
-        prefix: Prefix insert before the unique part of the name.
-        suffix: Suffix to append after the unique part of the name.
-        unique_length: Number of unique characters to include in the name.
-        workspace_path: Path of workspace to create the dataset in.
-    """
-    workspace_path = Path(workspace_path) if workspace_path else Path("memory")
-    name = unique_name(
-        prefix, suffix, unique_length=unique_length, allow_initial_digit=False
-    )
-    return workspace_path / name

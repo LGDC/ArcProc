@@ -12,14 +12,13 @@ from arcpy.analysis import Identity, SpatialJoin
 from arcpy.da import SearchCursor, UpdateCursor  # pylint: disable=no-name-in-module
 from arcpy.management import CalculateField, Delete
 
-from arcproc.dataset import DatasetView
+from arcproc.dataset import DatasetView, unique_dataset_path
 from arcproc.helpers import (
     EXECUTABLE_TYPES,
     log_entity_states,
     python_type,
     same_value,
     unique_ids,
-    unique_path,
 )
 from arcproc.metadata import (
     Dataset,
@@ -155,7 +154,7 @@ def update_field_with_central_overlay(  # pylint: disable=invalid-name
         dataset_where_sql=overlay_where_sql,
     )
     with view, overlay_view:
-        temp_output_path = unique_path("output")
+        temp_output_path = unique_dataset_path("output")
         SpatialJoin(
             target_features=view.name,
             join_features=overlay_view.name,
@@ -239,7 +238,7 @@ def update_field_with_dominant_overlay(  # pylint: disable=invalid-name
         dataset_where_sql=overlay_where_sql,
     )
     with view, overlay_view:
-        temp_output_path = unique_path("output")
+        temp_output_path = unique_dataset_path("output")
         Identity(
             in_features=view.name,
             identity_features=overlay_view.name,
@@ -744,7 +743,7 @@ def update_field_with_overlay_count(
         overlay_dataset_path, field_names=[], dataset_where_sql=overlay_where_sql
     )
     with view, overlay_view:
-        temp_output_path = unique_path("output")
+        temp_output_path = unique_dataset_path("output")
         SpatialJoin(
             target_features=view.name,
             join_features=overlay_view.name,

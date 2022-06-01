@@ -35,7 +35,7 @@ from arcpy.management import (
     SelectLayerByAttribute,
 )
 
-from arcproc.helpers import unique_name, unique_path
+from arcproc.helpers import unique_name
 from arcproc.metadata import (
     Dataset,
     Field,
@@ -271,7 +271,9 @@ class TempDatasetCopy(ContextDecorator):
                 subselection.
             force_nonspatial: Forces view to be nonspatial if True.
         """
-        self.copy_path = Path(copy_path) if copy_path else unique_path("TempCopy")
+        self.copy_path = (
+            Path(copy_path) if copy_path else unique_dataset_path("TempCopy")
+        )
         self.dataset = Dataset(path=dataset_path)
         self.dataset_path = Path(dataset_path)
         self.dataset_where_sql = dataset_where_sql
@@ -869,3 +871,29 @@ def set_default_field_value(
     )
     LOG.log(log_level, "End: Set.")
     return Field(dataset_path, field_name)
+
+
+def unique_dataset_path(
+    prefix: str = "",
+    suffix: str = "",
+    *,
+    unique_length: int = 4,
+    workspace_path: Union[Path, str] = Path("memory"),
+) -> Path:
+    """Return unique dataset path in the given workspace.
+
+    Args:
+        prefix: Prefix insert before the unique part of the name.
+        suffix: Suffix to append after the unique part of the name.
+        unique_length: Number of unique characters to include in the name.
+        workspace_path: Path of workspace to create the dataset in.
+    """
+    workspace_path = Path(workspace_path) if workspace_path else Path("memory")
+    name = unique_name(
+        prefix, suffix, unique_length=unique_length, allow_initial_digit=False
+    )
+    while Exists(workspace_path / name):
+        name = unique_name(
+            prefix, suffix, unique_length=unique_length, allow_initial_digit=False
+        )
+    return workspace_path / name

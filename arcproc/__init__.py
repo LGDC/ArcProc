@@ -49,6 +49,7 @@ from arcproc.dataset import (
     remove_all_default_field_values,
     rename_field,
     set_default_field_value,
+    unique_dataset_path,
 )
 from arcproc.exceptions import (
     DatasetNotFoundError,
@@ -126,6 +127,7 @@ __all__ = [
     "remove_all_default_field_values",
     "rename_field",
     "set_default_field_value",
+    "unique_dataset_path",
     # Exceptions.
     "DatasetNotFoundError",
     "DomainNotFoundError",
