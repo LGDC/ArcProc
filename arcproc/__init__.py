@@ -72,7 +72,7 @@ from arcproc.features import (
     update_features_from_sequences,
 )
 from arcproc.geometry import (
-    MEASURE_RATIO,
+    UNIT_RATIO,
     angle_as_decimal,
     compactness_ratio,
     convex_hull,
@@ -156,7 +156,7 @@ __all__ = [
     "update_features_from_mappings",
     "update_features_from_sequences",
     # Geometry.
-    "MEASURE_RATIO",
+    "UNIT_RATIO",
     "angle_as_decimal",
     "compactness_ratio",
     "convex_hull",

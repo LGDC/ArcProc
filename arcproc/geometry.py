@@ -12,32 +12,34 @@ LOG: Logger = getLogger(__name__)
 
 SetLogHistory(False)
 
-MEASURE_RATIO: Dict[str, Dict[str, float]] = {
-    "meter": {
-        "foot": 0.3048,
-        "feet": 0.3048,
-        "ft": 0.3048,
-        "yard": 0.9144,
-        "yards": 0.9144,
-        "yd": 0.9144,
-        "mile": 1609.34,
-        "miles": 1609.34,
-        "mi": 1609.34,
-        "meter": 1.0,
-        "meters": 1.0,
-        "m": 1.0,
-        "kilometer": 1000.0,
-        "kilometers": 1000.0,
-        "km": 1000.0,
+UNIT_PLURAL: Dict[str, str] = {"Foot": "Feet", "Meter": "Meters"}
+"""Mapping of singular unit to plural.
+
+Only need common ones from spatial references.
+"""
+UNIT_RATIO: Dict[str, Dict[str, float]] = {
+    "Meter": {
+        "Foot": 0.3048,
+        "Feet": 0.3048,
+        "Ft": 0.3048,
+        "Yard": 0.9144,
+        "Yards": 0.9144,
+        "Yd": 0.9144,
+        "Mile": 1609.34,
+        "Miles": 1609.34,
+        "Mi": 1609.34,
+        "Meter": 1.0,
+        "Meters": 1.0,
+        "M": 1.0,
+        "Kilometer": 1000.0,
+        "Kilometers": 1000.0,
+        "Km": 1000.0,
     }
 }
-"""Two-level mapping of ratio between two types of measure.
+"""Two-level mapping of ratio between two units of measure.
 
-Usage: `MEASURE_RATIO[to_measure][from_measure]`
+Usage: `UNIT_RATIO[to_measure][from_measure]`
 """
-MEASURE_RATIO = {key.lower(): value for key, value in MEASURE_RATIO.items()}
-for key, value in MEASURE_RATIO.items():
-    MEASURE_RATIO[key.upper()] = MEASURE_RATIO[key.title()] = MEASURE_RATIO[key]
 
 
 def angle_as_decimal(

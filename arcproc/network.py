@@ -11,6 +11,7 @@ import arcpy
 from arcproc.attributes import update_field_with_function
 from arcproc.dataset import DatasetView, add_field, copy_dataset
 from arcproc.features import features_as_dicts, features_as_tuples
+from arcproc.geometry import UNIT_PLURAL
 from arcproc.helpers import (
     log_entity_states,
     python_type_constructor,
@@ -38,8 +39,6 @@ TYPE_ID_FUNCTION_MAP: Dict[str, FunctionType] = {
     "text": (lambda x: x.split(" : ")[0] if x else None),
 }
 """Mapping of ArcGIS field type to ID extract function for network solution layer."""
-UNIT_PLURAL: Dict[str, str] = {"Foot": "Feet", "Meter": "Meters"}
-"""Mapping of singular unit to plural. Only need common ones from spatial references."""
 
 
 arcpy.SetLogHistory(False)
