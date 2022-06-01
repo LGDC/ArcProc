@@ -1,14 +1,14 @@
 """Process manager objects."""
-import logging
 from collections import Counter
 from contextlib import ContextDecorator
-from datetime import datetime as _datetime
+from datetime import datetime
 from inspect import signature
+from logging import DEBUG, Logger, getLogger
 from pathlib import Path
 from types import FunctionType, MethodType, TracebackType
 from typing import Any, Iterable, Optional, Type, TypeVar, Union
 
-import arcpy
+from arcpy import SetLogHistory
 
 from arcproc.dataset import (
     copy_dataset,
@@ -27,15 +27,14 @@ from arcproc.helpers import log_entity_states, slugify, time_elapsed
 from arcproc.metadata import Field, SpatialReferenceSourceItem
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
+
+SetLogHistory(False)
 
 # Py3.7: Can replace usage with `typing.Self` in Py3.11.
 TProcedure = TypeVar("TProcedure", bound="Procedure")
 """Type variable to enable method return of self on Procedure."""
-
-
-arcpy.SetLogHistory(False)
 
 
 class Procedure(ContextDecorator):
@@ -45,7 +44,7 @@ class Procedure(ContextDecorator):
     """Preserve transformation datasets if True."""
     name: str = "Unnamed Procedure"
     """Procedure name."""
-    time_started: _datetime
+    time_started: datetime
     """Timestamp for when procedure started."""
     transform_path: Path = None
     """Path to current transformation dataset."""
@@ -64,7 +63,7 @@ class Procedure(ContextDecorator):
             name: Procedure name.
             workspace_path: Path to workspace for transformation datasets.
         """
-        self.time_started = _datetime.now()
+        self.time_started = datetime.now()
         if name:
             self.name = name
         if workspace_path:
@@ -131,15 +130,15 @@ class Procedure(ContextDecorator):
             field_names=field_names,
             dataset_where_sql=dataset_where_sql,
             output_path=self.transform_path,
-            log_level=logging.DEBUG,
+            log_level=DEBUG,
         ).feature_count
         # ArcPy 2.8.0: Workaround for BUG-000091314.
-        remove_all_default_field_values(self.transform_path, log_level=logging.DEBUG)
+        remove_all_default_field_values(self.transform_path, log_level=DEBUG)
         log_entity_states("features", states, logger=LOG)
         LOG.info("End: Extract.")
         return self
 
-    def init_schema(
+    def initialize_schema(
         self,
         template_path: Optional[Union[Path, str]] = None,
         *,
@@ -173,19 +172,17 @@ class Procedure(ContextDecorator):
                 template_path,
                 output_path=self.transform_path,
                 schema_only=True,
-                log_level=logging.DEBUG,
+                log_level=DEBUG,
             )
             # ArcPy 2.8.0: Workaround for BUG-000091314.
-            remove_all_default_field_values(
-                self.transform_path, log_level=logging.DEBUG
-            )
+            remove_all_default_field_values(self.transform_path, log_level=DEBUG)
         else:
             create_dataset(
                 self.transform_path,
                 field_metadata_list=field_metadata_list,
                 geometry_type=geometry_type,
                 spatial_reference_item=spatial_reference_item,
-                log_level=logging.DEBUG,
+                log_level=DEBUG,
             )
         LOG.info("End: Initialize.")
         return self
@@ -217,18 +214,18 @@ class Procedure(ContextDecorator):
                 states["deleted"] = delete_features(
                     dataset_path,
                     use_edit_session=use_edit_session,
-                    log_level=logging.DEBUG,
+                    log_level=DEBUG,
                 )["deleted"]
             states["inserted"] = insert_features_from_dataset(
                 dataset_path,
                 source_path=self.transform_path,
                 use_edit_session=use_edit_session,
-                log_level=logging.DEBUG,
+                log_level=DEBUG,
             )["inserted"]
         # Load to a new dataset.
         else:
             states["copied"] = copy_dataset(
-                self.transform_path, output_path=dataset_path, log_level=logging.DEBUG
+                self.transform_path, output_path=dataset_path, log_level=DEBUG
             ).feature_count
         log_entity_states("features", states, logger=LOG)
         LOG.info("End: Load.")
@@ -299,7 +296,7 @@ class Procedure(ContextDecorator):
             source_path=self.transform_path,
             delete_missing_features=delete_missing_features,
             use_edit_session=use_edit_session,
-            log_level=logging.DEBUG,
+            log_level=DEBUG,
         )
         log_entity_states("features", states, logger=LOG)
         LOG.info("End: Update.")

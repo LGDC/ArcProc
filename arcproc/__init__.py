@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.managers
 import arcproc.network
 import arcproc.proximity
 import arcproc.services
@@ -82,6 +81,7 @@ from arcproc.geometry import (
     line_between_centroids,
 )
 from arcproc.geoset import identity_features, join_features_at_center, union_features
+from arcproc.managers import Procedure
 
 
 __all__ = [
@@ -159,4 +159,6 @@ __all__ = [
     "identity_features",
     "join_features_at_center",
     "union_features",
+    # Managers.
+    "Procedure",
 ]
