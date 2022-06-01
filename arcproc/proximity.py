@@ -13,8 +13,7 @@ from arcproc.dataset import (
     delete_dataset,
     delete_field,
 )
-from arcproc.features import as_dicts as features_as_dicts
-from arcproc.features import as_tuples as features_as_tuples
+from arcproc.features import features_as_dicts, features_as_tuples
 from arcproc.helpers import log_entity_states, unique_path
 from arcproc.metadata import Dataset
 

@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.features
 import arcproc.geometry
 import arcproc.geoset
 import arcproc.helpers
@@ -58,6 +57,23 @@ from arcproc.exceptions import (
     DomainNotFoundError,
     FieldNotFoundError,
 )
+from arcproc.features import (
+    FEATURE_UPDATE_TYPES,
+    delete_features,
+    delete_features_with_ids,
+    densify_features,
+    eliminate_feature_inner_rings,
+    features_as_dicts,
+    features_as_tuples,
+    insert_features_from_dataset,
+    insert_features_from_mappings,
+    insert_features_from_sequences,
+    keep_features_within_location,
+    replace_feature_true_curves,
+    update_features_from_dataset,
+    update_features_from_mappings,
+    update_features_from_sequences,
+)
 
 
 __all__ = [
@@ -106,4 +122,20 @@ __all__ = [
     "DatasetNotFoundError",
     "DomainNotFoundError",
     "FieldNotFoundError",
+    # Features.
+    "FEATURE_UPDATE_TYPES",
+    "delete_features",
+    "delete_features_with_ids",
+    "densify_features",
+    "eliminate_feature_inner_rings",
+    "features_as_dicts",
+    "features_as_tuples",
+    "insert_features_from_dataset",
+    "insert_features_from_mappings",
+    "insert_features_from_sequences",
+    "keep_features_within_location",
+    "replace_feature_true_curves",
+    "update_features_from_dataset",
+    "update_features_from_mappings",
+    "update_features_from_sequences",
 ]

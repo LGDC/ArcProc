@@ -10,7 +10,12 @@ from typing import Iterable, Optional, Union
 
 import arcpy
 
-from arcproc import features
+from arcproc.features import (
+    features_as_dicts,
+    features_as_tuples,
+    insert_features_from_sequences,
+    update_features_from_mappings,
+)
 from arcproc.helpers import log_entity_states, same_value
 from arcproc.metadata import Dataset
 from arcproc.workspace import Editing
@@ -58,7 +63,7 @@ def consolidate_rows(
         field_name,
     ]
     id_rows = defaultdict(list)
-    for row in features.as_dicts(dataset_path, field_names=field_names):
+    for row in features_as_dicts(dataset_path, field_names=field_names):
         _id = tuple(row[name] for name in id_field_names)
         id_rows[_id].append(row)
     for _id in list(id_rows):
@@ -81,7 +86,7 @@ def consolidate_rows(
         id_rows[_id] = [
             row for row in rows if row[date_initiated_field_name] is not None
         ]
-    states = features.update_from_dicts(
+    states = update_features_from_mappings(
         dataset_path,
         field_names=field_names,
         # In tracking dataset, ID is ID + date_initiated.
@@ -149,7 +154,7 @@ def update_rows(
     current_where_sql = f"{date_expired_field_name} IS NULL"
     id_current_value = {
         row[:-1]: row[-1]
-        for row in features.as_tuples(
+        for row in features_as_tuples(
             dataset_path,
             field_names=id_field_names + [field_name],
             dataset_where_sql=current_where_sql,
@@ -157,7 +162,7 @@ def update_rows(
     }
     id_cmp_value = {
         row[:-1]: row[-1]
-        for row in features.as_tuples(
+        for row in features_as_tuples(
             cmp_dataset_path, field_names=cmp_id_field_names + [cmp_field_name]
         )
     }
@@ -185,7 +190,7 @@ def update_rows(
                 cursor.updateRow(_id + (row[-2], cmp_date))
             else:
                 states["unchanged"] += 1
-    features.insert_from_iters(
+    insert_features_from_sequences(
         dataset_path,
         field_names=id_field_names + [field_name, date_initiated_field_name],
         source_features=new_rows,

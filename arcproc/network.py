@@ -10,8 +10,7 @@ import arcpy
 
 from arcproc.attributes import update_field_with_function
 from arcproc.dataset import DatasetView, add_field, copy_dataset
-from arcproc.features import as_dicts as features_as_dicts
-from arcproc.features import as_tuples as features_as_tuples
+from arcproc.features import features_as_dicts, features_as_tuples
 from arcproc.helpers import log_entity_states, python_type, same_feature, unique_ids
 from arcproc.metadata import (
     Dataset,

@@ -28,7 +28,7 @@ from arcproc.dataset import (
     dataset_feature_count,
     delete_field,
 )
-from arcproc.features import insert_from_path as insert_features_from_path
+from arcproc.features import insert_features_from_dataset
 from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 
@@ -310,7 +310,7 @@ def convert_projection(
         spatial_reference_item=spatial_reference,
         log_level=DEBUG,
     )
-    insert_features_from_path(
+    insert_features_from_dataset(
         output_path,
         field_names=_dataset.user_field_names,
         source_path=dataset_path,

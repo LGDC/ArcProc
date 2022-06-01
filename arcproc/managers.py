@@ -10,13 +10,17 @@ from typing import Any, Iterable, Optional, Type, TypeVar, Union
 
 import arcpy
 
-from arcproc import features
 from arcproc.dataset import (
     copy_dataset,
     create_dataset,
     delete_dataset,
     is_valid_dataset,
     remove_all_default_field_values,
+)
+from arcproc.features import (
+    delete_features,
+    insert_features_from_dataset,
+    update_features_from_dataset,
 )
 from arcproc.helpers import elapsed, log_entity_states, slugify, unique_path
 from arcproc.metadata import Field, SpatialReferenceSourceItem
@@ -210,12 +214,12 @@ class Procedure(ContextDecorator):
         # Load to an existing dataset.
         if is_valid_dataset(dataset_path):
             if not preserve_features:
-                states["deleted"] = features.delete(
+                states["deleted"] = delete_features(
                     dataset_path,
                     use_edit_session=use_edit_session,
                     log_level=logging.DEBUG,
                 )["deleted"]
-            states["inserted"] = features.insert_from_path(
+            states["inserted"] = insert_features_from_dataset(
                 dataset_path,
                 source_path=self.transform_path,
                 use_edit_session=use_edit_session,
@@ -288,7 +292,7 @@ class Procedure(ContextDecorator):
         """
         dataset_path = Path(dataset_path)
         LOG.info("Start: Update `%s`.", dataset_path)
-        states = features.update_from_path(
+        states = update_features_from_dataset(
             dataset_path,
             field_names=field_names,
             id_field_names=id_field_names,

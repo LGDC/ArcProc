@@ -1,13 +1,30 @@
 """Feature operations."""
-import inspect
-import logging
 from collections import Counter
+from inspect import isgeneratorfunction
 from itertools import chain
+from logging import DEBUG, INFO, Logger, getLogger
 from pathlib import Path
-from typing import Any, Iterable, Iterator, List, Optional, Sequence, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
-import arcpy
-import pint
+from arcpy import Array, FieldMap, FieldMappings, Polygon, SetLogHistory
+from arcpy.da import (  # pylint: disable=no-name-in-module
+    InsertCursor,
+    SearchCursor,
+    UpdateCursor,
+)
+from arcpy.management import Append, DeleteRows, SelectLayerByLocation
+from pint import UnitRegistry
 
 from arcproc.dataset import DatasetView, dataset_feature_count
 from arcproc.helpers import freeze_values, log_entity_states, same_feature, unique_name
@@ -15,26 +32,25 @@ from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceIt
 from arcproc.workspace import Editing
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
-UNIT: pint.registry.UnitRegistry = pint.UnitRegistry()
+SetLogHistory(False)
+
+UNIT: UnitRegistry = UnitRegistry()
 """Registry for units & conversions."""
-UPDATE_TYPES: List[str] = ["deleted", "inserted", "altered", "unchanged"]
+FEATURE_UPDATE_TYPES: List[str] = ["deleted", "inserted", "altered", "unchanged"]
 """Types of feature updates commonly associated wtth update counters."""
 
 
-arcpy.SetLogHistory(False)
-
-
-def as_dicts(
+def features_as_dicts(
     dataset_path: Union[Path, str],
     field_names: Optional[Iterable[str]] = None,
     *,
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = None,
-) -> Iterator[dict]:
-    """Generate dictionaries of feature attribute name to their value.
+) -> Iterator[Dict[str, Any]]:
+    """Generate features as dictionaries of attribute name to value.
 
     Notes:
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
@@ -54,7 +70,7 @@ def as_dicts(
         field_names = list(field_names)
     else:
         field_names = Dataset(dataset_path).field_names_tokenized
-    cursor = arcpy.da.SearchCursor(
+    cursor = SearchCursor(
         # ArcPy2.8.0: Convert Path to str.
         in_table=str(dataset_path),
         field_names=field_names,
@@ -66,14 +82,14 @@ def as_dicts(
             yield dict(zip(cursor.fields, feature))
 
 
-def as_tuples(
+def features_as_tuples(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
     *,
     dataset_where_sql: Optional[str] = None,
     spatial_reference_item: SpatialReferenceSourceItem = None,
-) -> Iterator[tuple]:
-    """Generate tuples of feature attribute values.
+) -> Iterator[Tuple[Any]]:
+    """Generate features as tuples of attribute values.
 
     Notes:
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
@@ -89,7 +105,7 @@ def as_tuples(
     """
     field_names = list(field_names)
     dataset_path = Path(dataset_path)
-    cursor = arcpy.da.SearchCursor(
+    cursor = SearchCursor(
         # ArcPy2.8.0: Convert Path to str.
         in_table=str(dataset_path),
         field_names=field_names,
@@ -100,12 +116,12 @@ def as_tuples(
         yield from cursor
 
 
-def delete(
+def delete_features(
     dataset_path: Union[Path, str],
     *,
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Delete features in dataset.
 
@@ -119,25 +135,25 @@ def delete(
         Feature counts for each delete-state.
     """
     dataset_path = Path(dataset_path)
-    LOG.log(log_level, "Start: Delete features from `%s`.", dataset_path)
+    LOG.log(log_level, "Start: Delete features in `%s`.", dataset_path)
     session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view, session:
         states["deleted"] = view.count
-        arcpy.management.DeleteRows(in_rows=view.name)
+        DeleteRows(in_rows=view.name)
         states["remaining"] = dataset_feature_count(dataset_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Delete.")
     return states
 
 
-def delete_by_id(
+def delete_features_with_ids(
     dataset_path: Union[Path, str],
     delete_ids: Iterable[Union[Sequence[Any], Any]],
     id_field_names: Iterable[str],
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Delete features in dataset with given IDs.
 
@@ -159,7 +175,7 @@ def delete_by_id(
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Delete features in `%s` with given IDs.", dataset_path)
     id_field_names = list(id_field_names)
-    if inspect.isgeneratorfunction(delete_ids):
+    if isgeneratorfunction(delete_ids):
         delete_ids = delete_ids()
     ids = set()
     for _id in delete_ids:
@@ -170,7 +186,7 @@ def delete_by_id(
     states = Counter()
     if ids:
         # ArcPy2.8.0: Convert Path to str.
-        cursor = arcpy.da.UpdateCursor(str(dataset_path), field_names=id_field_names)
+        cursor = UpdateCursor(str(dataset_path), field_names=id_field_names)
         session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
         with session, cursor:
             for row in cursor:
@@ -187,16 +203,16 @@ def delete_by_id(
     return states
 
 
-def densify(
+def densify_features(
     dataset_path: Union[Path, str],
     *,
     dataset_where_sql: Optional[str] = None,
     distance: Union[float, int],
     only_curve_features: bool = False,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Add vertices at a given distance along feature geometry segments.
+    """Densify features geometry in dataset with added vertices along segments.
 
     Args:
         dataset_path: Path to dataset.
@@ -216,7 +232,7 @@ def densify(
     if _dataset.spatial_reference.linear_unit != "Meter":
         distance_unit = getattr(UNIT, _dataset.spatial_reference.linear_unit.lower())
         distance_with_unit = (distance * distance_unit).to(UNIT.meter) / UNIT.meter
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert Path to str.
         in_table=str(dataset_path),
         field_names=["SHAPE@"],
@@ -242,14 +258,14 @@ def densify(
     return states
 
 
-def eliminate_interior_rings(
+def eliminate_feature_inner_rings(
     dataset_path: Union[Path, str],
     *,
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Eliminate interior rings of polygon features.
+    """Eliminate feature polygon geometry inner rings in dataset.
 
     Args:
         dataset_path: Path to dataset.
@@ -261,8 +277,8 @@ def eliminate_interior_rings(
         Feature counts for each ring-eliminate-state.
     """
     dataset_path = Path(dataset_path)
-    LOG.log(log_level, "Start: Eliminate interior rings in `%s`.", dataset_path)
-    cursor = arcpy.da.UpdateCursor(
+    LOG.log(log_level, "Start: Eliminate feature inner rings in `%s`.", dataset_path)
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert Path to str.
         in_table=str(dataset_path),
         field_names=["SHAPE@"],
@@ -277,19 +293,19 @@ def eliminate_interior_rings(
                 states["unchanged"] += 1
                 continue
 
-            parts = arcpy.Array()
+            parts = Array()
             for old_part in old_geometry:
                 if None not in old_part:
                     parts.append(old_part)
                 else:
-                    new_part = arcpy.Array()
+                    new_part = Array()
                     for point in old_part:
                         if not point:
                             break
 
                         new_part.append(point)
                     parts.append(new_part)
-            new_geometry = arcpy.Polygon(parts, _dataset.spatial_reference.object)
+            new_geometry = Polygon(parts, _dataset.spatial_reference.object)
             cursor.updateRow([new_geometry])
             states["rings eliminated"] += 1
     log_entity_states("features", states, logger=LOG, log_level=log_level)
@@ -297,15 +313,15 @@ def eliminate_interior_rings(
     return states
 
 
-def insert_from_dicts(
+def insert_features_from_mappings(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
     *,
-    source_features: Iterable[dict],
+    source_features: Iterable[Mapping[str, Any]],
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Insert features into dataset from dictionaries.
+    """Insert features into dataset from mappings.
 
     Args:
         dataset_path: Path to dataset.
@@ -319,13 +335,11 @@ def insert_from_dicts(
         Feature counts for each insert-state.
     """
     dataset_path = Path(dataset_path)
-    LOG.log(
-        log_level, "Start: Insert features into `%s` from dictionaries.", dataset_path
-    )
+    LOG.log(log_level, "Start: Insert features into `%s` from mappings.", dataset_path)
     field_names = list(field_names)
-    if inspect.isgeneratorfunction(source_features):
+    if isgeneratorfunction(source_features):
         source_features = source_features()
-    states = insert_from_iters(
+    states = insert_features_from_sequences(
         dataset_path,
         field_names,
         source_features=(
@@ -333,20 +347,20 @@ def insert_from_dicts(
             for feature in source_features
         ),
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Insert.")
     return states
 
 
-def insert_from_iters(
+def insert_features_from_sequences(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
     *,
     source_features: Iterable[Sequence[Any]],
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Insert features into dataset from sequences.
 
@@ -364,10 +378,10 @@ def insert_from_iters(
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Insert features into `%s` from sequences.", dataset_path)
     field_names = list(field_names)
-    if inspect.isgeneratorfunction(source_features):
+    if isgeneratorfunction(source_features):
         source_features = source_features()
     # ArcPy2.8.0: Convert Path to str.
-    cursor = arcpy.da.InsertCursor(in_table=str(dataset_path), field_names=field_names)
+    cursor = InsertCursor(in_table=str(dataset_path), field_names=field_names)
     session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
@@ -379,14 +393,14 @@ def insert_from_iters(
     return states
 
 
-def insert_from_path(
+def insert_features_from_dataset(
     dataset_path: Union[Path, str],
     field_names: Optional[Iterable[str]] = None,
     *,
     source_path: Union[Path, str],
     source_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Insert features into dataset from another dataset.
 
@@ -407,7 +421,7 @@ def insert_from_path(
     source_path = Path(source_path)
     LOG.log(
         log_level,
-        "Start: Insert features into `%s` from `%s`.",
+        "Start: Insert features into `%s` from dataset `%s`.",
         dataset_path,
         source_path,
     )
@@ -432,9 +446,9 @@ def insert_from_path(
     # Avoid this problem by using field mapping.
     # BUG-000090970 - ArcGIS Pro 'No test' field mapping in Append tool does not auto-
     # map to the same field name if naming convention differs.
-    field_mapping = arcpy.FieldMappings()
+    field_mapping = FieldMappings()
     for field_name in field_names:
-        field_map = arcpy.FieldMap()
+        field_map = FieldMap()
         field_map.addInputField(source_path, field_name)
         field_mapping.addFieldMap(field_map)
     session = Editing(_dataset.workspace_path, use_edit_session)
@@ -447,7 +461,7 @@ def insert_from_path(
         force_nonspatial=(not _dataset.is_spatial),
     )
     with view, session:
-        arcpy.management.Append(
+        Append(
             inputs=view.name,
             # ArcPy2.8.0: Convert Path to str.
             target=str(dataset_path),
@@ -460,16 +474,16 @@ def insert_from_path(
     return states
 
 
-def keep_by_location(
+def keep_features_within_location(
     dataset_path: Union[Path, str],
     *,
     location_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     location_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Keep features where geometry overlaps location-dataset geometry.
+    """Keep features in dataset within location dataset features.
 
     Args:
         dataset_path: Path to dataset.
@@ -486,7 +500,7 @@ def keep_by_location(
     location_path = Path(location_path)
     LOG.log(
         log_level,
-        "Start: Keep features in `%s` where location overlaps `%s`.",
+        "Start: Keep features in `%s` within location features in `%s`.",
         dataset_path,
         location_path,
     )
@@ -495,16 +509,14 @@ def keep_by_location(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     location_view = DatasetView(location_path, dataset_where_sql=location_where_sql)
     with session, view, location_view:
-        arcpy.management.SelectLayerByLocation(
+        SelectLayerByLocation(
             in_layer=view.name,
             overlap_type="INTERSECT",
             select_features=location_view.name,
             selection_type="NEW_SELECTION",
         )
-        arcpy.management.SelectLayerByLocation(
-            in_layer=view.name, selection_type="SWITCH_SELECTION"
-        )
-        states["deleted"] = delete(view.name, log_level=logging.DEBUG)["deleted"]
+        SelectLayerByLocation(in_layer=view.name, selection_type="SWITCH_SELECTION")
+        states["deleted"] = delete_features(view.name, log_level=DEBUG)["deleted"]
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Keep.")
     return states
@@ -516,9 +528,9 @@ def replace_feature_true_curves(
     dataset_where_sql: Optional[str] = None,
     max_deviation: Union[float, int],
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Replace true cuves with extra vertices in features.
+    """Replace feature geometry true curves with extra vertices.
 
     Args:
         dataset_path: Path to dataset.
@@ -533,11 +545,11 @@ def replace_feature_true_curves(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Replace true curves for feature geometry in `%s`.",
+        "Start: Replace feature geometry true curves in `%s`.",
         dataset_path,
     )
     _dataset = Dataset(dataset_path)
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert Path to str.
         in_table=str(dataset_path),
         field_names=["SHAPE@"],
@@ -565,17 +577,17 @@ def replace_feature_true_curves(
     return states
 
 
-def update_from_dicts(
+def update_features_from_mappings(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
     *,
     id_field_names: Iterable[str],
-    source_features: Iterable[dict],
+    source_features: Iterable[Mapping[str, Any]],
     delete_missing_features: bool = True,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Update features in dataset from dictionaries.
+    """Update features in dataset from mappings.
 
     Note:
         There is no guarantee that the ID field(s) are unique.
@@ -597,14 +609,12 @@ def update_from_dicts(
         Feature counts for each update-state.
     """
     dataset_path = Path(dataset_path)
-    LOG.log(
-        log_level, "Start: Update features into `%s` from dictionaries.", dataset_path
-    )
+    LOG.log(log_level, "Start: Update features into `%s` from mappings.", dataset_path)
     field_names = list(field_names)
     id_field_names = list(id_field_names)
-    if inspect.isgeneratorfunction(source_features):
+    if isgeneratorfunction(source_features):
         source_features = source_features()
-    states = update_from_iters(
+    states = update_features_from_sequences(
         dataset_path,
         field_names=id_field_names + field_names,
         id_field_names=id_field_names,
@@ -614,14 +624,14 @@ def update_from_dicts(
         ),
         delete_missing_features=delete_missing_features,
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
     return states
 
 
-def update_from_iters(
+def update_features_from_sequences(
     dataset_path: Union[Path, str],
     field_names: Iterable[str],
     *,
@@ -629,7 +639,7 @@ def update_from_iters(
     source_features: Iterable[Sequence[Any]],
     delete_missing_features: bool = True,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update features in dataset from sequences.
 
@@ -662,10 +672,11 @@ def update_from_iters(
     if not set(id_field_names).issubset(field_names):
         raise ValueError("id_field_names must be a subset of field_names")
 
-    if inspect.isgeneratorfunction(source_features):
+    if isgeneratorfunction(source_features):
         source_features = source_features()
     dataset_ids = {
-        tuple(freeze_values(*_id)) for _id in as_tuples(dataset_path, id_field_names)
+        tuple(freeze_values(*_id))
+        for _id in features_as_tuples(dataset_path, id_field_names)
     }
     id_feature = {}
     insert_features = []
@@ -686,9 +697,7 @@ def update_from_iters(
     states = Counter()
     if delete_ids or id_feature:
         # ArcPy2.8.0: Convert Path to str.
-        cursor = arcpy.da.UpdateCursor(
-            in_table=str(dataset_path), field_names=field_names
-        )
+        cursor = UpdateCursor(in_table=str(dataset_path), field_names=field_names)
         with session, cursor:
             for feature in cursor:
                 _id = tuple(
@@ -718,7 +727,7 @@ def update_from_iters(
                 else:
                     states["unchanged"] += 1
     if insert_features:
-        cursor = arcpy.da.InsertCursor(
+        cursor = InsertCursor(
             # ArcPy2.8.0: Convert Path to str.
             in_table=str(dataset_path),
             field_names=field_names,
@@ -738,7 +747,7 @@ def update_from_iters(
     return states
 
 
-def update_from_path(
+def update_features_from_dataset(
     dataset_path: Union[Path, str],
     field_names: Optional[Iterable[str]] = None,
     *,
@@ -747,7 +756,7 @@ def update_from_path(
     source_where_sql: Optional[str] = None,
     delete_missing_features: bool = True,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
     """Update features in dataset from another dataset.
 
@@ -772,7 +781,7 @@ def update_from_path(
     source_path = Path(source_path)
     LOG.log(
         log_level,
-        "Start: Update features in `%s` from `%s`.",
+        "Start: Update features in `%s` from dataset `%s`.",
         dataset_path,
         source_path,
     )
@@ -789,19 +798,19 @@ def update_from_path(
         field_names.discard(field_token.lower())
     field_names = list(field_names)
     id_field_names = list(id_field_names)
-    source_features = as_tuples(
+    source_features = features_as_tuples(
         source_path,
         field_names=id_field_names + field_names,
         dataset_where_sql=source_where_sql,
     )
-    states = update_from_iters(
+    states = update_features_from_sequences(
         dataset_path,
         field_names=id_field_names + field_names,
         id_field_names=id_field_names,
         source_features=source_features,
         delete_missing_features=delete_missing_features,
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
