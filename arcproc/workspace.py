@@ -230,6 +230,49 @@ def create_geodatabase_xml_backup(
     return output_path
 
 
+def delete_workspace(
+    workspace_path: Union[Path, str], *, log_level: int = INFO
+) -> Workspace:
+    """Delete workspace.
+
+    Args:
+        workspace_path: Path to workspace.
+        log_level: Level to log the function at.
+
+    Returns:
+        Workspace metadata instance for now-deleted workspace.
+    """
+    workspace_path = Path(workspace_path)
+    LOG.log(log_level, "Start: Delete workspace `%s`.", workspace_path)
+    if not is_valid_workspace(workspace_path):
+        raise ValueError(f"`{workspace_path}` not a valid workspace.")
+
+    _workspace = Workspace(workspace_path)
+    if not _workspace.can_delete:
+        raise ValueError(f"`{workspace_path}` unsupported workspace type.")
+
+    # ArcPy2.8.0: Convert to str.
+    Delete(in_data=str(workspace_path))
+    LOG.log(log_level, "End: Delete.")
+    return _workspace
+
+
+def is_valid_workspace(workspace_path: Union[Path, str]) -> bool:
+    """Return True if workspace is extant & valid.
+
+    Args:
+        workspace_path: Path to workspace.
+    """
+    workspace_path = Path(workspace_path)
+    exists = workspace_path and Exists(dataset=workspace_path)
+    if exists:
+        # ArcPy2.8.0: Conver to str.
+        valid = Describe(str(workspace_path)).dataType == "Workspace"
+    else:
+        valid = False
+    return valid
+
+
 def workspace_dataset_names(
     workspace_path: Union[Path, str],
     *,
@@ -299,46 +342,3 @@ def workspace_dataset_paths(
                     continue
 
             yield root_path / dataset_name
-
-
-def delete_workspace(
-    workspace_path: Union[Path, str], *, log_level: int = INFO
-) -> Workspace:
-    """Delete workspace.
-
-    Args:
-        workspace_path: Path to workspace.
-        log_level: Level to log the function at.
-
-    Returns:
-        Workspace metadata instance for now-deleted workspace.
-    """
-    workspace_path = Path(workspace_path)
-    LOG.log(log_level, "Start: Delete workspace `%s`.", workspace_path)
-    if not is_valid_workspace(workspace_path):
-        raise ValueError(f"`{workspace_path}` not a valid workspace.")
-
-    _workspace = Workspace(workspace_path)
-    if not _workspace.can_delete:
-        raise ValueError(f"`{workspace_path}` unsupported workspace type.")
-
-    # ArcPy2.8.0: Convert to str.
-    Delete(in_data=str(workspace_path))
-    LOG.log(log_level, "End: Delete.")
-    return _workspace
-
-
-def is_valid_workspace(workspace_path: Union[Path, str]) -> bool:
-    """Return True if workspace is extant & valid.
-
-    Args:
-        workspace_path: Path to workspace.
-    """
-    workspace_path = Path(workspace_path)
-    exists = workspace_path and Exists(dataset=workspace_path)
-    if exists:
-        # ArcPy2.8.0: Conver to str.
-        valid = Describe(str(workspace_path)).dataType == "Workspace"
-    else:
-        valid = False
-    return valid
