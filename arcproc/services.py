@@ -1,28 +1,28 @@
 """ArcGIS Server service operations."""
-import logging
-from typing import Iterable, Iterator, Optional
+from logging import Logger, getLogger
+from typing import Any, Dict, Iterable, Iterator, Optional
 
-import arcgis
-import arcpy
+from arcgis.features import FeatureLayer
+from arcpy import AsShape, SetLogHistory
 
 from arcproc.metadata import SpatialReference, SpatialReferenceSourceItem
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
-arcpy.SetLogHistory(False)
+SetLogHistory(False)
 
 
-def as_dicts(
+def service_features_as_dicts(
     url: str,
     *,
     field_names: Optional[Iterable[str]] = None,
     service_where_sql: Optional[str] = None,
     include_geometry: bool = True,
     spatial_reference_item: SpatialReferenceSourceItem = None,
-) -> Iterator[dict]:
-    """Generate mappings of feature attribute name to value.
+) -> Iterator[Dict[str, Any]]:
+    """Generate service features as dictionaries of attribute name to value.
 
     Notes:
         Use ArcPy cursor token names for object IDs and geometry objects/properties.
@@ -42,7 +42,7 @@ def as_dicts(
     """
     # `spatial_reference_item = None` will return instance with wkid being None.
     wkid = SpatialReference(spatial_reference_item).wkid
-    feature_layer = arcgis.features.FeatureLayer(url)
+    feature_layer = FeatureLayer(url)
     feature_set = feature_layer.query(
         where=service_where_sql if service_where_sql else "1=1",
         out_fields="*" if field_names is None else list(field_names),
@@ -53,5 +53,5 @@ def as_dicts(
         if include_geometry:
             if "spatialReference" not in feature.geometry:
                 feature.geometry["spatialReference"] = {"wkid": wkid}
-            feature_dict["SHAPE@"] = arcpy.AsShape(feature.geometry, esri_json=True)
+            feature_dict["SHAPE@"] = AsShape(feature.geometry, esri_json=True)
         yield feature_dict

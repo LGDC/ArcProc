@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.services
 import arcproc.tracking
 import arcproc.workspace  # noqa: F401
 from arcproc.attributes import (
@@ -106,6 +105,7 @@ from arcproc.proximity import (
     erase_features,
     nearest_features,
 )
+from arcproc.services import service_features_as_dicts
 
 
 __all__ = [
@@ -208,4 +208,6 @@ __all__ = [
     "dissolve_features",
     "erase_features",
     "nearest_features",
+    # Services.
+    "service_features_as_dicts",
 ]
