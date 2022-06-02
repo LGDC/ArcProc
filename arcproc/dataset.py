@@ -15,7 +15,7 @@ from arcpy import (
     RecordSet,
     SetLogHistory,
 )
-from arcpy.da import ListSubtypes, SearchCursor  # pylint: disable=no-name-in-module
+from arcpy.da import ListSubtypes, SearchCursor
 from arcpy.management import (
     AddField,
     AddIndex,

@@ -8,7 +8,7 @@ from typing import Iterable, Optional, Union
 
 from arcpy import Multipoint, SetLogHistory
 from arcpy.analysis import CreateThiessenPolygons
-from arcpy.da import InsertCursor, SearchCursor  # pylint: disable=no-name-in-module
+from arcpy.da import InsertCursor, SearchCursor
 from arcpy.management import (
     CreateFeatureclass,
     Delete,

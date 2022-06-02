@@ -8,8 +8,8 @@ from arcpy import Describe, Exists
 from arcpy import Field as ArcField
 from arcpy import Geometry, ListFields, SetLogHistory
 from arcpy import SpatialReference as ArcSpatialReference
-from arcpy.da import Domain as ArcDomain  # pylint: disable=no-name-in-module
-from arcpy.da import ListDomains, SearchCursor  # pylint: disable=no-name-in-module
+from arcpy.da import Domain as ArcDomain
+from arcpy.da import ListDomains, SearchCursor
 from arcpy.management import GetCount
 
 from arcproc.exceptions import (

@@ -7,7 +7,7 @@ from types import FunctionType
 from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
 
 from arcpy import SetLogHistory
-from arcpy.da import UpdateCursor  # pylint: disable=no-name-in-module
+from arcpy.da import UpdateCursor
 from arcpy.management import Delete
 from arcpy.na import AddLocations, MakeServiceAreaLayer, Solve
 from arcpy.nax import (

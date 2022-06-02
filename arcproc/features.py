@@ -18,11 +18,7 @@ from typing import (
 )
 
 from arcpy import Array, FieldMap, FieldMappings, Polygon, SetLogHistory
-from arcpy.da import (  # pylint: disable=no-name-in-module
-    InsertCursor,
-    SearchCursor,
-    UpdateCursor,
-)
+from arcpy.da import InsertCursor, SearchCursor, UpdateCursor
 from arcpy.management import Append, DeleteRows, SelectLayerByLocation
 from pint import UnitRegistry
 

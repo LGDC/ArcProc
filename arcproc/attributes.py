@@ -9,7 +9,7 @@ from typing import Any, Iterable, Iterator, Mapping, Optional, Union
 
 from arcpy import SetLogHistory
 from arcpy.analysis import Identity, SpatialJoin
-from arcpy.da import SearchCursor, UpdateCursor  # pylint: disable=no-name-in-module
+from arcpy.da import SearchCursor, UpdateCursor
 from arcpy.management import CalculateField, Delete
 
 from arcproc.dataset import DatasetView, unique_dataset_path
