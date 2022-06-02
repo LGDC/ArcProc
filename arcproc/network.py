@@ -1,12 +1,25 @@
 """Network analysis operations."""
-import logging
 from collections import Counter
 from copy import copy, deepcopy
+from logging import DEBUG, INFO, Logger, getLogger
 from pathlib import Path
 from types import FunctionType
 from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
 
-import arcpy
+from arcpy import SetLogHistory
+from arcpy.da import UpdateCursor  # pylint: disable=no-name-in-module
+from arcpy.management import Delete
+from arcpy.na import AddLocations, MakeServiceAreaLayer, Solve
+from arcpy.nax import (
+    BuildNetwork,
+    ClosestFacility,
+    ClosestFacilityInputDataType,
+    ClosestFacilityOutputDataType,
+    DistanceUnits,
+    GetTravelModes,
+    MessageSeverity,
+    TravelDirection,
+)
 
 from arcproc.attributes import update_field_with_function
 from arcproc.dataset import DatasetView, add_field, copy_dataset
@@ -27,10 +40,12 @@ from arcproc.metadata import (
 from arcproc.workspace import Editing
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
-TYPE_ID_FUNCTION_MAP: Dict[str, FunctionType] = {
+SetLogHistory(False)
+
+FIELD_TYPE_EXTRACTOR_MAP: Dict[str, FunctionType] = {
     "short": (lambda x: int(x.split(" : ")[0]) if x else None),
     "long": (lambda x: int(x.split(" : ")[0]) if x else None),
     "double": (lambda x: float(x.split(" : ")[0]) if x else None),
@@ -41,13 +56,8 @@ TYPE_ID_FUNCTION_MAP: Dict[str, FunctionType] = {
 """Mapping of ArcGIS field type to ID extract function for network solution layer."""
 
 
-arcpy.SetLogHistory(False)
-
-
-def build_network(
-    network_path: Union[Path, str], *, log_level: int = logging.INFO
-) -> Dataset:
-    """Build network dataset.
+def build_network(network_path: Union[Path, str], *, log_level: int = INFO) -> Dataset:
+    """Build network.
 
     Args:
         network_path: Path to network dataset.
@@ -59,12 +69,12 @@ def build_network(
     network_path = Path(network_path)
     LOG.log(log_level, "Start: Build network `%s`.", network_path)
     # ArcPy2.8.0: Convert Path to str.
-    arcpy.nax.BuildNetwork(in_network_dataset=str(network_path))
+    BuildNetwork(in_network_dataset=str(network_path))
     LOG.log(log_level, "End: Build.")
     return Dataset(network_path)
 
 
-def closest_facility_route(
+def closest_facility_routes(
     dataset_path: Union[Path, str],
     *,
     id_field_name: str,
@@ -77,7 +87,7 @@ def closest_facility_route(
     travel_from_facility: bool = False,
     travel_mode: str,
 ) -> Iterator[Dict[str, Any]]:
-    """Generate route info dictionaries for closest facility to each location feature.
+    """Generate routes for the closest facility to each location feature.
 
     Args:
         dataset_path: Path to dataset.
@@ -108,15 +118,15 @@ def closest_facility_route(
     dataset_path = Path(dataset_path)
     facility_path = Path(facility_path)
     network_path = Path(network_path)
-    analysis = arcpy.nax.ClosestFacility(network_path)
+    analysis = ClosestFacility(network_path)
     analysis.defaultImpedanceCutoff = max_cost
     distance_units = UNIT_PLURAL[SpatialReference(dataset_path).linear_unit]
-    analysis.distanceUnits = getattr(arcpy.nax.DistanceUnits, distance_units)
+    analysis.distanceUnits = getattr(DistanceUnits, distance_units)
     analysis.ignoreInvalidLocations = True
     if travel_from_facility:
-        analysis.travelDirection = arcpy.nax.TravelDirection.FromFacility
+        analysis.travelDirection = TravelDirection.FromFacility
     # ArcPy2.8.0: Convert Path to str.
-    analysis.travelMode = arcpy.nax.GetTravelModes(network_path)[travel_mode]
+    analysis.travelMode = GetTravelModes(network_path)[travel_mode]
     # Load facilities.
     field = Field(
         facility_path,
@@ -132,11 +142,9 @@ def closest_facility_route(
         "#",
         "#",
     ]
-    analysis.addFields(
-        arcpy.nax.ClosestFacilityInputDataType.Facilities, [field_description]
-    )
+    analysis.addFields(ClosestFacilityInputDataType.Facilities, [field_description])
     cursor = analysis.insertCursor(
-        arcpy.nax.ClosestFacilityInputDataType.Facilities,
+        ClosestFacilityInputDataType.Facilities,
         field_names=["source_id", "SHAPE@"],
     )
     _features = features_as_tuples(
@@ -162,11 +170,9 @@ def closest_facility_route(
         "#",
         "#",
     ]
-    analysis.addFields(
-        arcpy.nax.ClosestFacilityInputDataType.Incidents, [field_description]
-    )
+    analysis.addFields(ClosestFacilityInputDataType.Incidents, [field_description])
     cursor = analysis.insertCursor(
-        arcpy.nax.ClosestFacilityInputDataType.Incidents,
+        ClosestFacilityInputDataType.Incidents,
         field_names=["source_id", "SHAPE@"],
     )
     _features = features_as_tuples(
@@ -180,25 +186,25 @@ def closest_facility_route(
     # Solve & generate.
     result = analysis.solve()
     if not result.solveSucceeded:
-        for message in result.solverMessages(arcpy.nax.MessageSeverity.All):
+        for message in result.solverMessages(MessageSeverity.All):
             LOG.error(message)
         raise RuntimeError("Closest facility analysis failed")
 
     facility_oid_id = dict(
         result.searchCursor(
-            output_type=getattr(arcpy.nax.ClosestFacilityOutputDataType, "Facilities"),
+            output_type=getattr(ClosestFacilityOutputDataType, "Facilities"),
             field_names=["FacilityOID", "source_id"],
         )
     )
     location_oid_id = dict(
         result.searchCursor(
-            output_type=getattr(arcpy.nax.ClosestFacilityOutputDataType, "Incidents"),
+            output_type=getattr(ClosestFacilityOutputDataType, "Incidents"),
             field_names=["IncidentOID", "source_id"],
         )
     )
     keys = ["FacilityOID", "IncidentOID", f"Total_{distance_units}", "SHAPE@"]
     cursor = result.searchCursor(
-        output_type=arcpy.nax.ClosestFacilityOutputDataType.Routes, field_names=keys
+        output_type=ClosestFacilityOutputDataType.Routes, field_names=keys
     )
     with cursor:
         for row in cursor:
@@ -211,7 +217,7 @@ def closest_facility_route(
             }
 
 
-def generate_service_areas(
+def create_service_areas(
     dataset_path: Union[Path, str],
     *,
     id_field_name: str,
@@ -225,9 +231,9 @@ def generate_service_areas(
     restriction_attributes: Optional[Iterable[str]] = None,
     travel_from_facility: bool = False,
     trim_value: Optional[Union[float, int]] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Dataset:
-    """Create network service area features.
+    """Create service area features.
 
     Args:
         dataset_path: Path to dataset.
@@ -236,7 +242,7 @@ def generate_service_areas(
         dataset_where_sql: SQL where-clause for dataset subselection.
         output_path: Path to output dataset.
         cost_attribute: Name of network cost attribute to use.
-        detailed_features: Generate high-detail features if True.
+        detailed_features: Create high-detail features if True.
         max_distance: Distance in travel from the facility the outer ring will extend
             to, in the units of the dataset.
         overlap_facilities: Allow different facility service areas to overlap if True.
@@ -254,12 +260,17 @@ def generate_service_areas(
     dataset_path = Path(dataset_path)
     network_path = Path(network_path)
     output_path = Path(output_path)
-    LOG.log(log_level, "Start: Generate service areas for `%s`.", dataset_path)
+    LOG.log(
+        log_level,
+        "Start: Create service areas for `%s` in `%s`.",
+        dataset_path,
+        output_path,
+    )
     # `trim_value` assumes meters if not input as linear unit string.
     if trim_value is not None:
         trim_value = f"{trim_value} {SpatialReference(dataset_path).linear_unit}"
     # ArcPy2.8.0: Convert Path to str.
-    arcpy.na.MakeServiceAreaLayer(
+    MakeServiceAreaLayer(
         in_network_dataset=str(network_path),
         out_network_analysis_layer="service_area",
         impedance_attribute=cost_attribute,
@@ -276,7 +287,7 @@ def generate_service_areas(
     )
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
-        arcpy.na.AddLocations(
+        AddLocations(
             in_network_analysis_layer="service_area",
             sub_layer="Facilities",
             in_table=view.name,
@@ -287,30 +298,28 @@ def generate_service_areas(
             snap_to_position_along_network="NO_SNAP",
             exclude_restricted_elements=True,
         )
-    arcpy.na.Solve(
+    Solve(
         in_network_analysis_layer="service_area",
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    copy_dataset(
-        "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
-    )
-    arcpy.management.Delete("service_area")
+    copy_dataset("service_area/Polygons", output_path=output_path, log_level=DEBUG)
+    Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
-    add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
+    add_field(output_path, log_level=DEBUG, **id_field.field_as_dict)
     update_field_with_function(
         output_path,
         field_name=id_field.name,
-        function=TYPE_ID_FUNCTION_MAP[id_field.type.lower()],
+        function=FIELD_TYPE_EXTRACTOR_MAP[id_field.type.lower()],
         field_as_first_arg=False,
         arg_field_names=["Name"],
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     LOG.log(log_level, "End: Generate.")
     return Dataset(output_path)
 
 
-def generate_service_rings(
+def create_service_rings(
     dataset_path: Union[Path, str],
     *,
     id_field_name: str,
@@ -325,9 +334,9 @@ def generate_service_rings(
     ring_width: Union[float, int],
     travel_from_facility: bool = False,
     trim_value: Optional[Union[float, int]] = None,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Dataset:
-    """Create facility service ring features using a network dataset.
+    """Create service ring features.
 
     Args:
         dataset_path: Path to dataset.
@@ -356,12 +365,17 @@ def generate_service_rings(
     dataset_path = Path(dataset_path)
     network_path = Path(network_path)
     output_path = Path(output_path)
-    LOG.log(log_level, "Start: Generate service rings for `%s`.", dataset_path)
+    LOG.log(
+        log_level,
+        "Start: Create service rings for `%s` in `%s`.",
+        dataset_path,
+        output_path,
+    )
     # `trim_value` assumes meters if not input as linear unit string.
     if trim_value is not None:
         trim_value = f"{trim_value} {SpatialReference(dataset_path).linear_unit}"
     # ArcPy2.8.0: Convert Path to str.
-    arcpy.na.MakeServiceAreaLayer(
+    MakeServiceAreaLayer(
         in_network_dataset=str(network_path),
         out_network_analysis_layer="service_area",
         impedance_attribute=cost_attribute,
@@ -380,7 +394,7 @@ def generate_service_rings(
     )
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
-        arcpy.na.AddLocations(
+        AddLocations(
             in_network_analysis_layer="service_area",
             sub_layer="Facilities",
             in_table=view.name,
@@ -391,24 +405,22 @@ def generate_service_rings(
             snap_to_position_along_network="NO_SNAP",
             exclude_restricted_elements=True,
         )
-    arcpy.na.Solve(
+    Solve(
         in_network_analysis_layer="service_area",
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    copy_dataset(
-        "service_area/Polygons", output_path=output_path, log_level=logging.DEBUG
-    )
-    arcpy.management.Delete("service_area")
+    copy_dataset("service_area/Polygons", output_path=output_path, log_level=DEBUG)
+    Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
-    add_field(output_path, log_level=logging.DEBUG, **id_field.field_as_dict)
+    add_field(output_path, log_level=DEBUG, **id_field.field_as_dict)
     update_field_with_function(
         output_path,
         field_name=id_field.name,
-        function=TYPE_ID_FUNCTION_MAP[id_field.type.lower()],
+        function=FIELD_TYPE_EXTRACTOR_MAP[id_field.type.lower()],
         field_as_first_arg=False,
         arg_field_names=["Name"],
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     LOG.log(log_level, "End: Generate.")
     return Dataset(output_path)
@@ -610,16 +622,16 @@ def id_node_map(
     return id_node
 
 
-def update_node_ids(
+def update_fields_with_node_ids(
     dataset_path: Union[Path, str],
     *,
     from_id_field_name: str,
     to_id_field_name: str,
     dataset_where_sql: Optional[str] = None,
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Update node ID values.
+    """Update field attribute values with node IDs based on network connectivity.
 
     Args:
         dataset_path: Path to the dataset.
@@ -635,12 +647,12 @@ def update_node_ids(
     dataset_path = Path(dataset_path)
     LOG.log(
         log_level,
-        "Start: Update node IDs in `%s` (from) & `%s` (to) for `%s`.",
+        "Start: Update fields `%s` & `%s` in dataset `%s` with node ID values.",
         from_id_field_name,
         to_id_field_name,
         dataset_path,
     )
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         # ArcPy2.8.0: Convert to str.
         in_table=str(dataset_path),
         field_names=["OID@", from_id_field_name, to_id_field_name],

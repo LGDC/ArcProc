@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.network
 import arcproc.proximity
 import arcproc.services
 import arcproc.tracking
@@ -72,6 +71,7 @@ from arcproc.features import (
     update_features_from_sequences,
 )
 from arcproc.geometry import (
+    UNIT_PLURAL,
     UNIT_RATIO,
     angle_as_decimal,
     compactness_ratio,
@@ -89,6 +89,15 @@ from arcproc.metadata import (
     SpatialReference,
     SpatialReferenceSourceItem,
     Workspace,
+)
+from arcproc.network import (
+    build_network,
+    closest_facility_routes,
+    coordinates_node_map,
+    create_service_areas,
+    create_service_rings,
+    id_node_map,
+    update_fields_with_node_ids,
 )
 
 
@@ -156,6 +165,7 @@ __all__ = [
     "update_features_from_mappings",
     "update_features_from_sequences",
     # Geometry.
+    "UNIT_PLURAL",
     "UNIT_RATIO",
     "angle_as_decimal",
     "compactness_ratio",
@@ -176,4 +186,12 @@ __all__ = [
     "SpatialReference",
     "SpatialReferenceSourceItem",
     "Workspace",
+    # Network.
+    "build_network",
+    "closest_facility_routes",
+    "create_service_areas",
+    "create_service_rings",
+    "coordinates_node_map",
+    "id_node_map",
+    "update_fields_with_node_ids",
 ]
