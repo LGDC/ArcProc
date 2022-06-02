@@ -1,10 +1,12 @@
 """Proximity-related operations."""
-import logging
 from collections import Counter
+from logging import DEBUG, INFO, Logger, getLogger
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional, Set, Tuple, Union
 
-import arcpy
+from arcpy import SetLogHistory
+from arcpy.analysis import Buffer, Clip, Erase, GenerateNearTable, PolygonNeighbors
+from arcpy.management import Dissolve
 
 from arcproc.dataset import (
     DatasetView,
@@ -19,11 +21,10 @@ from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
-
-arcpy.SetLogHistory(False)
+SetLogHistory(False)
 
 
 def adjacent_neighbors_map(
@@ -60,7 +61,7 @@ def adjacent_neighbors_map(
     with view:
         temp_neighbor_path = unique_dataset_path("neighbor")
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.analysis.PolygonNeighbors(
+        PolygonNeighbors(
             in_features=view.name,
             out_table=str(temp_neighbor_path),
             in_fields=id_field_names,
@@ -87,15 +88,15 @@ def adjacent_neighbors_map(
     return adjacent_neighbors
 
 
-def buffer(
+def buffer_features(
     dataset_path: Union[Path, str],
     *,
     dataset_where_sql: Optional[str] = None,
     output_path: Union[Path, str],
     distance: Union[float, int],
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Buffer features a given distance & (optionally) dissolve on given fields.
+    """Buffer feature geometries a given distance.
 
     Args:
         dataset_path: Path to dataset.
@@ -115,7 +116,7 @@ def buffer(
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.analysis.Buffer(
+        Buffer(
             in_features=view.name,
             out_feature_class=str(output_path),
             buffer_distance_or_field=distance,
@@ -128,16 +129,16 @@ def buffer(
     return states
 
 
-def clip(
+def clip_features(
     dataset_path: Union[Path, str],
     *,
     clip_path: Union[Path, str],
     dataset_where_sql: Optional[str] = None,
     clip_where_sql: Optional[str] = None,
     output_path: Union[Path, str],
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Clip feature geometry where it overlaps clip-dataset geometry.
+    """Clip feature geometries where it overlaps clip-dataset geometries.
 
     Args:
         dataset_path: Path to dataset.
@@ -165,7 +166,7 @@ def clip(
     clip_view = DatasetView(clip_path, dataset_where_sql=clip_where_sql)
     with view, clip_view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.analysis.Clip(
+        Clip(
             in_features=view.name,
             clip_features=clip_view.name,
             out_feature_class=str(output_path),
@@ -185,9 +186,9 @@ def dissolve_features(
     all_fields_in_output: bool = False,
     allow_multipart: bool = True,
     unsplit_lines: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Dissolve feature geometry that share value in given fields.
+    """Dissolve feature geometries that share values in given fields.
 
     Args:
         dataset_path: Path to dataset.
@@ -224,7 +225,7 @@ def dissolve_features(
     )
     with view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.management.Dissolve(
+        Dissolve(
             in_features=view.name,
             out_feature_class=str(output_path),
             dissolve_field=dissolve_field_names,
@@ -238,7 +239,7 @@ def dissolve_features(
             add_field(
                 output_path,
                 exist_ok=True,
-                log_level=logging.DEBUG,
+                log_level=DEBUG,
                 **_field.field_as_dict,
             )
     states["in output"] = dataset_feature_count(output_path)
@@ -254,9 +255,9 @@ def erase_features(
     dataset_where_sql: Optional[str] = None,
     erase_where_sql: Optional[str] = None,
     output_path: Union[Path, str],
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Erase feature geometry where it overlaps erase-dataset geometry.
+    """Erase feature geometries where it overlaps erase-dataset geometries.
 
     Args:
         dataset_path: Path to dataset.
@@ -286,7 +287,7 @@ def erase_features(
     )
     with view, erase_view:
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.analysis.Erase(
+        Erase(
             in_features=view.name,
             erase_features=erase_view.name,
             out_feature_class=str(output_path),
@@ -337,7 +338,7 @@ def nearest_features(
     with view, near_view:
         temp_near_path = unique_dataset_path("near")
         # ArcPy2.8.0: Convert Path to str.
-        arcpy.analysis.GenerateNearTable(
+        GenerateNearTable(
             in_features=view.name,
             near_features=near_view.name,
             out_table=str(temp_near_path),

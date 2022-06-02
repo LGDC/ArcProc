@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.proximity
 import arcproc.services
 import arcproc.tracking
 import arcproc.workspace  # noqa: F401
@@ -99,6 +98,14 @@ from arcproc.network import (
     id_node_map,
     update_fields_with_node_ids,
 )
+from arcproc.proximity import (
+    adjacent_neighbors_map,
+    buffer_features,
+    clip_features,
+    dissolve_features,
+    erase_features,
+    nearest_features,
+)
 
 
 __all__ = [
@@ -194,4 +201,11 @@ __all__ = [
     "coordinates_node_map",
     "id_node_map",
     "update_fields_with_node_ids",
+    # Proximity.
+    "adjacent_neighbors_map",
+    "buffer_features",
+    "clip_features",
+    "dissolve_features",
+    "erase_features",
+    "nearest_features",
 ]
