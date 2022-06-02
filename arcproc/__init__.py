@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.tracking
 import arcproc.workspace  # noqa: F401
 from arcproc.attributes import (
     field_value_count,
@@ -106,6 +105,7 @@ from arcproc.proximity import (
     nearest_features,
 )
 from arcproc.services import service_features_as_dicts
+from arcproc.tracking import consolidate_tracking_rows, update_tracking_rows
 
 
 __all__ = [
@@ -210,4 +210,7 @@ __all__ = [
     "nearest_features",
     # Services.
     "service_features_as_dicts",
+    # Tracking.
+    "consolidate_tracking_rows",
+    "update_tracking_rows",
 ]

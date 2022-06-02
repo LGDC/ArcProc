@@ -1,14 +1,15 @@
 """Tracking operations."""
-import logging
 from collections import Counter, defaultdict
 from datetime import date
 from datetime import datetime as _datetime
 from itertools import chain
+from logging import DEBUG, INFO, Logger, getLogger
 from operator import itemgetter
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
-import arcpy
+from arcpy import SetLogHistory
+from arcpy.da import UpdateCursor
 
 from arcproc.features import (
     features_as_dicts,
@@ -21,14 +22,13 @@ from arcproc.metadata import Dataset
 from arcproc.workspace import Editing
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
+SetLogHistory(False)
 
-arcpy.SetLogHistory(False)
 
-
-def consolidate_rows(
+def consolidate_tracking_rows(
     dataset_path: Union[Path, str],
     *,
     field_name: str,
@@ -36,9 +36,9 @@ def consolidate_rows(
     date_initiated_field_name: str = "date_initiated",
     date_expired_field_name: str = "date_expired",
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Consolidate tracking dataset rows where the value does not actually change.
+    """Consolidate tracking rows where the value does not actually change.
 
     Useful for quick-loaded point-in-time values, or for processing hand-altered rows.
 
@@ -93,14 +93,14 @@ def consolidate_rows(
         id_field_names=id_field_names + [date_initiated_field_name],
         source_features=chain(*id_rows.values()),
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     log_entity_states("tracking rows", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Consolidate.")
     return states
 
 
-def update_rows(
+def update_tracking_rows(
     dataset_path: Union[Path, str],
     *,
     field_name: str,
@@ -112,9 +112,9 @@ def update_rows(
     date_initiated_field_name: str = "date_initiated",
     date_expired_field_name: str = "date_expired",
     use_edit_session: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Counter:
-    """Add field value changes to tracking dataset from comparison dataset.
+    """Update tracking rows from comparison dataset.
 
     Args:
         dataset_path: Path to tracking dataset.
@@ -176,7 +176,7 @@ def update_rows(
             changed_ids.add(_id)
             new_rows.append(_id + (value, cmp_date))
     # ArcPy2.8.0: Convert Path to str.
-    cursor = arcpy.da.UpdateCursor(
+    cursor = UpdateCursor(
         in_table=str(dataset_path),
         field_names=id_field_names + [field_name, date_expired_field_name],
         where_clause=current_where_sql,
@@ -195,7 +195,7 @@ def update_rows(
         field_names=id_field_names + [field_name, date_initiated_field_name],
         source_features=new_rows,
         use_edit_session=use_edit_session,
-        log_level=logging.DEBUG,
+        log_level=DEBUG,
     )
     states["changed"] = len(changed_ids)
     states["expired"] = len(expired_ids)
