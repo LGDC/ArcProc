@@ -19,7 +19,7 @@ from arcproc.features import (
 )
 from arcproc.helpers import log_entity_states, same_value
 from arcproc.metadata import Dataset
-from arcproc.workspace import Editing
+from arcproc.workspace import Session
 
 
 LOG: Logger = getLogger(__name__)
@@ -181,7 +181,7 @@ def update_tracking_rows(
         field_names=id_field_names + [field_name, date_expired_field_name],
         where_clause=current_where_sql,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for row in cursor:

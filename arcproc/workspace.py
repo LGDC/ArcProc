@@ -1,31 +1,39 @@
 """Workspace operations."""
-import logging
 from contextlib import ContextDecorator
+from logging import INFO, Logger, getLogger
 from pathlib import Path
 from types import FunctionType, TracebackType
 from typing import Iterator, Optional, Type, TypeVar, Union
 
-import arcpy
+from arcpy import Describe, Exists, SetLogHistory
+from arcpy.da import Editor, Walk
+from arcpy.geocoding import RebuildAddressLocator
+from arcpy.management import (
+    Copy,
+    CreateFileGDB,
+    Delete,
+    ExportXMLWorkspaceDocument,
+    ImportXMLWorkspaceDocument,
+)
 
 from arcproc.metadata import Workspace
 
 
-LOG: logging.Logger = logging.getLogger(__name__)
+LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
+SetLogHistory(False)
+
 # Py3.7: Can replace usage with `typing.Self` in Py3.11.
-TEditing = TypeVar("TEditing", bound="Editing")
-"""Type variable to enable method return of self on Editing."""
+TSession = TypeVar("TSession", bound="Session")
+"""Type variable to enable method return of self on Session."""
 
 
-arcpy.SetLogHistory(False)
-
-
-class Editing(ContextDecorator):
-    """Context manager for editing features."""
+class Session(ContextDecorator):
+    """Context manager for a workspace session."""
 
     workspace_path: Path
-    """Path to editing workspace."""
+    """Path to workspace."""
 
     def __init__(
         self, workspace_path: Union[Path, str], use_edit_session: bool = True
@@ -33,14 +41,14 @@ class Editing(ContextDecorator):
         """Initialize instance.
 
         Args:
-            workspace_path: Path to editing workspace.
-            use_edit_session: True if edits are to be made in an edit session.
+            workspace_path: Path to workspace.
+            use_edit_session: True if session is to be an active edit session.
         """
         workspace_path = Path(workspace_path)
-        self._editor = arcpy.da.Editor(workspace_path) if use_edit_session else None
+        self._editor = Editor(workspace_path) if use_edit_session else None
         self.workspace_path = workspace_path
 
-    def __enter__(self) -> TEditing:
+    def __enter__(self) -> TSession:
         self.start()
         return self
 
@@ -86,9 +94,7 @@ class Editing(ContextDecorator):
         return not self.active
 
 
-def build_locator(
-    locator_path: Union[Path, str], *, log_level: int = logging.INFO
-) -> bool:
+def build_locator(locator_path: Union[Path, str], *, log_level: int = INFO) -> bool:
     """Build locator.
 
     Args:
@@ -101,16 +107,16 @@ def build_locator(
     locator_path = Path(locator_path)
     LOG.log(log_level, "Start: Build locator `%s`.", locator_path)
     # ArcPy 2.8.0: Convert to str.
-    arcpy.geocoding.RebuildAddressLocator(in_address_locator=str(locator_path))
+    RebuildAddressLocator(in_address_locator=str(locator_path))
     LOG.log(log_level, "End: Build.")
     return True
 
 
-def copy(
+def copy_workspace(
     workspace_path: Union[Path, str],
     *,
     output_path: Union[Path, str],
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Workspace:
     """Copy workspace to another location.
 
@@ -134,7 +140,7 @@ def copy(
         raise ValueError(f"`{workspace_path}` unsupported dataset type.")
 
     # ArcPy2.8.0: Convert to str x2.
-    arcpy.management.Copy(in_data=str(workspace_path), out_data=str(output_path))
+    Copy(in_data=str(workspace_path), out_data=str(output_path))
     LOG.log(log_level, "End: Copy.")
     return Workspace(output_path)
 
@@ -144,7 +150,7 @@ def create_file_geodatabase(
     *,
     xml_workspace_path: Optional[Union[Path, str]] = None,
     include_xml_data: bool = False,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Workspace:
     """Create new file geodatabase.
 
@@ -164,14 +170,14 @@ def create_file_geodatabase(
     if geodatabase_path.exists():
         LOG.warning("Geodatabase already exists.")
     else:
-        arcpy.management.CreateFileGDB(
+        CreateFileGDB(
             # ArcPy2.8.0: Convert to str.
             out_folder_path=str(geodatabase_path.parent),
             out_name=geodatabase_path.name,
             out_version="CURRENT",
         )
         if xml_workspace_path:
-            arcpy.management.ImportXMLWorkspaceDocument(
+            ImportXMLWorkspaceDocument(
                 # ArcPy2.8.0: Convert to str.
                 target_geodatabase=str(geodatabase_path),
                 # ArcPy2.8.0: Convert to str.
@@ -189,7 +195,7 @@ def create_geodatabase_xml_backup(
     output_path: Union[Path, str],
     include_data: bool = False,
     include_metadata: bool = True,
-    log_level: int = logging.INFO,
+    log_level: int = INFO,
 ) -> Path:
     """Create backup of geodatabase as XML workspace document.
 
@@ -211,7 +217,7 @@ def create_geodatabase_xml_backup(
         geodatabase_path,
         output_path,
     )
-    arcpy.management.ExportXMLWorkspaceDocument(
+    ExportXMLWorkspaceDocument(
         # ArcPy2.8.0: Conver to str.
         in_data=str(geodatabase_path),
         # ArcPy2.8.0: Conver to str.
@@ -224,7 +230,7 @@ def create_geodatabase_xml_backup(
     return output_path
 
 
-def dataset_names(
+def workspace_dataset_names(
     workspace_path: Union[Path, str],
     *,
     include_feature_classes: bool = True,
@@ -244,7 +250,7 @@ def dataset_names(
         name_validator: Function to validate dataset names yielded.
     """
     workspace_path = Path(workspace_path)
-    for dataset_path in dataset_paths(
+    for dataset_path in workspace_dataset_paths(
         workspace_path,
         include_feature_classes=include_feature_classes,
         include_rasters=include_rasters,
@@ -255,7 +261,7 @@ def dataset_names(
         yield dataset_path.name
 
 
-def dataset_paths(
+def workspace_dataset_paths(
     workspace_path: Union[Path, str],
     *,
     include_feature_classes: bool = True,
@@ -282,9 +288,7 @@ def dataset_paths(
         data_types += ["RasterCatalog", "RasterDataset"]
     if include_tables:
         data_types.append("Table")
-    for root_path, _, _dataset_names in arcpy.da.Walk(
-        workspace_path, datatype=data_types
-    ):
+    for root_path, _, _dataset_names in Walk(workspace_path, datatype=data_types):
         root_path = Path(root_path)
         if only_top_level and root_path != workspace_path:
             continue
@@ -297,8 +301,8 @@ def dataset_paths(
             yield root_path / dataset_name
 
 
-def delete(
-    workspace_path: Union[Path, str], *, log_level: int = logging.INFO
+def delete_workspace(
+    workspace_path: Union[Path, str], *, log_level: int = INFO
 ) -> Workspace:
     """Delete workspace.
 
@@ -311,7 +315,7 @@ def delete(
     """
     workspace_path = Path(workspace_path)
     LOG.log(log_level, "Start: Delete workspace `%s`.", workspace_path)
-    if not is_valid(workspace_path):
+    if not is_valid_workspace(workspace_path):
         raise ValueError(f"`{workspace_path}` not a valid workspace.")
 
     _workspace = Workspace(workspace_path)
@@ -319,22 +323,22 @@ def delete(
         raise ValueError(f"`{workspace_path}` unsupported workspace type.")
 
     # ArcPy2.8.0: Convert to str.
-    arcpy.management.Delete(in_data=str(workspace_path))
+    Delete(in_data=str(workspace_path))
     LOG.log(log_level, "End: Delete.")
     return _workspace
 
 
-def is_valid(workspace_path: Union[Path, str]) -> bool:
+def is_valid_workspace(workspace_path: Union[Path, str]) -> bool:
     """Return True if workspace is extant & valid.
 
     Args:
         workspace_path: Path to workspace.
     """
     workspace_path = Path(workspace_path)
-    exists = workspace_path and arcpy.Exists(dataset=workspace_path)
+    exists = workspace_path and Exists(dataset=workspace_path)
     if exists:
         # ArcPy2.8.0: Conver to str.
-        valid = arcpy.Describe(str(workspace_path)).dataType == "Workspace"
+        valid = Describe(str(workspace_path)).dataType == "Workspace"
     else:
         valid = False
     return valid

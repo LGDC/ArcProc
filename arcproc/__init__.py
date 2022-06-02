@@ -1,5 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-import arcproc.workspace  # noqa: F401
 from arcproc.attributes import (
     field_value_count,
     field_values,
@@ -106,6 +105,17 @@ from arcproc.proximity import (
 )
 from arcproc.services import service_features_as_dicts
 from arcproc.tracking import consolidate_tracking_rows, update_tracking_rows
+from arcproc.workspace import (
+    Session,
+    build_locator,
+    copy_workspace,
+    create_file_geodatabase,
+    create_geodatabase_xml_backup,
+    delete_workspace,
+    is_valid_workspace,
+    workspace_dataset_names,
+    workspace_dataset_paths,
+)
 
 
 __all__ = [
@@ -213,4 +223,14 @@ __all__ = [
     # Tracking.
     "consolidate_tracking_rows",
     "update_tracking_rows",
+    # Workspace.
+    "Session",
+    "build_locator",
+    "copy_workspace",
+    "create_file_geodatabase",
+    "create_geodatabase_xml_backup",
+    "delete_workspace",
+    "is_valid_workspace",
+    "workspace_dataset_names",
+    "workspace_dataset_paths",
 ]

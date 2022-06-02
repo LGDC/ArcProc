@@ -25,7 +25,7 @@ from pint import UnitRegistry
 from arcproc.dataset import DatasetView, dataset_feature_count
 from arcproc.helpers import freeze_values, log_entity_states, same_feature, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
-from arcproc.workspace import Editing
+from arcproc.workspace import Session
 
 
 LOG: Logger = getLogger(__name__)
@@ -59,7 +59,7 @@ def delete_features(
     """
     dataset_path = Path(dataset_path)
     LOG.log(log_level, "Start: Delete features in `%s`.", dataset_path)
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view, session:
@@ -110,7 +110,7 @@ def delete_features_with_ids(
     if ids:
         # ArcPy2.8.0: Convert Path to str.
         cursor = UpdateCursor(str(dataset_path), field_names=id_field_names)
-        session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+        session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
         with session, cursor:
             for row in cursor:
                 _id = tuple(row)
@@ -161,7 +161,7 @@ def densify_features(
         field_names=["SHAPE@"],
         where_clause=dataset_where_sql,
     )
-    session = Editing(_dataset.workspace_path, use_edit_session)
+    session = Session(_dataset.workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for (old_geometry,) in cursor:
@@ -208,7 +208,7 @@ def eliminate_feature_inner_rings(
         where_clause=dataset_where_sql,
     )
     _dataset = Dataset(dataset_path)
-    session = Editing(_dataset.workspace_path, use_edit_session)
+    session = Session(_dataset.workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for (old_geometry,) in cursor:
@@ -367,7 +367,7 @@ def insert_features_from_dataset(
         field_map = FieldMap()
         field_map.addInputField(source_path, field_name)
         field_mapping.addFieldMap(field_map)
-    session = Editing(_dataset.workspace_path, use_edit_session)
+    session = Session(_dataset.workspace_path, use_edit_session)
     states = Counter()
     view = DatasetView(
         source_path,
@@ -459,7 +459,7 @@ def insert_features_from_sequences(
         source_features = source_features()
     # ArcPy2.8.0: Convert Path to str.
     cursor = InsertCursor(in_table=str(dataset_path), field_names=field_names)
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for row in source_features:
@@ -500,7 +500,7 @@ def keep_features_within_location(
         dataset_path,
         location_path,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     location_view = DatasetView(location_path, dataset_where_sql=location_where_sql)
@@ -551,7 +551,7 @@ def replace_feature_true_curves(
         field_names=["SHAPE@"],
         where_clause=dataset_where_sql,
     )
-    session = Editing(_dataset.workspace_path, use_edit_session)
+    session = Session(_dataset.workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for (old_geometry,) in cursor:
@@ -759,7 +759,7 @@ def update_features_from_sequences(
         delete_ids = {_id for _id in dataset_ids if _id not in id_feature}
     else:
         delete_ids = set()
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     if delete_ids or id_feature:
         # ArcPy2.8.0: Convert Path to str.

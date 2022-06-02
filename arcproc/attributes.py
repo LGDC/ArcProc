@@ -27,7 +27,7 @@ from arcproc.metadata import (
     SpatialReference,
     SpatialReferenceSourceItem,
 )
-from arcproc.workspace import Editing
+from arcproc.workspace import Session
 
 
 LOG: Logger = getLogger(__name__)
@@ -382,7 +382,7 @@ def update_field_with_expression(
     )
     if expression_type.upper() == "PYTHON":
         expression_type = "PYTHON3"
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with session, view:
         CalculateField(
@@ -439,7 +439,7 @@ def update_field_with_field(
         where_clause=dataset_where_sql,
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for old_value, new_value in cursor:
@@ -516,7 +516,7 @@ def update_field_with_function(
         where_clause=dataset_where_sql,
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
@@ -608,7 +608,7 @@ def update_field_with_join(
         field_names=key_field_names + [field_name],
         where_clause=dataset_where_sql,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
@@ -675,7 +675,7 @@ def update_field_with_mapping(
         field_names=key_field_names + [field_name],
         where_clause=dataset_where_sql,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
@@ -768,7 +768,7 @@ def update_field_with_overlay_count(
         field_names=["OID@", field_name],
         where_clause=dataset_where_sql,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for feature in cursor:
@@ -835,7 +835,7 @@ def update_field_with_unique_id(
         field_names=[field_name],
         where_clause=dataset_where_sql,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     # First run will clear duplicate IDs & gather used IDs.
     used_ids = set()
     # BUG-UNFILED: Use separate edit sessions (not a fan of this intermediate state).
@@ -915,7 +915,7 @@ def update_field_with_value(
         field_names=[field_name],
         where_clause=dataset_where_sql,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for (old_value,) in cursor:

@@ -37,7 +37,7 @@ from arcproc.metadata import (
     SpatialReference,
     SpatialReferenceSourceItem,
 )
-from arcproc.workspace import Editing
+from arcproc.workspace import Session
 
 
 LOG: Logger = getLogger(__name__)
@@ -664,7 +664,7 @@ def update_fields_with_node_ids(
         to_id_field_name=to_id_field_name,
         update_nodes=True,
     )
-    session = Editing(Dataset(dataset_path).workspace_path, use_edit_session)
+    session = Session(Dataset(dataset_path).workspace_path, use_edit_session)
     states = Counter()
     with session, cursor:
         for old_feature in cursor:

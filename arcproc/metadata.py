@@ -155,7 +155,7 @@ class Field:
     def field_as_dict(self) -> dict:
         """Field attributes as dictionary.
 
-        Intentionally aligned with `arcproc.dataset.add_field` arguments.
+        Intentionally aligned with arguments for `add_field`.
         """
         attribute_names = [
             "name",
