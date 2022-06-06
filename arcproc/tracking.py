@@ -190,15 +190,19 @@ def update_tracking_rows(
                 cursor.updateRow(_id + (row[-2], cmp_date))
             else:
                 states["unchanged"] += 1
-    insert_features_from_sequences(
-        dataset_path,
-        field_names=id_field_names + [field_name, date_initiated_field_name],
-        source_features=new_rows,
-        use_edit_session=use_edit_session,
-        log_level=DEBUG,
+    if changed_ids:
+        states["changed"] = len(changed_ids)
+    if expired_ids:
+        states["expired"] = len(expired_ids)
+    states.update(
+        insert_features_from_sequences(
+            dataset_path,
+            field_names=id_field_names + [field_name, date_initiated_field_name],
+            source_features=new_rows,
+            use_edit_session=use_edit_session,
+            log_level=DEBUG,
+        )
     )
-    states["changed"] = len(changed_ids)
-    states["expired"] = len(expired_ids)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Update.")
     return states
