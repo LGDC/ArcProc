@@ -1,6 +1,7 @@
 """Internal module helper objects."""
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime as _datetime
+from datetime import timedelta
 from functools import partial
 from logging import INFO, Logger, getLogger
 from math import isclose
@@ -30,7 +31,7 @@ EXECUTABLE_TYPES: Tuple[type] = (
 
 
 def time_elapsed(
-    start_time: datetime,
+    start_time: _datetime,
     logger: Optional[Logger] = None,
     log_level: int = INFO,
 ) -> timedelta:
@@ -41,7 +42,7 @@ def time_elapsed(
         logger: Logger to emit elapsed message.
         log_level: Level to log elapsed message at.
     """
-    delta = datetime.now() - start_time
+    delta = _datetime.now() - start_time
     if logger:
         logger.log(
             log_level,
@@ -108,14 +109,14 @@ def log_entity_states(
 
 def python_type_constructor(
     type_description: str,
-) -> Union[datetime, float, int, str, UUID, Geometry]:
+) -> Union[_datetime, float, int, str, UUID, Geometry]:
     """Return object constructor representing the Python type.
 
     Args:
         type_description: Arc-style type description/code.
     """
     instance = {
-        "date": datetime,
+        "date": _datetime,
         "double": float,
         "single": float,
         "integer": int,
@@ -170,7 +171,7 @@ def same_value(*values: Any) -> bool:
     """
     if not all(isinstance(value, type(values[0])) for value in values[1:]):
         same = False
-    elif isinstance(values[0], datetime):
+    elif isinstance(values[0], _datetime):
         same = all(
             getattr(value, attr) == getattr(cmp_value, attr)
             for value, cmp_value in pairwise(values)

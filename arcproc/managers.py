@@ -1,7 +1,7 @@
 """Process manager objects."""
 from collections import Counter
 from contextlib import ContextDecorator
-from datetime import datetime
+from datetime import datetime as _datetime
 from inspect import signature
 from logging import DEBUG, Logger, getLogger
 from pathlib import Path
@@ -44,7 +44,7 @@ class Procedure(ContextDecorator):
     """Preserve transformation datasets if True."""
     name: str = "Unnamed Procedure"
     """Procedure name."""
-    time_started: datetime
+    time_started: _datetime
     """Timestamp for when procedure started."""
     transform_path: Path = None
     """Path to current transformation dataset."""
@@ -63,7 +63,7 @@ class Procedure(ContextDecorator):
             name: Procedure name.
             workspace_path: Path to workspace for transformation datasets.
         """
-        self.time_started = datetime.now()
+        self.time_started = _datetime.now()
         if name:
             self.name = name
         if workspace_path:
