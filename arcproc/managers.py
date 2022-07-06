@@ -11,7 +11,7 @@ from typing import Any, Iterable, Optional, Type, TypeVar, Union
 from arcpy import SetLogHistory
 
 from arcproc.dataset import (
-    copy_dataset,
+    copy_dataset_features,
     create_dataset,
     delete_dataset,
     is_valid_dataset,
@@ -125,7 +125,7 @@ class Procedure(ContextDecorator):
         LOG.info("Start: Extract `%s`.", dataset_path)
         self.transform_path = self.available_transform_path
         states = Counter()
-        states["extracted"] = copy_dataset(
+        states["extracted"] = copy_dataset_features(
             dataset_path,
             field_names=field_names,
             dataset_where_sql=dataset_where_sql,
@@ -168,7 +168,7 @@ class Procedure(ContextDecorator):
         self.transform_path = self.available_transform_path
         if template_path:
             template_path = Path(template_path)
-            copy_dataset(
+            copy_dataset_features(
                 template_path,
                 output_path=self.transform_path,
                 schema_only=True,
@@ -224,7 +224,7 @@ class Procedure(ContextDecorator):
             )["inserted"]
         # Load to a new dataset.
         else:
-            states["copied"] = copy_dataset(
+            states["copied"] = copy_dataset_features(
                 self.transform_path, output_path=dataset_path, log_level=DEBUG
             ).feature_count
         log_entity_states("features", states, logger=LOG)

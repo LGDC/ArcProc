@@ -22,7 +22,7 @@ from arcpy.nax import (
 )
 
 from arcproc.attributes import update_field_with_function
-from arcproc.dataset import DatasetView, add_field, copy_dataset
+from arcproc.dataset import DatasetView, add_field, copy_dataset_features
 from arcproc.features import features_as_dicts, features_as_tuples
 from arcproc.geometry import UNIT_PLURAL
 from arcproc.helpers import (
@@ -303,7 +303,9 @@ def create_service_areas(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    copy_dataset("service_area/Polygons", output_path=output_path, log_level=DEBUG)
+    copy_dataset_features(
+        "service_area/Polygons", output_path=output_path, log_level=DEBUG
+    )
     Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
     add_field(output_path, log_level=DEBUG, **id_field.field_as_dict)
@@ -410,7 +412,9 @@ def create_service_rings(
         ignore_invalids=True,
         terminate_on_solve_error=True,
     )
-    copy_dataset("service_area/Polygons", output_path=output_path, log_level=DEBUG)
+    copy_dataset_features(
+        "service_area/Polygons", output_path=output_path, log_level=DEBUG
+    )
     Delete("service_area")
     id_field = Field(dataset_path, id_field_name)
     add_field(output_path, log_level=DEBUG, **id_field.field_as_dict)

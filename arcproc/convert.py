@@ -23,7 +23,7 @@ from arcproc.attributes import update_field_with_join
 from arcproc.dataset import (
     DatasetView,
     add_field,
-    copy_dataset,
+    copy_dataset_features,
     create_dataset,
     dataset_feature_count,
     delete_field,
@@ -422,7 +422,7 @@ def convert_table_to_points(
         in_z_field=z_field_name,
         spatial_reference=SpatialReference(spatial_reference_item).object,
     )
-    copy_dataset(layer_name, output_path=output_path, log_level=DEBUG)
+    copy_dataset_features(layer_name, output_path=output_path, log_level=DEBUG)
     Delete(layer_name)
     states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)

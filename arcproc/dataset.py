@@ -504,7 +504,7 @@ def compress_dataset(
     return Dataset(dataset_path)
 
 
-def copy_dataset(
+def copy_dataset_features(
     dataset_path: Union[Path, str],
     *,
     field_names: Optional[Iterable[str]] = None,
@@ -514,7 +514,7 @@ def copy_dataset(
     schema_only: bool = False,
     log_level: int = INFO,
 ) -> Dataset:
-    """Copy dataset as a new dataset.
+    """Copy dataset features into new dataset.
 
     Args:
         dataset_path: Path to dataset.
