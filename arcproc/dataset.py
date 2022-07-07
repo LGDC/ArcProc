@@ -15,6 +15,7 @@ from arcpy import (
     RecordSet,
     SetLogHistory,
 )
+from arcpy.conversion import FeatureClassToFeatureClass, TableToTable
 from arcpy.da import ListSubtypes, SearchCursor
 from arcpy.management import (
     AddField,
@@ -502,6 +503,71 @@ def compress_dataset(
 
     LOG.log(log_level, "End: Compress.")
     return Dataset(dataset_path)
+
+
+def copy_dataset(
+    dataset_path: Union[Path, str],
+    *,
+    field_names: Optional[Iterable[str]] = None,
+    dataset_where_sql: Optional[str] = None,
+    output_path: Union[Path, str],
+    overwrite: bool = False,
+    schema_only: bool = False,
+    log_level: int = INFO,
+) -> Dataset:
+    """Copy dataset features into new dataset.
+
+    Args:
+        dataset_path: Path to dataset.
+        output_path: Path to output dataset.
+        field_names: Collection of field names to include in output. If set to None, all
+            fields will be included.
+        dataset_where_sql: SQL where-clause property for dataset subselection.
+        overwrite: Overwrite existing dataset at output path if True.
+        schema_only: Copy only the schema--omitting data--if True.
+        log_level: Level to log the function at.
+
+    Returns:
+        Dataset metadata instance for output dataset.
+
+    Raises:
+        ValueError: If dataset type not supported.
+    """
+    dataset_path = Path(dataset_path)
+    output_path = Path(output_path)
+    if field_names is not None:
+        field_names = list(field_names)
+    else:
+        field_names = Dataset(dataset_path).user_field_names
+    LOG.log(log_level, "Start: Copy dataset `%s` as `%s`.", dataset_path, output_path)
+    _dataset = Dataset(dataset_path)
+    view = DatasetView(
+        dataset_path,
+        field_names=field_names,
+        dataset_where_sql=dataset_where_sql if not schema_only else "0 = 1",
+    )
+    with view:
+        if overwrite and Exists(output_path):
+            delete_dataset(output_path, log_level=DEBUG)
+        if _dataset.is_spatial:
+            # ArcPy2.8.0: Convert to str.
+            FeatureClassToFeatureClass(
+                in_features=view.name,
+                out_path=str(output_path.parent),
+                out_name=output_path.name,
+            )
+        elif _dataset.is_table:
+            # ArcPy2.8.0: Convert to str.
+            TableToTable(
+                in_rows=view.name,
+                out_path=str(output_path.parent),
+                out_name=output_path.name,
+            )
+        else:
+            raise ValueError(f"`{dataset_path}` unsupported dataset type.")
+
+    LOG.log(log_level, "End: Copy.")
+    return Dataset(output_path)
 
 
 def copy_dataset_features(
