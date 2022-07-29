@@ -8,8 +8,8 @@ from typing import Union as TUnion
 from arcpy import SetLogHistory
 from arcpy.analysis import Identity, SpatialJoin, Union
 
-from arcproc.dataset import DatasetView, dataset_feature_count, delete_field
-from arcproc.field import update_field_with_join, update_field_with_value
+from arcproc.dataset import DatasetView, dataset_feature_count
+from arcproc.field import delete_field, update_field_with_join, update_field_with_value
 from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
 

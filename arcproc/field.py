@@ -10,7 +10,7 @@ from typing import Any, Iterable, Iterator, Mapping, Optional, Union
 from arcpy import SetLogHistory
 from arcpy.analysis import Identity, SpatialJoin
 from arcpy.da import SearchCursor, UpdateCursor
-from arcpy.management import CalculateField, Delete
+from arcpy.management import CalculateField, Delete, DeleteField
 
 from arcproc.dataset import DatasetView, unique_dataset_path
 from arcproc.helpers import (
@@ -34,6 +34,30 @@ LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
 SetLogHistory(False)
+
+
+def delete_field(
+    dataset_path: Union[Path, str], *, field_name: str, log_level: int = INFO
+) -> Field:
+    """Delete field from dataset.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        log_level: Level to log the function at.
+
+    Returns:
+        Field metadata instance for now-deleted field.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(
+        log_level, "Start: Delete field `%s` on dataset `%s`.", field_name, dataset_path
+    )
+    field = Field(dataset_path, name=field_name)
+    # ArcPy2.8.0: Convert to str.
+    DeleteField(in_table=str(dataset_path), drop_field=field_name)
+    LOG.log(log_level, "End: Delete.")
+    return field
 
 
 def field_value_count(

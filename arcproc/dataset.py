@@ -29,7 +29,6 @@ from arcpy.management import (
     CreateFeatureclass,
     CreateTable,
     Delete,
-    DeleteField,
     GetCount,
     MakeFeatureLayer,
     MakeTableView,
@@ -736,30 +735,6 @@ def delete_dataset(dataset_path: Union[Path, str], *, log_level: int = INFO) -> 
     Delete(in_data=str(dataset_path))
     LOG.log(log_level, "End: Delete.")
     return _dataset
-
-
-def delete_field(
-    dataset_path: Union[Path, str], *, field_name: str, log_level: int = INFO
-) -> Field:
-    """Delete field from dataset.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_name: Name of field.
-        log_level: Level to log the function at.
-
-    Returns:
-        Field metadata instance for now-deleted field.
-    """
-    dataset_path = Path(dataset_path)
-    LOG.log(
-        log_level, "Start: Delete field `%s` on dataset `%s`.", field_name, dataset_path
-    )
-    field = Field(dataset_path, name=field_name)
-    # ArcPy2.8.0: Convert to str.
-    DeleteField(in_table=str(dataset_path), drop_field=field_name)
-    LOG.log(log_level, "End: Delete.")
-    return field
 
 
 def duplicate_field(
