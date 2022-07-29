@@ -112,7 +112,7 @@ class DatasetView(ContextDecorator):
         self.discard()
 
     @property
-    def count(self) -> int:
+    def feature_count(self) -> int:
         """Number of features in view."""
         return int(GetCount(self.name).getOutput(0))
 
@@ -716,7 +716,7 @@ def dataset_feature_count(
     dataset_path = Path(dataset_path)
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view:
-        return view.count
+        return view.feature_count
 
 
 def delete_dataset(dataset_path: Union[Path, str], *, log_level: int = INFO) -> Dataset:

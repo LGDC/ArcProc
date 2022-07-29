@@ -63,7 +63,7 @@ def delete_features(
     states = Counter()
     view = DatasetView(dataset_path, dataset_where_sql=dataset_where_sql)
     with view, session:
-        states["deleted"] = view.count
+        states["deleted"] = view.feature_count
         DeleteRows(in_rows=view.name)
         states["remaining"] = dataset_feature_count(dataset_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
@@ -384,7 +384,7 @@ def insert_features_from_dataset(
             schema_type="NO_TEST",
             field_mapping=field_mapping,
         )
-        states["inserted"] = view.count
+        states["inserted"] = view.feature_count
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Insert.")
     return states
