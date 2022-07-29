@@ -1,4 +1,4 @@
-"""Feature operations."""
+"""Feature-level operations."""
 from collections import Counter
 from inspect import isgeneratorfunction
 from itertools import chain

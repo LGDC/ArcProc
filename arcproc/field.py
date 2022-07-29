@@ -1,4 +1,4 @@
-"""Attribute operations."""
+"""Field-level operations."""
 from collections import Counter, defaultdict
 from functools import partial
 from logging import DEBUG, INFO, Logger, getLogger

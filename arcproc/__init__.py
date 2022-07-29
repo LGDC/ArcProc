@@ -1,19 +1,4 @@
 """Processing framework library based on ArcGIS/ArcPy."""
-from arcproc.attributes import (
-    field_value_count,
-    field_values,
-    update_field_with_central_overlay,
-    update_field_with_domain,
-    update_field_with_dominant_overlay,
-    update_field_with_expression,
-    update_field_with_field,
-    update_field_with_function,
-    update_field_with_join,
-    update_field_with_mapping,
-    update_field_with_overlay_count,
-    update_field_with_unique_id,
-    update_field_with_value,
-)
 from arcproc.convert import (
     convert_lines_to_vertex_points,
     convert_points_to_multipoints,
@@ -66,6 +51,21 @@ from arcproc.features import (
     update_features_from_dataset,
     update_features_from_mappings,
     update_features_from_sequences,
+)
+from arcproc.field import (
+    field_value_count,
+    field_values,
+    update_field_with_central_overlay,
+    update_field_with_domain,
+    update_field_with_dominant_overlay,
+    update_field_with_expression,
+    update_field_with_field,
+    update_field_with_function,
+    update_field_with_join,
+    update_field_with_mapping,
+    update_field_with_overlay_count,
+    update_field_with_unique_id,
+    update_field_with_value,
 )
 from arcproc.geometry import (
     UNIT_PLURAL,
@@ -120,20 +120,6 @@ from arcproc.workspace import (
 
 
 __all__ = [
-    # Attributes.
-    "field_value_count",
-    "field_values",
-    "update_field_with_central_overlay",
-    "update_field_with_dominant_overlay",
-    "update_field_with_domain",
-    "update_field_with_expression",
-    "update_field_with_field",
-    "update_field_with_function",
-    "update_field_with_join",
-    "update_field_with_mapping",
-    "update_field_with_overlay_count",
-    "update_field_with_unique_id",
-    "update_field_with_value",
     # Convert.
     "convert_lines_to_vertex_points",
     "convert_points_to_multipoints",
@@ -183,6 +169,20 @@ __all__ = [
     "update_features_from_dataset",
     "update_features_from_mappings",
     "update_features_from_sequences",
+    # Field.
+    "field_value_count",
+    "field_values",
+    "update_field_with_central_overlay",
+    "update_field_with_dominant_overlay",
+    "update_field_with_domain",
+    "update_field_with_expression",
+    "update_field_with_field",
+    "update_field_with_function",
+    "update_field_with_join",
+    "update_field_with_mapping",
+    "update_field_with_overlay_count",
+    "update_field_with_unique_id",
+    "update_field_with_value",
     # Geometry.
     "UNIT_PLURAL",
     "UNIT_RATIO",

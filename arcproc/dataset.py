@@ -1,4 +1,4 @@
-"""Dataset operations."""
+"""Dataset-level operations."""
 from contextlib import ContextDecorator
 from functools import partial
 from logging import DEBUG, INFO, Logger, getLogger

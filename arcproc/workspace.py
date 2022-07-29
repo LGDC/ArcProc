@@ -1,4 +1,4 @@
-"""Workspace operations."""
+"""Workspace-level operations."""
 from contextlib import ContextDecorator
 from logging import INFO, Logger, getLogger
 from pathlib import Path

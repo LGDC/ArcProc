@@ -1,4 +1,4 @@
-"""ArcGIS Server service operations."""
+"""ArcGIS Enterprise service-level operations."""
 from logging import Logger, getLogger
 from typing import Any, Dict, Iterable, Iterator, Optional
 

@@ -19,7 +19,6 @@ from arcpy.management import (
     SplitLine,
 )
 
-from arcproc.attributes import update_field_with_join
 from arcproc.dataset import (
     DatasetView,
     add_field,
@@ -29,6 +28,7 @@ from arcproc.dataset import (
     delete_field,
 )
 from arcproc.features import insert_features_from_dataset
+from arcproc.field import update_field_with_join
 from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 
