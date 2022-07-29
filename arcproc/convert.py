@@ -21,13 +21,12 @@ from arcpy.management import (
 
 from arcproc.dataset import (
     DatasetView,
-    add_field,
     copy_dataset_features,
     create_dataset,
     dataset_feature_count,
 )
 from arcproc.features import insert_features_from_dataset
-from arcproc.field import delete_field, update_field_with_join
+from arcproc.field import add_field, delete_field, update_field_with_join
 from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
 

@@ -10,13 +10,12 @@ from arcpy.management import Dissolve
 
 from arcproc.dataset import (
     DatasetView,
-    add_field,
     dataset_feature_count,
     delete_dataset,
     unique_dataset_path,
 )
 from arcproc.features import features_as_dicts, features_as_tuples
-from arcproc.field import delete_field
+from arcproc.field import add_field, delete_field
 from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
 

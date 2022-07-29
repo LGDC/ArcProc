@@ -13,7 +13,6 @@ from arcproc.convert import (
 from arcproc.dataset import (
     DatasetView,
     TempDatasetCopy,
-    add_field,
     add_index,
     compress_dataset,
     copy_dataset,
@@ -24,7 +23,6 @@ from arcproc.dataset import (
     delete_dataset,
     is_valid_dataset,
     remove_all_default_field_values,
-    rename_field,
     set_default_field_value,
     unique_dataset_path,
 )
@@ -51,10 +49,12 @@ from arcproc.features import (
     update_features_from_sequences,
 )
 from arcproc.field import (
+    add_field,
     copy_field,
     delete_field,
     field_value_count,
     field_values,
+    rename_field,
     update_field_with_central_overlay,
     update_field_with_domain,
     update_field_with_dominant_overlay,
@@ -133,7 +133,6 @@ __all__ = [
     # Dataset.
     "DatasetView",
     "TempDatasetCopy",
-    "add_field",
     "add_index",
     "compress_dataset",
     "copy_dataset",
@@ -144,7 +143,6 @@ __all__ = [
     "delete_dataset",
     "is_valid_dataset",
     "remove_all_default_field_values",
-    "rename_field",
     "set_default_field_value",
     "unique_dataset_path",
     # Exceptions.
@@ -168,10 +166,12 @@ __all__ = [
     "update_features_from_mappings",
     "update_features_from_sequences",
     # Field.
+    "add_field",
     "copy_field",
     "delete_field",
     "field_value_count",
     "field_values",
+    "rename_field",
     "update_field_with_central_overlay",
     "update_field_with_dominant_overlay",
     "update_field_with_domain",

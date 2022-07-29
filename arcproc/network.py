@@ -21,9 +21,9 @@ from arcpy.nax import (
     TravelDirection,
 )
 
-from arcproc.dataset import DatasetView, add_field, copy_dataset_features
+from arcproc.dataset import DatasetView, copy_dataset_features
 from arcproc.features import features_as_dicts, features_as_tuples
-from arcproc.field import update_field_with_function
+from arcproc.field import add_field, update_field_with_function
 from arcproc.geometry import UNIT_PLURAL
 from arcproc.helpers import (
     log_entity_states,

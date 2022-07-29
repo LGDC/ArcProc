@@ -6,22 +6,13 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 
-from arcpy import (
-    ExecuteError,
-    Exists,
-    FeatureSet,
-    FieldInfo,
-    ListFields,
-    RecordSet,
-    SetLogHistory,
-)
+from arcpy import ExecuteError, Exists, FeatureSet, FieldInfo, RecordSet, SetLogHistory
 from arcpy.conversion import FeatureClassToFeatureClass, TableToTable
 from arcpy.da import ListSubtypes, SearchCursor
 from arcpy.management import (
     AddField,
     AddIndex,
     AddSpatialIndex,
-    AlterField,
     AssignDefaultToField,
     CompressFileGeodatabaseData,
     CopyFeatures,
@@ -329,66 +320,6 @@ class TempDatasetCopy(ContextDecorator):
         return not self.exists
 
 
-def add_field(
-    dataset_path: Union[Path, str],
-    *,
-    name: str,
-    type: str = "TEXT",  # pylint: disable=redefined-builtin
-    precision: Optional[int] = None,
-    scale: Optional[int] = None,
-    length: Optional[int] = 64,
-    alias: Optional[str] = None,
-    is_nullable: bool = True,
-    is_required: bool = False,
-    exist_ok: bool = False,
-    log_level: int = INFO,
-) -> Field:
-    """Add field to dataset.
-
-    Args:
-        dataset_path: Path to dataset.
-        name: Name of give field.
-        type: Data type of field.
-        precision: Precision of field. Only applies to float/double fields.
-        scale: Scale of field. Only applies to float/double fields.
-        length: Length of field. Only applies to text fields.
-        alias: Alias to assign field.
-        is_nullable: Field can be nullable if True.
-        is_required: Field value will be required for feature if True.
-        exist_ok: If field already exists, will raise an error if False; will act as if
-            field was successfully added if True.
-        log_level: Level to log the function at.
-
-    Returns:
-        Field metadata instance for added field.
-
-    Raises:
-        RuntimeError: If `exist_ok=False` and field already exists.
-    """
-    dataset_path = Path(dataset_path)
-    LOG.log(log_level, "Start: Add field `%s` on `%s`.", name, dataset_path)
-    if ListFields(dataset_path, wild_card=name):
-        LOG.log(log_level, "Field already exists.")
-        if not exist_ok:
-            raise RuntimeError("Cannot add existing field (exist_ok=False).")
-
-    else:
-        # ArcPy2.8.0: Convert to str.
-        AddField(
-            in_table=str(dataset_path),
-            field_name=name,
-            field_type=type,
-            field_precision=precision,
-            field_scale=scale,
-            field_length=length,
-            field_alias=alias,
-            field_is_nullable=is_nullable,
-            field_is_required=is_required,
-        )
-    LOG.log(log_level, "End: Add.")
-    return Field(dataset_path, name)
-
-
 def add_index(
     dataset_path: Union[Path, str],
     *,
@@ -668,7 +599,18 @@ def create_dataset(
         for field_metadata in field_metadata_list:
             if isinstance(field_metadata, Field):
                 field_metadata = field_metadata.field_as_dict
-            add_field(dataset_path, log_level=DEBUG, **field_metadata)
+            # ArcPy2.8.0: Convert to str.
+            AddField(
+                in_table=str(dataset_path),
+                field_name=field_metadata["name"],
+                field_type=field_metadata["type"],
+                field_precision=field_metadata.get("precision"),
+                field_scale=field_metadata.get("scale"),
+                field_length=field_metadata.get("length", 64),
+                field_alias=field_metadata.get("alias"),
+                field_is_nullable=field_metadata.get("is_nullable", True),
+                field_is_required=field_metadata.get("is_required", False),
+            )
     LOG.log(log_level, "End: Create.")
     return Dataset(dataset_path)
 
@@ -793,40 +735,6 @@ def remove_all_default_field_values(
     LOG.log(log_level, "End: Remove.")
     # Make new Dataset instance to update the field information.
     return Dataset(dataset_path)
-
-
-def rename_field(
-    dataset_path: Union[Path, str],
-    *,
-    field_name: str,
-    new_field_name: str,
-    log_level: int = INFO,
-) -> Field:
-    """Rename field on dataset.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_name: Name of field.
-        new_field_name: New name of field.
-        log_level: Level to log the function at.
-
-    Returns:
-        Field metadata instance for created field.
-    """
-    dataset_path = Path(dataset_path)
-    LOG.log(
-        log_level,
-        "Start: Rename field `%s` on dataset `%s` to `%s`.",
-        field_name,
-        dataset_path,
-        new_field_name,
-    )
-    # ArcPy2.8.0: Convert Path to str.
-    AlterField(
-        in_table=str(dataset_path), field=field_name, new_field_name=new_field_name
-    )
-    LOG.log(log_level, "End: Rename.")
-    return Field(dataset_path, name=new_field_name)
 
 
 def set_default_field_value(
