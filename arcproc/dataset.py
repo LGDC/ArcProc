@@ -26,13 +26,13 @@ from arcpy.management import (
     SelectLayerByAttribute,
 )
 
-from arcproc.helpers import unique_name
 from arcproc.metadata import (
     Dataset,
     Field,
     SpatialReference,
     SpatialReferenceSourceItem,
 )
+from arcproc.misc import unique_name
 
 
 LOG: Logger = getLogger(__name__)

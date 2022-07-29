@@ -25,17 +25,17 @@ from arcproc.dataset import DatasetView, copy_dataset_features
 from arcproc.features import features_as_dicts, features_as_tuples
 from arcproc.field import add_field, update_field_with_function
 from arcproc.geometry import UNIT_PLURAL
-from arcproc.helpers import (
-    log_entity_states,
-    python_type_constructor,
-    same_feature,
-    unique_ids,
-)
 from arcproc.metadata import (
     Dataset,
     Field,
     SpatialReference,
     SpatialReferenceSourceItem,
+)
+from arcproc.misc import (
+    log_entity_states,
+    python_type_constructor,
+    same_feature,
+    unique_ids,
 )
 from arcproc.workspace import Session
 

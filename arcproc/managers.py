@@ -23,8 +23,8 @@ from arcproc.features import (
     insert_features_from_dataset,
     update_features_from_dataset,
 )
-from arcproc.helpers import log_entity_states, slugify, time_elapsed
 from arcproc.metadata import Field, SpatialReferenceSourceItem
+from arcproc.misc import log_entity_states, slugify, time_elapsed
 
 
 LOG: Logger = getLogger(__name__)

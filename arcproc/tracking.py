@@ -17,8 +17,8 @@ from arcproc.features import (
     insert_features_from_sequences,
     update_features_from_mappings,
 )
-from arcproc.helpers import log_entity_states, same_value
 from arcproc.metadata import Dataset
+from arcproc.misc import log_entity_states, same_value
 from arcproc.workspace import Session
 
 

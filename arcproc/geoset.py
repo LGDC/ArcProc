@@ -10,8 +10,8 @@ from arcpy.analysis import Identity, SpatialJoin, Union
 
 from arcproc.dataset import DatasetView, dataset_feature_count
 from arcproc.field import delete_field, update_field_with_join, update_field_with_value
-from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
+from arcproc.misc import log_entity_states
 
 
 LOG: Logger = getLogger(__name__)

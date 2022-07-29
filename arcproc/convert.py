@@ -27,8 +27,8 @@ from arcproc.dataset import (
 )
 from arcproc.features import insert_features_from_dataset
 from arcproc.field import add_field, delete_field, update_field_with_join
-from arcproc.helpers import log_entity_states, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
+from arcproc.misc import log_entity_states, unique_name
 
 
 LOG: Logger = getLogger(__name__)

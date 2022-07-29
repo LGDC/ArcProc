@@ -13,19 +13,19 @@ from arcpy.da import SearchCursor, UpdateCursor
 from arcpy.management import AddField, AlterField, CalculateField, Delete, DeleteField
 
 from arcproc.dataset import DatasetView, unique_dataset_path
-from arcproc.helpers import (
-    EXECUTABLE_TYPES,
-    log_entity_states,
-    python_type_constructor,
-    same_value,
-    unique_ids,
-)
 from arcproc.metadata import (
     Dataset,
     Domain,
     Field,
     SpatialReference,
     SpatialReferenceSourceItem,
+)
+from arcproc.misc import (
+    EXECUTABLE_TYPES,
+    log_entity_states,
+    python_type_constructor,
+    same_value,
+    unique_ids,
 )
 from arcproc.workspace import Session
 

@@ -16,8 +16,8 @@ from arcproc.dataset import (
 )
 from arcproc.features import features_as_dicts, features_as_tuples
 from arcproc.field import add_field, delete_field
-from arcproc.helpers import log_entity_states
 from arcproc.metadata import Dataset
+from arcproc.misc import log_entity_states
 
 
 LOG: Logger = getLogger(__name__)

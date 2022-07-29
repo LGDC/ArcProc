@@ -23,8 +23,8 @@ from arcpy.management import Append, DeleteRows, SelectLayerByLocation
 from pint import UnitRegistry
 
 from arcproc.dataset import DatasetView, dataset_feature_count
-from arcproc.helpers import freeze_values, log_entity_states, same_feature, unique_name
 from arcproc.metadata import Dataset, SpatialReference, SpatialReferenceSourceItem
+from arcproc.misc import freeze_values, log_entity_states, same_feature, unique_name
 from arcproc.workspace import Session
 
 
