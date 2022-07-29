@@ -22,7 +22,6 @@ from arcproc.dataset import (
     dataset_as_feature_set,
     dataset_feature_count,
     delete_dataset,
-    duplicate_field,
     is_valid_dataset,
     remove_all_default_field_values,
     rename_field,
@@ -52,6 +51,7 @@ from arcproc.features import (
     update_features_from_sequences,
 )
 from arcproc.field import (
+    copy_field,
     delete_field,
     field_value_count,
     field_values,
@@ -142,7 +142,6 @@ __all__ = [
     "dataset_as_feature_set",
     "dataset_feature_count",
     "delete_dataset",
-    "duplicate_field",
     "is_valid_dataset",
     "remove_all_default_field_values",
     "rename_field",
@@ -169,6 +168,7 @@ __all__ = [
     "update_features_from_mappings",
     "update_features_from_sequences",
     # Field.
+    "copy_field",
     "delete_field",
     "field_value_count",
     "field_values",

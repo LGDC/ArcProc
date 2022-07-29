@@ -737,45 +737,6 @@ def delete_dataset(dataset_path: Union[Path, str], *, log_level: int = INFO) -> 
     return _dataset
 
 
-def duplicate_field(
-    dataset_path: Union[Path, str],
-    *,
-    field_name: str,
-    new_field_name: str,
-    log_level: int = INFO,
-) -> Field:
-    """Create new field on dataset as a duplicate of another.
-
-    Note: This does *not* duplicate the values of the original field; only the schema.
-
-    Args:
-        dataset_path: Path to dataset.
-        field_name: Name of field.
-        new_field_name: Name of new field.
-        log_level: Level to log the function at.
-
-    Returns:
-        Field metadata instance for created field.
-    """
-    dataset_path = Path(dataset_path)
-    LOG.log(
-        log_level,
-        "Start: Duplicate field `%s on dataset `%s` as `%s`.",
-        field_name,
-        dataset_path,
-        new_field_name,
-    )
-    field = Field(dataset_path, field_name)
-    field.name = new_field_name
-    # Cannot add another OID-type field, so change to long.
-    if field.type.upper() == "OID":
-        field.type = "LONG"
-    add_field(dataset_path, log_level=DEBUG, **field.field_as_dict)
-    LOG.log(log_level, "End: Duplicate.")
-    # Make new Field instance to update the `object` property.
-    return Field(dataset_path, new_field_name)
-
-
 def is_valid_dataset(dataset_path: Union[Path, str]) -> bool:
     """Return True if dataset is extant & valid.
 

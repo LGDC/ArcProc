@@ -12,7 +12,7 @@ from arcpy.analysis import Identity, SpatialJoin
 from arcpy.da import SearchCursor, UpdateCursor
 from arcpy.management import CalculateField, Delete, DeleteField
 
-from arcproc.dataset import DatasetView, unique_dataset_path
+from arcproc.dataset import DatasetView, add_field, unique_dataset_path
 from arcproc.helpers import (
     EXECUTABLE_TYPES,
     log_entity_states,
@@ -34,6 +34,45 @@ LOG: Logger = getLogger(__name__)
 """Module-level logger."""
 
 SetLogHistory(False)
+
+
+def copy_field(
+    dataset_path: Union[Path, str],
+    *,
+    field_name: str,
+    new_field_name: str,
+    log_level: int = INFO,
+) -> Field:
+    """Copy field on dataset as new field.
+
+    Note: This does *not* duplicate the values of the original field; only the schema.
+
+    Args:
+        dataset_path: Path to dataset.
+        field_name: Name of field.
+        copy_field_name: Name of copied field.
+        log_level: Level to log the function at.
+
+    Returns:
+        Field metadata instance for created field.
+    """
+    dataset_path = Path(dataset_path)
+    LOG.log(
+        log_level,
+        "Start: Copy field `%s on dataset `%s` as `%s`.",
+        field_name,
+        dataset_path,
+        new_field_name,
+    )
+    field = Field(dataset_path, field_name)
+    field.name = new_field_name
+    # Cannot add another OID-type field, so change to long.
+    if field.type.upper() == "OID":
+        field.type = "LONG"
+    add_field(dataset_path, log_level=DEBUG, **field.field_as_dict)
+    LOG.log(log_level, "End: Copy.")
+    # Make new Field instance to update the `object` property.
+    return Field(dataset_path, new_field_name)
 
 
 def delete_field(
