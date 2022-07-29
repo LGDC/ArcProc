@@ -98,7 +98,7 @@ class Procedure(ContextDecorator):
         LOG.info("""Ending procedure for "%s".""", self.name)
         if not self.keep_transforms:
             if self.transform_path and is_valid_dataset(self.transform_path):
-                delete_dataset(self.transform_path)
+                delete_dataset(self.transform_path, log_level=DEBUG)
                 self.transform_path = None
         time_elapsed(self.time_started, logger=LOG)
         LOG.info("Ended.")
