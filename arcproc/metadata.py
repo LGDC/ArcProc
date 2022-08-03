@@ -285,7 +285,6 @@ class Workspace:
             for domain_name in self.domain_names
         ]
         self.factory_prog_id = self.object.workspaceFactoryProgID
-        self.name = self.object.name
         # To ensure property uses internal casing & resolution.
         self.path = Path(self.object.catalogPath)
         self.is_enterprise_database = "SdeWorkspace" in self.factory_prog_id
@@ -295,6 +294,11 @@ class Workspace:
         self.is_in_memory = "InMemoryWorkspace" in self.factory_prog_id
         self.is_memory = "ColumnaDBWorkspace" in self.factory_prog_id
         self.is_personal_geodatabase = "AccessWorkspace" in self.factory_prog_id
+        # `name` property is always the pathname.
+        if self.is_enterprise_database:
+            self.name = self.object.connectionProperties.database
+        else:
+            self.name = self.object.name
 
     @property
     def as_dict(self) -> dict:
