@@ -16,7 +16,7 @@ from arcpy.management import (
     ImportXMLWorkspaceDocument,
 )
 
-from arcproc.metadata import Workspace
+from arcproc.metadata import Dataset, Workspace
 
 
 LOG: Logger = getLogger(__name__)
@@ -331,14 +331,45 @@ def workspace_dataset_paths(
         data_types += ["RasterCatalog", "RasterDataset"]
     if include_tables:
         data_types.append("Table")
-    for root_path, _, _dataset_names in Walk(workspace_path, datatype=data_types):
+    for root_path, _, dataset_names in Walk(workspace_path, datatype=data_types):
         root_path = Path(root_path)
         if only_top_level and root_path != workspace_path:
             continue
 
-        for dataset_name in _dataset_names:
+        for dataset_name in dataset_names:
             if name_validator:
                 if not name_validator(dataset_name):
                     continue
 
             yield root_path / dataset_name
+
+
+def workspace_datasets(
+    workspace_path: Union[Path, str],
+    *,
+    include_feature_classes: bool = True,
+    include_rasters: bool = True,
+    include_tables: bool = True,
+    only_top_level: bool = False,
+    name_validator: Optional[FunctionType] = None,
+) -> Iterator[Path]:
+    """Generate Dataset metadata objects of datasets in workspace.
+
+    Args:
+        workspace_path: Path to workspace.
+        include_feature_classes: Include feature class datasets in generator if True.
+        include_rasters: Include raster datasets in generator if True.
+        include_tables: Include table datasets in generator if True.
+        only_top_level: List only datasets at the top-level of the workspace if True.
+        name_validator: Function to validate dataset names yielded.
+    """
+    workspace_path = Path(workspace_path)
+    for dataset_path in workspace_dataset_paths(
+        workspace_path,
+        include_feature_classes=include_feature_classes,
+        include_rasters=include_rasters,
+        include_tables=include_tables,
+        only_top_level=only_top_level,
+        name_validator=name_validator,
+    ):
+        yield Dataset(dataset_path)

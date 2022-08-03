@@ -116,6 +116,7 @@ from arcproc.workspace import (
     is_valid_workspace,
     workspace_dataset_names,
     workspace_dataset_paths,
+    workspace_datasets,
 )
 
 
@@ -235,4 +236,5 @@ __all__ = [
     "is_valid_workspace",
     "workspace_dataset_names",
     "workspace_dataset_paths",
+    "workspace_datasets",
 ]
