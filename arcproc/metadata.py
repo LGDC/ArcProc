@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field, fields
 from logging import Logger, getLogger
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from arcpy import Describe, Exists
 from arcpy import Field as ArcField
@@ -32,57 +32,58 @@ SetLogHistory(False)
 class Domain:
     """Representation of geodatabase domain information."""
 
-    geodatabase_path: Optional[Union[Path, str]] = None
+    geodatabase_path: Union[Path, str]
     """Path to geodatabase the domain resides within."""
-    name: Optional[str] = None
+    name: str
     """Name of the domain."""
-    object: Optional[ArcDomain] = None
-    """ArcPy domain object."""
 
-    code_description: "Union[dict[str, str], None]" = field(init=False)
-    """Mapping of coded-value code to its description."""
     description: str = field(init=False)
     """Description of the domain."""
+    owner: str = field(init=False)
+    """Owner of the domain (if enterprise geodatabase)."""
+    type: str = field(init=False)
+    """Domain value type."""
     is_coded_value: bool = field(init=False)
     """Is coded-value domain if True, False if range domain."""
     is_range: bool = field(init=False)
     """Is range domain if True, False if coded-value domain."""
-    owner: str = field(init=False)
-    """Owner of the domain (if enterprise geodatabase)."""
-    range: "tuple[float, float]" = field(init=False)
+    code_description: Dict[str, str] = field(init=False)
+    """Mapping of coded-value code to its description."""
+    range: Tuple[float, float] = field(init=False)
     """Tuple of range minimum & maximum."""
     range_minimum: float = field(init=False)
     """Range minimum."""
     range_maximum: float = field(init=False)
     """Range maximum."""
-    type: str = field(init=False)
-    """Domain value type."""
+    object: ArcDomain = field(init=False)
+    """ArcPy domain object."""
 
     def __post_init__(self) -> None:
-        if not any([self.geodatabase_path and self.name, self.object]):
+        if not any([self.geodatabase_path and self.name]):
             raise AttributeError("Must provide `geodatabase_path` + `name` or `object`")
 
-        if self.geodatabase_path and self.name:
-            self.geodatabase_path = Path(self.geodatabase_path)
-            for domain in ListDomains(self.geodatabase_path):
-                if domain.name.lower() == self.name.lower():
-                    self.object = domain
-                    break
+        self.geodatabase_path = Path(self.geodatabase_path)
+        for domain in ListDomains(self.geodatabase_path):
+            if domain.name.lower() == self.name.lower():
+                self.object = domain
+                break
 
-            else:
-                raise DomainNotFoundError(self.geodatabase_path, self.name)
+        else:
+            raise DomainNotFoundError(self.geodatabase_path, self.name)
 
-        self.code_description = self.object.codedValues
-        self.description = self.object.description
-        self.is_coded_value = self.object.domainType == "CodedValue"
-        self.is_range = self.object.domainType == "Range"
         # To ensure property uses internal casing.
         self.name = self.object.name
+        self.description = self.object.description
         self.owner = self.object.owner
-        self.range = self.object.range
-        if not self.range:
-            self.range_minimum, self.range_maximum = None, None
         self.type = self.object.type
+        self.is_coded_value = self.object.domainType == "CodedValue"
+        self.is_range = self.object.domainType == "Range"
+        self.code_description = self.object.codedValues if self.is_coded_value else {}
+        if self.is_range:
+            self.range = tuple(float(number) for number in self.object.range)
+        else:
+            self.range = (0.0, 0.0)
+        self.range_minimum, self.range_maximum = self.range
 
     @property
     def as_dict(self) -> dict:
@@ -126,7 +127,9 @@ class Field:
 
         if self.dataset_path and self.name:
             self.dataset_path = Path(self.dataset_path)
-            for _field in ListFields(self.dataset_path, wild_card=self.name):
+            _fields = ListFields(self.dataset_path, wild_card=self.name)
+            _fields = cast(List[ArcField], _fields)
+            for _field in _fields:
                 if _field.name.lower() == self.name.lower():
                     self.object = _field
                     break
@@ -134,6 +137,7 @@ class Field:
             else:
                 raise FieldNotFoundError(self.dataset_path, self.name)
 
+        self.object = cast(ArcField, self.object)
         self.alias = self.object.aliasName
         self.default_value = self.object.defaultValue
         self.is_editable = self.object.editable
@@ -313,7 +317,7 @@ class Workspace:
 class Dataset:
     """Representation of dataset information."""
 
-    path: Optional[Union[Path, str]] = None
+    path: Optional[Path] = None
     """Path to dataset."""
     object: Optional[Any] = None
     """ArcPy workspace describe-object.
@@ -325,13 +329,13 @@ class Dataset:
     """Geometry area field on dataset."""
     area_field_name: str = field(init=False)
     """Name of geometry area field on dataset."""
-    field_name_token: "dict[str, str]" = field(default_factory=dict, init=False)
+    field_name_token: Dict[str, str] = field(default_factory=dict, init=False)
     """Mapping of field name on the dataset to appropriate token."""
-    field_names: "list[str]" = field(default_factory=list, init=False)
+    field_names: List[str] = field(default_factory=list, init=False)
     """Names of fields on the dataset."""
     field_names_tokenized: "list[str]" = field(default_factory=list, init=False)
     """Names of fields on the dataset, tokenized where relevant."""
-    fields: "list[Field]" = field(default_factory=list, init=False)
+    fields: List[Field] = field(default_factory=list, init=False)
     """Metadata instances for fields on the dataset."""
     geometry_field: Union[Field, None] = field(init=False)
     """Geometry field on dataset."""
@@ -374,6 +378,8 @@ class Dataset:
 
             # ArcPy2.8.0: Convert to str.
             self.object = Describe(str(self.path))
+        self.object = cast(Any, self.object)
+        self.path = cast(Path, self.path)
         self.area_field_name = getattr(self.object, "areaFieldName", "")
         self.geometry_field_name = getattr(self.object, "shapeFieldName", "")
         self.geometry_type = getattr(self.object, "shapeType", "")
@@ -381,7 +387,7 @@ class Dataset:
         self.is_table = hasattr(self.object, "hasOID")
         self.is_versioned = getattr(self.object, "isVersioned", False)
         self.length_field_name = getattr(self.object, "lengthFieldName", "")
-        self.name = self.object.name
+        self.name = cast(str, self.object.name)
         self.oid_field_name = getattr(self.object, "OIDFieldName", "")
         # To ensure property uses internal casing & resolution.
         self.path = Path(self.object.catalogPath)
