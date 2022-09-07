@@ -352,7 +352,7 @@ def workspace_datasets(
     include_tables: bool = True,
     only_top_level: bool = False,
     name_validator: Optional[FunctionType] = None,
-) -> Iterator[Path]:
+) -> Iterator[Dataset]:
     """Generate Dataset metadata objects of datasets in workspace.
 
     Args:
