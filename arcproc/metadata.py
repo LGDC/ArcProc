@@ -283,7 +283,7 @@ class Workspace:
         ]
         self.can_delete = self.can_copy
         self.connection_string = self.object.connectionString
-        self.domain_names = self.object.domains
+        self.domain_names = self.object.domains if self.object.domains else []
         self.domains = [
             Domain(self.object.catalogPath, domain_name)
             for domain_name in self.domain_names
