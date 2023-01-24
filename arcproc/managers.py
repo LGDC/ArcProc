@@ -258,7 +258,7 @@ class Procedure(ContextDecorator):
         result = transformation(**kwargs)
         if output_path != self.transform_path:
             if not self.keep_transforms and is_valid_dataset(self.transform_path):
-                delete_dataset(self.transform_path)
+                delete_dataset(self.transform_path, log_level=DEBUG)
             self.transform_path = output_path
         return result
 
