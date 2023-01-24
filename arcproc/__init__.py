@@ -87,6 +87,7 @@ from arcproc.metadata import (
     SpatialReferenceSourceItem,
     Workspace,
 )
+from arcproc.misc import same_feature, same_value
 from arcproc.network import (
     build_network,
     closest_facility_routes,
@@ -109,6 +110,7 @@ from arcproc.tracking import consolidate_tracking_rows, update_tracking_rows
 from arcproc.workspace import (
     Session,
     build_locator,
+    compress_geodatabase_versions,
     copy_workspace,
     create_file_geodatabase,
     create_geodatabase_xml_backup,
@@ -206,6 +208,9 @@ __all__ = [
     "SpatialReference",
     "SpatialReferenceSourceItem",
     "Workspace",
+    # Misc.
+    "same_feature",
+    "same_value",
     # Network.
     "build_network",
     "closest_facility_routes",
@@ -229,6 +234,7 @@ __all__ = [
     # Workspace.
     "Session",
     "build_locator",
+    "compress_geodatabase_versions",
     "copy_workspace",
     "create_file_geodatabase",
     "create_geodatabase_xml_backup",

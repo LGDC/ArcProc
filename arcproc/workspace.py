@@ -1,10 +1,13 @@
 """Workspace-level operations."""
+import pathlib
+import typing
 from contextlib import ContextDecorator
 from logging import INFO, Logger, getLogger
 from pathlib import Path
 from types import FunctionType, TracebackType
 from typing import Iterator, Optional, Type, TypeVar, Union
 
+import arcpy
 from arcpy import Describe, Exists, SetLogHistory
 from arcpy.da import Editor, Walk
 from arcpy.geocoding import RebuildAddressLocator
@@ -110,6 +113,51 @@ def build_locator(locator_path: Union[Path, str], *, log_level: int = INFO) -> b
     RebuildAddressLocator(in_address_locator=str(locator_path))
     LOG.log(log_level, "End: Build.")
     return True
+
+
+def compress_geodatabase_versions(
+    geodatabase_path: typing.Union[pathlib.Path, str], *, disconnect_users: bool = False
+) -> tuple[bool, int, int]:
+    """Compress versions to default in enterprise geodatabase.
+
+    Note: This tool assumes the compress log is named `SDE_compress_log`.
+
+    Args:
+        geodatabase_path: Path to geodatabase.
+        disconnect_users: Disconnect users before compressing if True.
+
+    Returns:
+        Tuple containing (result boolean, start state count, end state count).
+    """
+    LOG.info("Start: Compress versioned geodatabase via %s.", geodatabase_path)
+    if disconnect_users:
+        arcpy.AcceptConnections(geodatabase_path, accept_connections=False)
+        # ArcPy2.8.0: Convert to str.
+        arcpy.DisconnectUser(str(geodatabase_path), users="ALL")
+    # ArcPy2.8.0: Convert to str.
+    arcpy.management.Compress(str(geodatabase_path))
+    if disconnect_users:
+        arcpy.AcceptConnections(geodatabase_path, accept_connections=True)
+    for dirpath, _, table_names in arcpy.da.Walk(geodatabase_path, datatype="Table"):
+        for table_name in table_names:
+            if table_name.lower().endswith("sde_compress_log"):
+                log_path = pathlib.Path(dirpath, table_name)
+                break
+
+        else:
+            continue
+
+        break
+
+    with arcpy.da.SearchCursor(
+        # ArcPy2.8.0: Convert to str.
+        str(log_path),
+        field_names=["compress_status", "start_state_count", "end_state_count"],
+        sql_clause=(None, "ORDER BY compress_start DESC"),
+    ) as cursor:
+        status, start_state_count, end_state_count = next(cursor)
+    LOG.info("End: Compress.")
+    return (status == "SUCCESS", start_state_count, end_state_count)
 
 
 def copy_workspace(
