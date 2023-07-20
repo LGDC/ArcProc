@@ -53,7 +53,7 @@ def adjacent_neighbors_map(
     dataset_path = Path(dataset_path)
     id_field_names = list(id_field_names)
     # Lowercase to avoid casing mismatch.
-    # id_field_names = [name.lower() for name in id_field_names]
+    id_field_names = [name.lower() for name in id_field_names]
     view = DatasetView(
         dataset_path, field_names=id_field_names, dataset_where_sql=dataset_where_sql
     )
@@ -83,7 +83,7 @@ def adjacent_neighbors_map(
             continue
 
         adjacent_neighbors[source_id].add(neighbor_id)
-    delete_dataset(temp_neighbor_path)
+    delete_dataset(temp_neighbor_path, log_level=DEBUG)
     return adjacent_neighbors
 
 
@@ -121,7 +121,7 @@ def buffer_features(
             buffer_distance_or_field=distance,
         )
     for field_name in ["BUFF_DIST", "ORIG_FID"]:
-        delete_field(output_path, field_name=field_name)
+        delete_field(output_path, field_name=field_name, log_level=DEBUG)
     states["in output"] = dataset_feature_count(output_path)
     log_entity_states("features", states, logger=LOG, log_level=log_level)
     LOG.log(log_level, "End: Buffer.")
