@@ -206,10 +206,14 @@ class SpatialReference:
             self.object = self.source_item
         elif isinstance(self.source_item, (Path, str)):
             # Describe-able object. spatialReference != ArcSpatialReference.
-            self.object = ArcSpatialReference(
-                # ArcPy2.8.0: Convert Path to str.
-                Describe(str(self.source_item)).spatialReference.factoryCode
-            )
+            if Exists(self.source_item):
+                self.object = ArcSpatialReference(
+                    # ArcPy2.8.0: Convert Path to str.
+                    Describe(str(self.source_item)).spatialReference.factoryCode
+                )
+            # Likely a coordinate system name.
+            else:
+                self.object = ArcSpatialReference(self.source_item)
         # Allowing NoneType objects just tells ArcPy SR arguments to use dataset SR.
         if self.source_item is None:
             self.object = None
